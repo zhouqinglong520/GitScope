@@ -106,6 +106,16 @@ export const zhCN = {
     drop: '删除',
     clear: '清空',
     noStashes: '暂无暂存',
+    includeUntracked: '包含未跟踪文件',
+    keepIndex: '保持暂存区',
+    createBranch: '从 Stash 创建分支',
+    branchName: '分支名称',
+    branchNamePlaceholder: '输入新分支名称',
+    filesChanged: '个文件变更',
+    confirmDrop: '确定要删除这个 Stash 吗？此操作不可撤销。',
+    confirmDropTitle: '确认删除 Stash',
+    expand: '展开详情',
+    collapse: '收起详情',
   },
 
   // 状态
@@ -304,6 +314,36 @@ export const zhCN = {
     upToDate: '已是最新',
   },
 
+  // Blame
+  blame: {
+    title: 'Blame 视图',
+    author: '作者',
+    date: '日期',
+    commit: '提交',
+    message: '提交消息',
+    copySHA: '复制 SHA',
+    copied: '已复制',
+    filterByAuthor: '按作者过滤',
+    filterByDate: '按日期过滤',
+    clearFilters: '清除过滤',
+    noResults: '无匹配结果',
+    legend: {
+      title: '热力图颜色图例',
+      recent: '最近修改',
+      old: '较早修改',
+      cold: '较旧',
+      warm: '较新',
+    },
+    hoverDetail: {
+      commit: '提交',
+      author: '作者',
+      date: '日期',
+      message: '消息',
+    },
+    showAllLines: '显示所有行',
+    highlightFiltered: '高亮过滤行',
+  },
+
   // 提交详情面板
   commitDetail: {
     title: '提交详情',
@@ -421,6 +461,64 @@ export const zhCN = {
       pullBehind: '↓{count}',
       pushAhead: '↑{count}',
     },
+  },
+
+  // 远程仓库管理
+  remote: {
+    title: '远程仓库',
+    add: '添加远程',
+    edit: '编辑远程',
+    delete: '删除远程',
+    name: '名称',
+    url: 'URL',
+    namePlaceholder: '例如: origin',
+    urlPlaceholder: '例如: https://github.com/user/repo.git',
+    invalidUrl: '无效的 URL 格式',
+    confirmDelete: '确定要删除远程仓库 "{name}" 吗？',
+    deleteWarning: '此操作将从本地删除远程引用，不会影响远程仓库。',
+    setUpstream: '设置上游',
+    setUpstreamPrompt: '当前分支没有上游，是否设置？',
+    noUpstream: '无上游分支',
+    noUpstreamDesc: '请先推送并设置上游分支',
+  },
+
+  // Fetch/Pull/Push 偏好设置
+  fetchPreferences: {
+    prune: '清理已删除的远程分支',
+    pruneDesc: 'Fetch 时移除本地对远程已删除分支的引用',
+  },
+
+  pullPreferences: {
+    rebase: '使用变基模式',
+    rebaseDesc: '使用 git pull --rebase 而非 git pull --merge',
+  },
+
+  pushPreferences: {
+    force: '强制推送',
+    forceDesc: '覆盖远程历史（危险）',
+    forceWithLease: '安全强制推送',
+    forceWithLeaseDesc: '仅当远程未变化时才允许强制推送',
+    setUpstream: '设置上游',
+    setUpstreamDesc: '推送时自动设置上游分支',
+  },
+
+  // 确认对话框
+  confirm: {
+    forcePush: '强制推送确认',
+    forcePushMessage: 'Force push 会覆盖远程历史，可能导致其他协作者的工作丢失。\n\n确定要强制推送吗？',
+    forceWithLease: '安全强制推送确认',
+    forceWithLeaseMessage: 'Force with lease 会检查远程在你上次 fetch 后是否有变化。\n\n确定要安全强制推送吗？',
+    useForceAnyway: '仍然强制推送',
+    useForceWithLeaseAnyway: '仍然安全强制推送',
+    cancel: '取消',
+  },
+
+  // Fetch 下拉菜单
+  fetchMenu: {
+    fetchOrigin: 'Fetch origin',
+    fetchAll: 'Fetch All',
+    fetchPrune: 'Fetch + Prune',
+    fetchAllPrune: 'Fetch All + Prune',
   },
 };
 
