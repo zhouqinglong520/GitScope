@@ -8,6 +8,7 @@ import MainLayout from './components/layout/MainLayout';
 import Sidebar from './components/layout/Sidebar';
 import QuickLaunch, { type QuickLaunchCommand } from './components/quicklaunch/QuickLaunch';
 import { useRepoStore } from './stores/repoStore';
+import { useMenuEvents } from './hooks/useMenuEvents';
 import { zhCN } from './i18n/zh-CN';
 
 // 简单的 i18n hook
@@ -17,6 +18,9 @@ function useI18n() {
 
 function App() {
   const i18n = useI18n();
+
+  // 监听主进程菜单事件
+  useMenuEvents();
   const {
     repos,
     activeRepoId,
