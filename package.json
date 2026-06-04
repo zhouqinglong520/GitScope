@@ -19,10 +19,12 @@
   "dependencies": {
     "chokidar": "^3.6.0",
     "electron-updater": "^6.3.4",
+    "highlight.js": "^11.11.1",
     "isomorphic-git": "^1.27.1",
     "zustand": "^5.0.1"
   },
   "devDependencies": {
+    "@types/highlight.js": "^9.12.4",
     "@types/node": "^22.10.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
