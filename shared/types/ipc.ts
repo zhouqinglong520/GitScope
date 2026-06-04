@@ -30,7 +30,7 @@ export interface IpcGitApi {
   stageAll: () => Promise<void>;
   unstage: (files: string[]) => Promise<void>;
   unstageAll: () => Promise<void>;
-  commit: (message: string, options?: { amend?: boolean }) => Promise<string>;
+  commit: (message: string, options?: { amend?: boolean; sign?: boolean }) => Promise<string>;
   push: (options?: { remote?: string; branch?: string; force?: boolean; ref?: string }) => Promise<void>;
   pull: (options?: { remote?: string; branch?: string }) => Promise<void>;
   fetch: (options?: { remote?: string }) => Promise<void>;
@@ -77,6 +77,22 @@ export interface IpcGitApi {
   openInDiffTool: (filePath?: string) => Promise<boolean>;
   // ========== 分支跟踪状态 ==========
   getBranchTrackingStatus: () => Promise<Record<string, BranchTrackingStatus>>;
+  // ========== 提交模板 ==========
+  getCommitTemplate: () => Promise<string | null>;
+  // ========== 文件操作 ==========
+  discardChanges: (paths: string[]) => Promise<void>;
+  deleteUntrackedFile: (path: string) => Promise<void>;
+  // ========== 冲突解决 ==========
+  getConflictedFiles: () => Promise<Array<{ path: string; conflictCount: number }>>;
+  resolveConflictUseOurs: (path: string) => Promise<void>;
+  resolveConflictUseTheirs: (path: string) => Promise<void>;
+  resolveAllConflicts: (strategy: 'ours' | 'theirs') => Promise<void>;
+  continueMerge: () => Promise<void>;
+  abortMerge: () => Promise<void>;
+  continueRebase: () => Promise<void>;
+  abortRebase: () => Promise<void>;
+  continueCherryPick: () => Promise<void>;
+  abortCherryPick: () => Promise<void>;
 }
 
 export interface CredentialInfo {
