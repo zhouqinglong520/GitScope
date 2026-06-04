@@ -142,6 +142,23 @@ export const enUS: I18nKeys = {
     deletions: 'Deletions',
     selectFile: 'Select a file to view diff',
     selectCommit: 'Select a commit to view changes',
+    viewMode: 'View Mode',
+    unified: 'Unified',
+    sideBySide: 'Side-by-Side',
+    viewModeShortcut: 'Shortcut',
+    // 搜索
+    searchPlaceholder: 'Search...',
+    searchNoResults: 'No matches',
+    searchMatchCount: '{current}/{total}',
+    // 导航
+    prevHunk: 'Previous Change',
+    nextHunk: 'Next Change',
+    // 视图选项
+    showWhitespace: 'Show Whitespace',
+    ignoreWhitespace: 'Ignore Whitespace',
+    openInExternalTool: 'External Tool',
+    diffToolNotConfigured: 'Please configure git difftool first',
+    syntaxHighlight: 'Syntax Highlight',
   },
 
   // Quick Launch
@@ -308,5 +325,29 @@ export const enUS: I18nKeys = {
     customRange: 'Custom Range',
     clear: 'Clear Filter',
     showing: 'Showing',
+  },
+
+  // Collapse merge commits
+  collapse: {
+    collapseBranch: 'Collapse Branch',
+    expandBranch: 'Expand Branch',
+    collapseAll: 'Collapse All Merges',
+    expandAll: 'Expand All Merges',
+    commitsCollapsed: 'commits collapsed, click to expand',
+  },
+
+  // ========== Conflict Detection ==========
+  conflict: {
+    warningTitle: '⚠️ Conflict Check',
+    warningMessage: 'This operation may cause conflicts in {count} file(s). Continue?',
+    conflictingFiles: 'Conflicting Files',
+    continue: 'Continue',
+    cancel: 'Cancel',
+    mergeConflict: 'Merge Conflict',
+    rebaseConflict: 'Rebase Conflict',
+    cherryPickConflict: 'Cherry-pick Conflict',
+    noConflict: 'No Conflict',
+    conflictDetected: 'Conflict Detected',
+    manualMerge: 'Please resolve conflicts manually and continue',
   },
 };
