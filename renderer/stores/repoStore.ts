@@ -14,7 +14,8 @@ import type {
   FileCommitHistory,
   AuthorStats,
   CommitFilter,
-  CommitDetail
+  CommitDetail,
+  BranchTrackingMap
 } from '@shared/types/git';
 
 // 仓库信息扩展（包含 ID）
@@ -77,6 +78,9 @@ interface RepoState {
   selectedCommitDetail: CommitDetail | null;
   /** 是否显示提交详情面板 */
   showCommitDetail: boolean;
+  
+  /** 分支跟踪状态映射 */
+  branchTrackingStatus: BranchTrackingMap;
 
   // 多仓库 Tab Actions
   /** 设置活动仓库 */
@@ -159,6 +163,10 @@ interface RepoState {
   unstageAll: () => Promise<void>;
   /** 重置状态 */
   reset: () => void;
+  /** 设置分支跟踪状态 */
+  setBranchTrackingStatus: (status: BranchTrackingMap) => void;
+  /** 获取分支跟踪状态 */
+  fetchBranchTrackingStatus: () => Promise<void>;
 }
 
 /** 默认状态 */
@@ -183,6 +191,7 @@ const initialState = {
   commitFilter: {},
   authorStats: [],
   selectedCommitDetail: null,
+  branchTrackingStatus: {} as BranchTrackingMap,
   showCommitDetail: false,
 };
 
@@ -338,6 +347,7 @@ export const useRepoStore = create<RepoState>((set, get) => ({
   setShowCommitDetail: (show) => set({ showCommitDetail: show }),
 
   /**
+   * 重置状态
    * 筛选提交
    */
   filterCommits: () => {
@@ -383,6 +393,7 @@ export const useRepoStore = create<RepoState>((set, get) => ({
   },
 
   /**
+   * 重置状态
    * 获取文件提交历史
    */
   getFileHistory: async (filePath: string) => {
@@ -412,6 +423,7 @@ export const useRepoStore = create<RepoState>((set, get) => ({
   },
 
   /**
+   * 重置状态
    * 获取提交详情（含文件列表）
    */
   getCommitDetail: async (oid: string) => {
@@ -427,6 +439,7 @@ export const useRepoStore = create<RepoState>((set, get) => ({
   },
 
   /**
+   * 重置状态
    * 获取作者统计
    */
   fetchAuthorStats: async () => {
@@ -439,6 +452,7 @@ export const useRepoStore = create<RepoState>((set, get) => ({
   },
 
   /**
+   * 重置状态
    * 加载仓库数据
    */
   loadRepoData: async (path: string) => {
@@ -466,11 +480,16 @@ export const useRepoStore = create<RepoState>((set, get) => ({
         authorStats,
         currentBranch: branches.find((b) => b.current) || null,
       });
+
+      // 获取分支跟踪状态
+      const trackingStatus = await window.electronAPI.git.getBranchTrackingStatus().catch(() => ({}));
+      set({ branchTrackingStatus: trackingStatus });
     } catch (error) {
       console.error('加载仓库数据失败:', error);
       set({ error: `加载失败: ${error}` });
     }
   },
+
 
   /**
    * 添加到最近仓库
@@ -582,6 +601,25 @@ export const useRepoStore = create<RepoState>((set, get) => ({
       await get().refresh();
     } catch (error) {
       console.error('取消暂存所有文件失败:', error);
+    }
+  },
+
+  /**
+   * 设置分支跟踪状态
+   */
+  setBranchTrackingStatus: (status: BranchTrackingMap) => {
+    set({ branchTrackingStatus: status });
+  },
+
+  /**
+   * 获取分支跟踪状态
+   */
+  fetchBranchTrackingStatus: async () => {
+    try {
+      const trackingStatus = await window.electronAPI.git.getBranchTrackingStatus().catch(() => ({}));
+      set({ branchTrackingStatus: trackingStatus as BranchTrackingMap });
+    } catch (error) {
+      console.error('获取分支跟踪状态失败:', error);
     }
   },
 
