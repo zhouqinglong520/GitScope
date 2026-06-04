@@ -12,6 +12,8 @@ import StashDialog from './components/stash/StashDialog';
 import { useRepoStore } from './stores/repoStore';
 import { useMenuEvents } from './hooks/useMenuEvents';
 import { zhCN } from './i18n/zh-CN';
+import { ImageDiffView } from './components/imagediff/ImageDiffView';
+import { FileHistoryPanel } from './components/filehistory/FileHistoryPanel';
 
 // 简单的 i18n hook
 function useI18n() {
@@ -46,6 +48,8 @@ function App() {
   const [hasUpstream, setHasUpstream] = useState(false);
   const [showStashDialog, setShowStashDialog] = useState(false);
   const [sidebarWidth] = useState(220);
+  const [imageDiffInfo, setImageDiffInfo] = useState<any>(null);
+  const [fileHistoryPath, setFileHistoryPath] = useState<string | null>(null);
 
   // 获取当前分支的跟踪状态
   const currentBranchTracking = currentBranch ? branchTrackingStatus[currentBranch.name] : null;
@@ -326,6 +330,7 @@ function App() {
     };
 
     window.addEventListener('keydown', handleKeyDown);
+
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [activeRepoId, closeRepo, toggleSidebar]);
 
@@ -336,6 +341,32 @@ function App() {
     });
     return unsubscribe;
   }, []);
+
+
+  // Image Diff handler
+  const handleImageDiff = async (filePath: string, oldOid?: string, newOid?: string) => {
+    try {
+      const info = await window.electronAPI.git.getImageDiff(filePath, oldOid, newOid);
+      if (info) {
+        setImageDiffInfo(info);
+      }
+    } catch (err) {
+      console.error('Failed to load image diff:', err);
+    }
+  };
+
+  // File History handler
+  const handleFileHistory = (filePath: string) => {
+    setFileHistoryPath(filePath);
+  };
+
+  const handleCloseFileHistory = () => {
+    setFileHistoryPath(null);
+  };
+
+  const handleViewFileDiff = (oid: string, filePath: string) => {
+    console.log('View file diff for commit:', oid);
+  };
 
   return (
     <div className="h-screen flex flex-col bg-[#1e1e1e] text-white overflow-hidden">
@@ -651,7 +682,28 @@ function App() {
         onClose={() => setShowStashDialog(false)}
         onSuccess={refresh}
       />
-    </div>
+    
+        {/* Image Diff Overlay */}
+        {imageDiffInfo && (
+          <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center">
+            <div className="w-[80%] h-[80%] bg-gray-900 rounded-lg overflow-hidden">
+              <ImageDiffView diffInfo={imageDiffInfo} onClose={() => setImageDiffInfo(null)} />
+            </div>
+          </div>
+        )}
+
+        {/* File History Panel */}
+        {fileHistoryPath && (
+          <div className="fixed right-0 top-0 bottom-0 w-[350px] z-40 shadow-xl border-l border-gray-700">
+            <FileHistoryPanel
+              filePath={fileHistoryPath}
+              onViewDiff={handleViewFileDiff}
+              onClose={handleCloseFileHistory}
+            />
+          </div>
+        )}
+
+</div>
   );
 }
 
