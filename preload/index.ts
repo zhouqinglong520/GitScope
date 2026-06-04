@@ -192,6 +192,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
       };
     },
   },
+  // ========== IPC 事件监听 ==========
+  ipc: {
+    /** 监听主进程事件 */
+    on: (channel: string, callback: (...args: unknown[]) => void) => {
+      ipcRenderer.on(channel, (_event, ...args) => callback(...args));
+    },
+    /** 移除事件监听 */
+    removeListener: (channel: string, callback: (...args: unknown[]) => void) => {
+      ipcRenderer.removeListener(channel, callback as never);
+    },
+  },
 } as ElectronApi);
 
 console.log('[Preload] Electron API 已暴露');
