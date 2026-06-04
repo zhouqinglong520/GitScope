@@ -1,7 +1,7 @@
 {
   "name": "gitscope",
   "version": "0.1.0",
-  "description": "GitScope 码界 - 国产 Git 图形化客户端，个人永久免费",
+  "description": "GitScope 码界 - 国产 Git 图形化客户端",
   "main": "dist/main/main/index.js",
   "type": "module",
   "author": "GitScope Team",
