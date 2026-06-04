@@ -1,12 +1,13 @@
 /**
  * Electron 主进程入口
- * 负责创建窗口、初始化服务、注册 IPC 处理器
+ * 负责创建窗口、初始化服务、注册 IPC 处理器、设置菜单
  */
 
-import { app, BrowserWindow, shell } from 'electron';
+import { app, BrowserWindow, shell, Menu } from 'electron';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 import { registerIpcHandlers } from './ipc/index.js';
+import { createAppMenu, setMainWindow } from './menu.js';
 
 // 获取当前文件目录
 const __filename = fileURLToPath(import.meta.url);
@@ -37,14 +38,18 @@ function createWindow(): void {
     },
   });
 
+  // 设置菜单引用
+  setMainWindow(mainWindow);
+
+  // 创建并设置应用菜单
+  const menu = createAppMenu();
+  Menu.setApplicationMenu(menu);
+
   // 加载页面
   if (isDev) {
-    // 开发模式：加载 Vite 开发服务器
     mainWindow.loadURL('http://localhost:5173');
-    // 开发模式打开开发者工具
     mainWindow.webContents.openDevTools();
   } else {
-    // 生产模式：加载构建后的文件
     mainWindow.loadFile(path.join(__dirname, '../../renderer/index.html'));
   }
 
