@@ -39,6 +39,12 @@ const execFileAsync = promisify(execFile);
 /** isomorphic-git 使用的 fs */
 const isoFs = { promises: fs };
 
+/** 冲突检测结果类型 */
+export interface ConflictCheckResult {
+  hasConflict: boolean;
+  conflictingFiles?: string[];
+}
+
 /** Git 服务类 */
 export class GitService {
   private dir: string | null = null;
@@ -298,7 +304,7 @@ export class GitService {
   }
 
   /**
-   * 获取暂存区 diff
+   * 获取暂存区差异
    */
   async stagedDiff(filePath?: string): Promise<GitDiff[]> {
     if (!this.dir) throw new Error('仓库未打开');
@@ -309,88 +315,136 @@ export class GitService {
 
       const { stdout } = await execFileAsync('git', args, { cwd: this.dir, maxBuffer: 10 * 1024 * 1024 });
       return parseDiffOutput(stdout);
-    } catch {
+    } catch (error) {
+      console.error('[GitService] stagedDiff 失败:', error);
       return [];
     }
   }
 
   /**
-   * 添加文件到暂存区
+   * 暂存文件
    */
   async add(files: string[]): Promise<void> {
     if (!this.dir) throw new Error('仓库未打开');
 
-    try {
-      for (const file of files) {
-        await git.add({ fs: isoFs, dir: this.dir, filepath: file });
-      }
-    } catch (error) {
-      console.error('[GitService] add 失败，尝试 git CLI:', error);
-      // 降级到 git CLI
-      await this.gitCliExec(['add', ...files]);
+    for (const file of files) {
+      await git.add({ fs: isoFs, dir: this.dir, filepath: file });
     }
   }
 
   /**
-   * 添加所有文件
+   * 暂存所有文件
    */
   async addAll(): Promise<void> {
     if (!this.dir) throw new Error('仓库未打开');
 
-    try {
-      const matrix = await git.statusMatrix({ fs: isoFs, dir: this.dir });
-      for (const [filePath, , , stageStatus] of matrix) {
-        const st = stageStatus as number;
-        if (st === 0) {
-          await git.add({ fs: isoFs, dir: this.dir, filepath: filePath });
-        }
-      }
-    } catch {
-      await this.gitCliExec(['add', '.']);
-    }
+    await git.add({ fs: isoFs, dir: this.dir, filepath: '.' });
   }
 
   /**
-   * 从暂存区移除
+   * 取消暂存
    */
   async reset(files: string[]): Promise<void> {
     if (!this.dir) throw new Error('仓库未打开');
 
-    try {
-      for (const file of files) {
-        await git.resetIndex({ fs: isoFs, dir: this.dir, filepath: file });
-      }
-    } catch {
-      await this.gitCliExec(['reset', 'HEAD', '--', ...files]);
+    for (const file of files) {
+      await git.resetIndex({ fs: isoFs, dir: this.dir, filepath: file });
     }
   }
 
   /**
-   * 提交更改
+   * 提交
    */
   async commit(options: CommitOptions): Promise<string> {
     if (!this.dir) throw new Error('仓库未打开');
 
+    const sha = await git.commit({
+      fs: isoFs,
+      dir: this.dir,
+      message: options.message,
+      author: options.author ? {
+        name: options.author.name,
+        email: options.author.email,
+        timestamp: options.author.timestamp,
+      } : undefined,
+    });
+
+    return sha;
+  }
+
+  /**
+   * 推送
+   */
+  async push(remote?: string, branch?: string): Promise<void> {
+    if (!this.dir) throw new Error('仓库未打开');
+
+    const currentBranch = await git.currentBranch({ fs: isoFs, dir: this.dir, fullname: false }) || 'HEAD';
+    const remotes = await this.remotes();
+    const remoteName = remote || remotes[0]?.name || 'origin';
+    const branchName = branch || currentBranch;
+
     try {
-      const sha = await git.commit({
+      await git.push({
         fs: isoFs,
+        http,
         dir: this.dir,
-        message: options.message,
-        author: options.author
-          ? { name: options.author.name, email: options.author.email }
-          : undefined,
+        remote: remoteName,
+        ref: branchName,
+        onAuth: () => ({ username: '', password: '' }),
       });
-      return sha;
-    } catch (error) {
-      console.error('[GitService] isomorphic-git commit 失败，尝试 CLI:', error);
-      const args = ['commit', '-m', options.message];
-      if (options.author) {
-        args.push('--author', `${options.author.name} <${options.author.email}>`);
-      }
-      await this.gitCliExec(args);
-      // 获取最新 commit sha
-      const { stdout } = await execFileAsync('git', ['rev-parse', 'HEAD'], { cwd: this.dir! });
-      return stdout.trim();
+    } catch (error: any) {
+      console.error('[GitService] push 失败:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 拉取
+   */
+  async pull(remote?: string, branch?: string): Promise<void> {
+    if (!this.dir) throw new Error('仓库未打开');
+
+    const currentBranch = await git.currentBranch({ fs: isoFs, dir: this.dir, fullname: false }) || 'HEAD';
+    const remotes = await this.remotes();
+    const remoteName = remote || remotes[0]?.name || 'origin';
+    const branchName = branch || currentBranch;
+
+    try {
+      await git.pull({
+        fs: isoFs,
+        http,
+        dir: this.dir,
+        remote: remoteName,
+        ref: branchName,
+        onAuth: () => ({ username: '', password: '' }),
+      });
+    } catch (error: any) {
+      console.error('[GitService] pull 失败:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 获取远程更新
+   */
+  async fetch(remote?: string, branch?: string): Promise<void> {
+    if (!this.dir) throw new Error('仓库未打开');
+
+    const remotes = await this.remotes();
+    const remoteName = remote || remotes[0]?.name || 'origin';
+
+    try {
+      await git.fetch({
+        fs: isoFs,
+        http,
+        dir: this.dir,
+        remote: remoteName,
+        ref: branch,
+        onAuth: () => ({ username: '', password: '' }),
+      });
+    } catch (error: any) {
+      console.error('[GitService] fetch 失败:', error);
+      throw error;
     }
   }
 
@@ -407,80 +461,11 @@ export class GitService {
         depth: options.depth,
         singleBranch: options.singleBranch,
         ref: options.branch,
+        onAuth: () => ({ username: '', password: '' }),
       });
-    } catch (error) {
-      console.error('[GitService] isomorphic-git clone 失败，尝试 CLI:', error);
-      const args = ['clone', options.url, options.path];
-      if (options.depth) args.push('--depth', String(options.depth));
-      if (options.singleBranch) args.push('--single-branch');
-      if (options.branch) args.push('--branch', options.branch);
-      await this.gitCliExec(args, undefined);
-    }
-  }
-
-  /**
-   * 推送更改
-   */
-  async push(remote?: string, branch?: string): Promise<void> {
-    if (!this.dir) throw new Error('仓库未打开');
-
-    try {
-      await git.push({
-        fs: isoFs,
-        http,
-        dir: this.dir,
-        remote: remote || 'origin',
-        ref: branch || undefined,
-      });
-    } catch (error) {
-      console.error('[GitService] isomorphic-git push 失败，尝试 CLI:', error);
-      const args = ['push', remote || 'origin'];
-      if (branch) args.push(branch);
-      await this.gitCliExec(args);
-    }
-  }
-
-  /**
-   * 拉取更改
-   */
-  async pull(remote?: string, branch?: string): Promise<void> {
-    if (!this.dir) throw new Error('仓库未打开');
-
-    try {
-      await git.pull({
-        fs: isoFs,
-        http,
-        dir: this.dir,
-        remote: remote || 'origin',
-        ref: branch || undefined,
-      });
-    } catch (error) {
-      console.error('[GitService] isomorphic-git pull 失败，尝试 CLI:', error);
-      const args = ['pull', remote || 'origin'];
-      if (branch) args.push(branch);
-      await this.gitCliExec(args);
-    }
-  }
-
-  /**
-   * 获取远程更新
-   */
-  async fetch(remote?: string, branch?: string): Promise<void> {
-    if (!this.dir) throw new Error('仓库未打开');
-
-    try {
-      await git.fetch({
-        fs: isoFs,
-        http,
-        dir: this.dir,
-        remote: remote || 'origin',
-        ref: branch || undefined,
-      });
-    } catch (error) {
-      console.error('[GitService] isomorphic-git fetch 失败，尝试 CLI:', error);
-      const args = ['fetch', remote || 'origin'];
-      if (branch) args.push(branch);
-      await this.gitCliExec(args);
+    } catch (error: any) {
+      console.error('[GitService] clone 失败:', error);
+      throw error;
     }
   }
 
@@ -491,9 +476,24 @@ export class GitService {
     if (!this.dir) return [];
 
     try {
-      const list = await git.listRemotes({ fs: isoFs, dir: this.dir });
-      return list.map((r) => ({ name: r.remote, url: r.url }));
-    } catch {
+      const remoteNames = await git.listRemotes({ fs: isoFs, dir: this.dir });
+      const result: GitRemote[] = [];
+
+      for (const name of remoteNames) {
+        const remote = await git.getRemoteInfo({
+          fs: isoFs,
+          http,
+          dir: this.dir,
+          remote: name,
+        });
+        result.push({
+          name,
+          url: remote['url'] || '',
+        });
+      }
+
+      return result;
+    } catch (error) {
       return [];
     }
   }
@@ -504,19 +504,7 @@ export class GitService {
   async createBranch(name: string, startPoint?: string): Promise<void> {
     if (!this.dir) throw new Error('仓库未打开');
 
-    try {
-      await git.branch({
-        fs: isoFs,
-        dir: this.dir,
-        ref: name,
-        object: startPoint || undefined,
-      });
-    } catch (error) {
-      console.error('[GitService] 创建分支失败，尝试 CLI:', error);
-      const args = ['branch', name];
-      if (startPoint) args.push(startPoint);
-      await this.gitCliExec(args);
-    }
+    await git.branch({ fs: isoFs, dir: this.dir, ref: name, checkout: false, object: startPoint });
   }
 
   /**
@@ -525,16 +513,12 @@ export class GitService {
   async checkout(ref: string): Promise<void> {
     if (!this.dir) throw new Error('仓库未打开');
 
-    try {
-      await git.checkout({
-        fs: isoFs,
-        dir: this.dir,
-        ref,
-      });
-    } catch (error) {
-      console.error('[GitService] checkout 失败，尝试 CLI:', error);
-      await this.gitCliExec(['checkout', ref]);
-    }
+    await git.checkout({
+      fs: isoFs,
+      dir: this.dir,
+      ref,
+      force: true,
+    });
   }
 
   /**
@@ -805,6 +789,210 @@ export class GitService {
     await this.status();
   }
 
+  // ========== 冲突预判方法 ==========
+
+  /**
+   * 检测合并分支是否会产生冲突
+   * 使用 git merge-tree 安全检测（不改变工作区）
+   */
+  async checkMergeConflict(branch: string): Promise<ConflictCheckResult> {
+    if (!this.dir) return { hasConflict: false };
+
+    try {
+      // 使用 git merge-tree 检测冲突
+      // merge-tree 会模拟合并并报告冲突，但不实际修改工作区
+      const { stdout, stderr } = await execFileAsync(
+        'git',
+        ['merge-tree', `refs/heads/${branch}`],
+        { cwd: this.dir, maxBuffer: 10 * 1024 * 1024 }
+      );
+
+      // 解析输出检查冲突
+      const conflictFiles = parseMergeTreeOutput(stdout + stderr);
+      
+      return {
+        hasConflict: conflictFiles.length > 0,
+        conflictingFiles: conflictFiles,
+      };
+    } catch (error) {
+      // 如果 merge-tree 命令失败，尝试使用 merge --no-commit --no-ff
+      return await this.checkMergeConflictFallback(branch);
+    }
+  }
+
+  /**
+   * 使用 merge --no-commit --no-ff + merge --abort 检测冲突（降级方案）
+   */
+  private async checkMergeConflictFallback(branch: string): Promise<ConflictCheckResult> {
+    if (!this.dir) return { hasConflict: false };
+
+    try {
+      // 尝试执行 merge，但不提交
+      await execFileAsync(
+        'git',
+        ['merge', '--no-commit', '--no-ff', branch],
+        { cwd: this.dir, maxBuffer: 10 * 1024 * 1024 }
+      );
+
+      // 检查是否有冲突标记文件
+      const conflictFiles = await this.getConflictingFiles();
+
+      // 无论是否有冲突，都需要 abort
+      try {
+        await execFileAsync('git', ['merge', '--abort'], { cwd: this.dir });
+      } catch {
+        // abort 失败可能是没有 merge 在进行，忽略
+      }
+
+      return {
+        hasConflict: conflictFiles.length > 0,
+        conflictingFiles: conflictFiles,
+      };
+    } catch (error: any) {
+      // merge 失败说明有冲突
+      const conflictFiles = await this.getConflictingFiles();
+      
+      // 尝试 abort
+      try {
+        await execFileAsync('git', ['merge', '--abort'], { cwd: this.dir });
+      } catch {
+        // ignore
+      }
+
+      return {
+        hasConflict: true,
+        conflictingFiles: conflictFiles,
+      };
+    }
+  }
+
+  /**
+   * 检测变基是否会产生冲突
+   */
+  async checkRebaseConflict(upstream: string): Promise<ConflictCheckResult> {
+    if (!this.dir) return { hasConflict: false };
+
+    try {
+      // 使用 git rebase --no-autostash --exec true 来检测冲突
+      // 这会在不实际变基的情况下检测是否会冲突
+      const { stdout, stderr } = await execFileAsync(
+        'git',
+        ['rebase', '--merge', '--no-commit', upstream],
+        { cwd: this.dir, maxBuffer: 10 * 1024 * 1024 }
+      );
+
+      const conflictFiles = await this.getConflictingFiles();
+
+      // Abort the rebase attempt
+      try {
+        await execFileAsync('git', ['rebase', '--abort'], { cwd: this.dir });
+      } catch {
+        // ignore
+      }
+
+      return {
+        hasConflict: conflictFiles.length > 0 || stdout.includes('CONFLICT'),
+        conflictingFiles: conflictFiles,
+      };
+    } catch (error: any) {
+      // rebase 失败通常意味着有冲突
+      const conflictFiles = await this.getConflictingFiles();
+
+      // 尝试 abort
+      try {
+        await execFileAsync('git', ['rebase', '--abort'], { cwd: this.dir });
+      } catch {
+        // ignore
+      }
+
+      return {
+        hasConflict: true,
+        conflictingFiles: conflictFiles,
+      };
+    }
+  }
+
+  /**
+   * 检测 cherry-pick 是否会产生冲突
+   */
+  async checkCherryPickConflict(oid: string): Promise<ConflictCheckResult> {
+    if (!this.dir) return { hasConflict: false };
+
+    try {
+      // 执行 cherry-pick 但不提交
+      await execFileAsync(
+        'git',
+        ['cherry-pick', '--no-commit', oid],
+        { cwd: this.dir, maxBuffer: 10 * 1024 * 1024 }
+      );
+
+      const conflictFiles = await this.getConflictingFiles();
+
+      // Abort the cherry-pick attempt
+      try {
+        await execFileAsync('git', ['cherry-pick', '--abort'], { cwd: this.dir });
+      } catch {
+        // ignore
+      }
+
+      return {
+        hasConflict: conflictFiles.length > 0,
+        conflictingFiles: conflictFiles,
+      };
+    } catch (error: any) {
+      // cherry-pick 失败说明有冲突
+      const conflictFiles = await this.getConflictingFiles();
+
+      // 尝试 abort
+      try {
+        await execFileAsync('git', ['cherry-pick', '--abort'], { cwd: this.dir });
+      } catch {
+        // ignore
+      }
+
+      return {
+        hasConflict: true,
+        conflictingFiles: conflictFiles,
+      };
+    }
+  }
+
+  /**
+   * 获取当前冲突文件列表
+   */
+  private async getConflictingFiles(): Promise<string[]> {
+    if (!this.dir) return [];
+
+    try {
+      // 使用 git status --porcelain 获取冲突文件
+      const { stdout } = await execFileAsync(
+        'git',
+        ['status', '--porcelain'],
+        { cwd: this.dir }
+      );
+
+      const conflicts: string[] = [];
+      for (const line of stdout.split('\n')) {
+        // 冲突文件状态为 UU/AA/DD 等（两个字母）
+        if (line.length >= 3) {
+          const status = line.substring(0, 2);
+          const filePath = line.substring(3).trim();
+          
+          // 检查是否是冲突状态（两个大写字母）
+          if (status[0] !== ' ' && status[1] !== ' ' && 
+              status[0] === status[0].toUpperCase() && 
+              status[1] === status[1].toUpperCase()) {
+            conflicts.push(filePath);
+          }
+        }
+      }
+
+      return conflicts;
+    } catch {
+      return [];
+    }
+  }
+
   // ========== 私有方法 ==========
 
   /**
@@ -946,6 +1134,32 @@ function parseDiffOutput(output: string): GitDiff[] {
   if (currentDiff) diffs.push(currentDiff);
 
   return diffs;
+}
+
+/**
+ * 解析 git merge-tree 输出获取冲突文件
+ */
+function parseMergeTreeOutput(output: string): string[] {
+  const conflicts: string[] = [];
+  
+  // merge-tree 输出格式：包含 "changed in both" 或 "deleted in them" 等表示冲突
+  const lines = output.split('\n');
+  
+  for (const line of lines) {
+    // 检测冲突标记
+    if (line.includes('changed in both') || 
+        line.includes('modified in both') ||
+        line.includes('deleted in them') ||
+        line.includes('deleted in us')) {
+      // 提取文件路径
+      const match = line.match(/:\d+:\d+: (.*)/);
+      if (match) {
+        conflicts.push(match[1]);
+      }
+    }
+  }
+
+  return [...new Set(conflicts)]; // 去重
 }
 
 /**
