@@ -9,12 +9,13 @@ import { useRepoStore } from '../../stores/repoStore';
 import { zhCN } from '../../i18n/zh-CN';
 import { useContextMenu, type MenuItem } from '../contextmenu/ContextMenu';
 import type { BranchTrackingMap, BranchTrackingStatus } from '@shared/types/git';
+import { RemotesSection } from './RemotesSection';
 
 interface SidebarProps {
   onOpenRepo: () => void;
 }
 
-type SectionType = 'repositories' | 'branches' | 'tags' | 'stashes';
+type SectionType = 'repositories' | 'branches' | 'remotes' | 'tags' | 'stashes';
 
 // localStorage key for pinned branches
 const PINNED_BRANCHES_KEY = 'gitgui-pinned-branches';
@@ -25,7 +26,7 @@ function Sidebar({ onOpenRepo }: SidebarProps) {
 
   // 折叠状态
   const [expandedSections, setExpandedSections] = useState<Set<SectionType>>(
-    new Set(['repositories', 'branches'])
+    new Set(['repositories', 'branches', 'remotes'])
   );
 
   // 切换展开状态
@@ -767,54 +768,143 @@ function TagsSection() {
 
 // Stash 列表组件
 function StashSection() {
+  const i18n = zhCN;
   const { stashes } = useRepoStore();
+  const [expandedStash, setExpandedStash] = React.useState<number | null>(null);
 
   const { showContextMenu, ContextMenuWrapper } = useContextMenu(() => {
     const items: MenuItem[] = [
       {
         id: 'apply',
-        label: '应用',
+        label: i18n.stash.apply,
         onClick: () => {
-          // TODO: 实现应用 stash
+          window.electronAPI.git.stashApply();
         },
       },
       {
         id: 'pop',
-        label: '弹出',
+        label: i18n.stash.pop,
         onClick: () => {
-          // TODO: 实现弹出 stash
+          window.electronAPI.git.stashPop();
         },
       },
       {
+        id: 'create-branch',
+        label: i18n.stash.createBranch,
+        onClick: async () => {
+          const branchName = await window.electronAPI.fs.showInputBox({
+            title: i18n.stash.createBranch,
+            prompt: i18n.stash.branchNamePlaceholder,
+          });
+          if (branchName) {
+            await window.electronAPI.git.stashBranch(0, branchName);
+          }
+        },
+      },
+      { id: 'divider-1', label: '', divider: true },
+      {
         id: 'drop',
-        label: '删除',
+        label: i18n.stash.drop,
         onClick: () => {
-          // TODO: 实现删除 stash
+          // 需要二次确认
+          const confirmed = window.confirm(i18n.stash.confirmDrop);
+          if (confirmed) {
+            window.electronAPI.git.stashDrop();
+          }
         },
       },
     ];
     return items;
   });
 
+  const toggleExpand = (index: number) => {
+    setExpandedStash(prev => prev === index ? null : index);
+  };
+
+  // 格式化日期
+  const formatStashDate = (date: number) => {
+    const now = Math.floor(Date.now() / 1000);
+    const diff = now - date;
+    
+    if (diff < 60) return '刚刚';
+    if (diff < 3600) return `${Math.floor(diff / 60)} 分钟前`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)} 小时前`;
+    return new Date(date * 1000).toLocaleDateString();
+  };
+
   return (
     <>
       {stashes.map((stash, index) => (
-        <div
-          key={stash.id || index}
-          onContextMenu={showContextMenu}
-          className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-sidebar-hover transition-colors"
-        >
-          <svg className="w-4 h-4 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
-          </svg>
-          <div className="flex-1 min-w-0">
-            <div className="text-sm truncate">
-              {stash.message || `Stash #${index}`}
-            </div>
-            <div className="text-xs text-gray-500">
-              {stash.date || index === 0 ? '刚刚' : `${index} 分钟前`}
+        <div key={stash.ref || `stash-${index}`}>
+          <div
+            onContextMenu={showContextMenu}
+            className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-sidebar-hover transition-colors"
+          >
+            {/* 展开/折叠按钮 */}
+            {stash.files && stash.files.length > 0 && (
+              <button
+                onClick={() => toggleExpand(index)}
+                className="p-0.5 hover:bg-[#3c3c3c] rounded"
+              >
+                <svg
+                  className={`w-3 h-3 text-gray-500 transition-transform ${expandedStash === index ? 'rotate-90' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            )}
+            
+            <svg className="w-4 h-4 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+            </svg>
+            
+            <div className="flex-1 min-w-0" onClick={() => toggleExpand(index)}>
+              <div className="text-sm truncate">
+                {stash.message || `Stash #${index}`}
+              </div>
+              <div className="text-xs text-gray-500 flex items-center gap-2">
+                <span>{formatStashDate(stash.date)}</span>
+                {stash.stats && (
+                  <span className="text-gray-600">
+                    {stash.stats.filesChanged} {i18n.stash.filesChanged}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
+
+          {/* 展开的文件列表 */}
+          {expandedStash === index && stash.files && stash.files.length > 0 && (
+            <div className="ml-8 mr-3 mb-2 p-2 bg-[#1e1e1e] rounded border border-[#3c3c3c]">
+              <div className="text-xs text-gray-500 mb-1">
+                {i18n.stash.expand}
+              </div>
+              {stash.files.map((file, fileIndex) => (
+                <div
+                  key={fileIndex}
+                  className="flex items-center gap-2 py-0.5 text-xs"
+                >
+                  <span className={`px-1 rounded text-[10px] ${
+                    file.type === 'added' ? 'bg-green-600/30 text-green-400' :
+                    file.type === 'deleted' ? 'bg-red-600/30 text-red-400' :
+                    'bg-blue-600/30 text-blue-400'
+                  }`}>
+                    {file.type === 'added' ? 'A' : file.type === 'deleted' ? 'D' : 'M'}
+                  </span>
+                  <span className="truncate text-gray-300">{file.path}</span>
+                  {file.additions > 0 && (
+                    <span className="text-green-500">+{file.additions}</span>
+                  )}
+                  {file.deletions > 0 && (
+                    <span className="text-red-500">-{file.deletions}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       ))}
       {ContextMenuWrapper}
