@@ -264,3 +264,10 @@ console.log('[Preload] Electron API 已暴露');
     // ========== 分支跟踪状态 ==========
     /** 获取分支跟踪状态 */
     getBranchTrackingStatus: () => ipcRenderer.invoke('git:getBranchTrackingStatus'),
+      getImageDiff: (filePath: string, oldOid?: string, newOid?: string) =>
+        ipcRenderer.invoke('git:getImageDiff', filePath, oldOid, newOid),
+      getFileHistoryEnhanced: (filePath: string) =>
+        ipcRenderer.invoke('git:getFileHistoryEnhanced', filePath),
+      getFileContent: (filePath: string, oid: string) =>
+        ipcRenderer.invoke('git:getFileContent', filePath, oid),
+
