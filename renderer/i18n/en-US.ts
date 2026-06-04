@@ -146,14 +146,10 @@ export const enUS: I18nKeys = {
     unified: 'Unified',
     sideBySide: 'Side-by-Side',
     viewModeShortcut: 'Shortcut',
-    // 搜索
     searchPlaceholder: 'Search...',
     searchNoResults: 'No matches',
-    searchMatchCount: '{current}/{total}',
-    // 导航
     prevHunk: 'Previous Change',
     nextHunk: 'Next Change',
-    // 视图选项
     showWhitespace: 'Show Whitespace',
     ignoreWhitespace: 'Ignore Whitespace',
     openInExternalTool: 'External Tool',
@@ -268,8 +264,6 @@ export const enUS: I18nKeys = {
     upToDate: 'Up to date',
   },
 
-  // ========== New Translations ==========
-
   // 提交详情面板
   commitDetail: {
     title: 'Commit Details',
@@ -336,7 +330,7 @@ export const enUS: I18nKeys = {
     commitsCollapsed: 'commits collapsed, click to expand',
   },
 
-  // ========== Conflict Detection ==========
+  // 冲突预判
   conflict: {
     warningTitle: '⚠️ Conflict Check',
     warningMessage: 'This operation may cause conflicts in {count} file(s). Continue?',
@@ -349,5 +343,43 @@ export const enUS: I18nKeys = {
     noConflict: 'No Conflict',
     conflictDetected: 'Conflict Detected',
     manualMerge: 'Please resolve conflicts manually and continue',
+  },
+
+  // Branch Management
+  branchManage: {
+    upstreamStatus: {
+      upToDate: 'Up to date',
+      ahead: 'Ahead',
+      behind: 'Behind',
+      aheadBehind: 'Ahead/Behind',
+      diverged: 'Diverged',
+      noUpstream: 'No upstream',
+      noUpstreamTooltip: 'This branch has no upstream configured',
+      aheadTooltip: '{count} commit(s) ahead of upstream',
+      behindTooltip: '{count} commit(s) behind upstream',
+      aheadBehindTooltip: '{ahead} ahead, {behind} behind',
+    },
+    filter: {
+      placeholder: 'Search branches...',
+      noMatch: 'No matching branches',
+      hint: 'Press / to focus search',
+    },
+    pinned: {
+      title: 'Pinned',
+      pinBranch: 'Pin branch',
+      unpinBranch: 'Unpin branch',
+      empty: 'No pinned branches',
+    },
+    group: {
+      local: 'Local',
+      remote: 'Remote',
+      feature: 'Feature',
+      bugfix: 'Bugfix',
+      release: 'Release',
+    },
+    toolbarBadge: {
+      pullBehind: '↓{count}',
+      pushAhead: '↑{count}',
+    },
   },
 };
