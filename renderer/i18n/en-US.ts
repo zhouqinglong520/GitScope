@@ -108,6 +108,16 @@ export const enUS: I18nKeys = {
     drop: 'Drop',
     clear: 'Clear',
     noStashes: 'No stashes',
+    includeUntracked: 'Include Untracked',
+    keepIndex: 'Keep Index',
+    createBranch: 'Create Branch from Stash',
+    branchName: 'Branch Name',
+    branchNamePlaceholder: 'Enter new branch name',
+    filesChanged: 'files changed',
+    confirmDrop: 'Are you sure you want to drop this stash? This action cannot be undone.',
+    confirmDropTitle: 'Confirm Drop Stash',
+    expand: 'Expand Details',
+    collapse: 'Collapse Details',
   },
 
   // 状态
@@ -304,6 +314,36 @@ export const enUS: I18nKeys = {
     upToDate: 'Up to date',
   },
 
+  // Blame
+  blame: {
+    title: 'Blame View',
+    author: 'Author',
+    date: 'Date',
+    commit: 'Commit',
+    message: 'Commit Message',
+    copySHA: 'Copy SHA',
+    copied: 'Copied',
+    filterByAuthor: 'Filter by Author',
+    filterByDate: 'Filter by Date',
+    clearFilters: 'Clear Filters',
+    noResults: 'No matching results',
+    legend: {
+      title: 'Heatmap Color Legend',
+      recent: 'Recently Modified',
+      old: 'Older Modifications',
+      cold: 'Older',
+      warm: 'Newer',
+    },
+    hoverDetail: {
+      commit: 'Commit',
+      author: 'Author',
+      date: 'Date',
+      message: 'Message',
+    },
+    showAllLines: 'Show All Lines',
+    highlightFiltered: 'Highlight Filtered Lines',
+  },
+
   // 提交详情面板
   commitDetail: {
     title: 'Commit Details',
@@ -422,4 +462,63 @@ export const enUS: I18nKeys = {
       pushAhead: '↑{count}',
     },
   },
+
+  // Remote repository management
+  remote: {
+    title: 'Remotes',
+    add: 'Add Remote',
+    edit: 'Edit Remote',
+    delete: 'Delete Remote',
+    name: 'Name',
+    url: 'URL',
+    namePlaceholder: 'e.g., origin',
+    urlPlaceholder: 'e.g., https://github.com/user/repo.git',
+    invalidUrl: 'Invalid URL format',
+    confirmDelete: 'Are you sure you want to delete remote "{name}"?',
+    deleteWarning: 'This will remove the remote reference from your local machine. The remote repository will not be affected.',
+    setUpstream: 'Set Upstream',
+    setUpstreamPrompt: 'Current branch has no upstream. Set it now?',
+    noUpstream: 'No Upstream',
+    noUpstreamDesc: 'Push and set upstream first',
+  },
+
+  // Fetch/Pull/Push preferences
+  fetchPreferences: {
+    prune: 'Prune remote-tracking branches',
+    pruneDesc: 'Remove local references to deleted remote branches',
+  },
+
+  pullPreferences: {
+    rebase: 'Use rebase mode',
+    rebaseDesc: 'Use git pull --rebase instead of git pull --merge',
+  },
+
+  pushPreferences: {
+    force: 'Force push',
+    forceDesc: 'Overwrite remote history (dangerous)',
+    forceWithLease: 'Force with lease',
+    forceWithLeaseDesc: 'Only force push if remote has not changed since last fetch',
+    setUpstream: 'Set upstream',
+    setUpstreamDesc: 'Automatically set upstream when pushing',
+  },
+
+  // Confirmation dialogs
+  confirm: {
+    forcePush: 'Force Push Confirmation',
+    forcePushMessage: 'Force push will overwrite remote history and may cause other collaborators to lose work.\n\nAre you sure you want to force push?',
+    forceWithLease: 'Force with Lease Confirmation',
+    forceWithLeaseMessage: 'Force with lease will check if remote has changed since your last fetch.\n\nAre you sure you want to force push with lease?',
+    useForceAnyway: 'Force Push Anyway',
+    useForceWithLeaseAnyway: 'Force with Lease Anyway',
+    cancel: 'Cancel',
+  },
+
+  // Fetch dropdown menu
+  fetchMenu: {
+    fetchOrigin: 'Fetch origin',
+    fetchAll: 'Fetch All',
+    fetchPrune: 'Fetch + Prune',
+    fetchAllPrune: 'Fetch All + Prune',
+  },
+
 };
