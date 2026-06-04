@@ -1810,4 +1810,100 @@ async getBranchTrackingStatus(): Promise<Record<string, { ahead: number; behind:
   }
 
   return status;
+
+  /**
+   * 获取图片Diff信息
+   */
+  async getImageDiff(filePath: string, oldOid?: string, newOid?: string): Promise<any> {
+    const isImage = /\.(png|jpg|jpeg|gif|bmp|svg|webp|ico|tiff?)$/i.test(filePath);
+    if (!isImage) {
+      return null;
+    }
+
+    const result: any = {
+      oldPath: null,
+      newPath: filePath,
+      isBinary: true,
+    };
+
+    try {
+      const repoPath = this.repoPath!;
+      
+      // Get new image content
+      if (newOid || !oldOid) {
+        const newRef = newOid || 'HEAD';
+        try {
+          const { blob } = await this.git.readObject({ fs, dir: repoPath, oid: await this.git.resolveRef({ fs, dir: repoPath, ref: newRef }).then(r => r).catch(() => newRef) });
+          if (blob) {
+            result.newImage = Buffer.from(blob).toString('base64');
+          }
+        } catch {
+          // File might be new (no old version)
+          try {
+            const fs_mod = require('fs');
+            const fullPath = require('path').join(repoPath, filePath);
+            if (fs_mod.existsSync(fullPath)) {
+              const buf = fs_mod.readFileSync(fullPath);
+              result.newImage = buf.toString('base64');
+            }
+          } catch {}
+        }
+      }
+
+      // Get old image content
+      if (oldOid) {
+        try {
+          const { blob } = await this.git.readObject({ fs, dir: repoPath, oid: oldOid });
+          if (blob) {
+            result.oldImage = Buffer.from(blob).toString('base64');
+            result.oldPath = filePath;
+          }
+        } catch {}
+      }
+
+      return result;
+    } catch (error) {
+      console.error('Failed to get image diff:', error);
+      return result;
+    }
+  }
+
+  /**
+   * 获取文件历史（增强版，返回详细条目）
+   */
+  async getFileHistoryEnhanced(filePath: string): Promise<any[]> {
+    try {
+      const repoPath = this.repoPath!;
+      const logs = await this.git.log({ fs, dir: repoPath, filepath: filePath, depth: 100 });
+      
+      return logs.map(commit => ({
+        oid: commit.oid,
+        message: commit.commit.message.split('\n')[0],
+        author: commit.commit.author.name,
+        date: commit.commit.author.timestamp.toString(),
+        status: 'M', // Default, actual status needs diff analysis
+      }));
+    } catch (error) {
+      console.error('Failed to get file history enhanced:', error);
+      return [];
+    }
+  }
+
+  /**
+   * 获取文件在指定提交的内容(base64)
+   */
+  async getFileContent(filePath: string, oid: string): Promise<string | null> {
+    try {
+      const repoPath = this.repoPath!;
+      const { blob } = await this.git.readObject({ fs, dir: repoPath, oid });
+      if (blob) {
+        return Buffer.from(blob).toString('base64');
+      }
+      return null;
+    } catch (error) {
+      console.error('Failed to get file content:', error);
+      return null;
+    }
+  }
+
 }
