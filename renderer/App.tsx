@@ -32,10 +32,16 @@ function App() {
     isLoading,
     error,
     toggleSidebar,
+    refresh,
+    branchTrackingStatus,
+    currentBranch,
   } = useRepoStore();
 
   const [showQuickLaunch, setShowQuickLaunch] = useState(false);
   const [sidebarWidth] = useState(220);
+
+  // 获取当前分支的跟踪状态
+  const currentBranchTracking = currentBranch ? branchTrackingStatus[currentBranch.name] : null;
 
   // 处理打开仓库
   const handleOpenRepo = async () => {
@@ -49,6 +55,42 @@ function App() {
   const handleCloseRepo = (repoId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     closeRepo(repoId);
+  };
+
+  // 处理 Pull
+  const handlePull = async () => {
+    if (currentRepo) {
+      try {
+        await window.electronAPI.git.pull();
+        await refresh();
+      } catch (error) {
+        console.error('Pull failed:', error);
+      }
+    }
+  };
+
+  // 处理 Push
+  const handlePush = async () => {
+    if (currentRepo) {
+      try {
+        await window.electronAPI.git.push();
+        await refresh();
+      } catch (error) {
+        console.error('Push failed:', error);
+      }
+    }
+  };
+
+  // 处理 Fetch
+  const handleFetch = async () => {
+    if (currentRepo) {
+      try {
+        await window.electronAPI.git.fetch();
+        await refresh();
+      } catch (error) {
+        console.error('Fetch failed:', error);
+      }
+    }
   };
 
   // Quick Launch 命令
@@ -65,7 +107,6 @@ function App() {
           prompt: '请输入仓库 URL',
         });
         if (url) {
-          // TODO: 实现克隆功能
           console.log('Clone:', url);
         }
       },
@@ -112,11 +153,7 @@ function App() {
       description: '推送到远程仓库',
       category: '远程',
       shortcut: 'Ctrl+P',
-      action: async () => {
-        if (currentRepo) {
-          await window.electronAPI.git.push();
-        }
-      },
+      action: handlePush,
     },
     {
       id: 'pull',
@@ -124,22 +161,14 @@ function App() {
       description: '从远程仓库拉取',
       category: '远程',
       shortcut: 'Ctrl+Shift+P',
-      action: async () => {
-        if (currentRepo) {
-          await window.electronAPI.git.pull();
-        }
-      },
+      action: handlePull,
     },
     {
       id: 'fetch',
       label: '获取',
       description: '获取远程更新',
       category: '远程',
-      action: async () => {
-        if (currentRepo) {
-          await window.electronAPI.git.fetch();
-        }
-      },
+      action: handleFetch,
     },
     {
       id: 'stash',
@@ -205,7 +234,7 @@ function App() {
       shortcut: 'F5',
       action: async () => {
         if (currentRepo) {
-          await window.electronAPI.git.refresh();
+          await refresh();
         }
       },
     },
@@ -348,6 +377,7 @@ function App() {
           <div className="flex items-center gap-1">
             {/* Fetch */}
             <button
+              onClick={handleFetch}
               className="btn-icon flex items-center gap-1.5 px-2"
               title={`${i18n.toolbar.fetch} (Ctrl+Shift+F)`}
             >
@@ -359,24 +389,38 @@ function App() {
 
             {/* Pull */}
             <button
-              className="btn-icon flex items-center gap-1.5 px-2"
+              onClick={handlePull}
+              className="btn-icon flex items-center gap-1.5 px-2 relative"
               title={`${i18n.toolbar.pull} (Ctrl+Shift+P)`}
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
               </svg>
               <span className="text-xs">{i18n.toolbar.pull}</span>
+              {/* Ahead/Behind 徽章 */}
+              {currentBranchTracking && currentBranchTracking.behind > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 bg-orange-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                  ↓{currentBranchTracking.behind}
+                </span>
+              )}
             </button>
 
             {/* Push */}
             <button
-              className="btn-icon flex items-center gap-1.5 px-2"
+              onClick={handlePush}
+              className="btn-icon flex items-center gap-1.5 px-2 relative"
               title={`${i18n.toolbar.push} (Ctrl+P)`}
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
               </svg>
               <span className="text-xs">{i18n.toolbar.push}</span>
+              {/* Ahead 徽章 */}
+              {currentBranchTracking && currentBranchTracking.ahead > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 bg-blue-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                  ↑{currentBranchTracking.ahead}
+                </span>
+              )}
             </button>
 
             <div className="h-5 w-px bg-[#3c3c3c] mx-2" />
@@ -467,7 +511,7 @@ function App() {
       {/* 状态栏 */}
       <footer className="h-6 bg-[#1a1a2e] flex items-center justify-between px-3 text-xs">
         <div className="flex items-center gap-4">
-          {currentRepo && (
+          {currentRepo && currentBranchTracking && (
             <>
               <span className="flex items-center gap-1">
                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -475,10 +519,31 @@ function App() {
                 </svg>
                 <span className="text-primary-200">{currentRepo.currentBranch}</span>
               </span>
-              <span className="text-primary-200">
-                ↑0 ↓0
-              </span>
+              {/* 显示 ahead/behind 状态 */}
+              {currentBranchTracking.state === 'up-to-date' && (
+                <span className="text-green-400">✓ {i18n.branchManage.upstreamStatus.upToDate}</span>
+              )}
+              {currentBranchTracking.state === 'ahead' && (
+                <span className="text-blue-400">↑{currentBranchTracking.ahead} {i18n.branchManage.upstreamStatus.ahead}</span>
+              )}
+              {currentBranchTracking.state === 'behind' && (
+                <span className="text-orange-400">↓{currentBranchTracking.behind} {i18n.branchManage.upstreamStatus.behind}</span>
+              )}
+              {currentBranchTracking.state === 'ahead-behind' && (
+                <span className="text-purple-400">↑{currentBranchTracking.ahead}↓{currentBranchTracking.behind}</span>
+              )}
+              {currentBranchTracking.state === 'no-upstream' && (
+                <span className="text-gray-400">{i18n.branchManage.upstreamStatus.noUpstream}</span>
+              )}
             </>
+          )}
+          {currentRepo && !currentBranchTracking && (
+            <span className="flex items-center gap-1">
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+              <span className="text-primary-200">{currentRepo.currentBranch}</span>
+            </span>
           )}
         </div>
         <div className="flex items-center gap-4">
