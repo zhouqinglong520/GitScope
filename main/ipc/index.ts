@@ -397,6 +397,22 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('git:getBranchTrackingStatus', async () => {
     try {
       return await gitService.getBranchTrackingStatus();
+
+    // Image Diff
+    ipcMain.handle('git:getImageDiff', async (_event, filePath: string, oldOid?: string, newOid?: string) => {
+      return gitService.getImageDiff(filePath, oldOid, newOid);
+    });
+
+    // File History Enhanced
+    ipcMain.handle('git:getFileHistoryEnhanced', async (_event, filePath: string) => {
+      return gitService.getFileHistoryEnhanced(filePath);
+    });
+
+    // File Content (base64)
+    ipcMain.handle('git:getFileContent', async (_event, filePath: string, oid: string) => {
+      return gitService.getFileContent(filePath, oid);
+    });
+
     } catch (error) {
       console.error('获取分支跟踪状态失败:', error);
       return {};
