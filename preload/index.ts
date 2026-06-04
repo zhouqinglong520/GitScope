@@ -5,7 +5,7 @@
  */
 
 import { contextBridge, ipcRenderer } from 'electron';
-import type { ElectronApi } from '../shared/types/ipc.js';
+import type { ElectronApi, DiffOptions } from '../shared/types/ipc.js';
 
 /**
  * 暴露给渲染进程的 API
@@ -34,19 +34,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getStatus: () => ipcRenderer.invoke('git:getStatus'),
 
     /** 获取文件差异 */
-    getDiff: (filePath?: string) => ipcRenderer.invoke('git:getDiff', filePath),
+    getDiff: (filePath?: string, options?: DiffOptions) => ipcRenderer.invoke('git:getDiff', filePath, options),
 
     /** 暂存文件 */
-    stage: (files: string[]) => ipcRenderer.invoke('git:stage', files),
+    stage: (files: string[]) => ipcRenderer.invoke('git:add', files),
 
     /** 暂存所有 */
-    stageAll: () => ipcRenderer.invoke('git:stageAll'),
+    stageAll: () => ipcRenderer.invoke('git:addAll'),
 
     /** 取消暂存 */
-    unstage: (files: string[]) => ipcRenderer.invoke('git:unstage', files),
+    unstage: (files: string[]) => ipcRenderer.invoke('git:reset', files),
 
     /** 取消暂存所有 */
-    unstageAll: () => ipcRenderer.invoke('git:unstageAll'),
+    unstageAll: () => ipcRenderer.invoke('git:reset', ['.']),
 
     /** 提交 */
     commit: (message: string, options?: { amend?: boolean }) =>
@@ -108,7 +108,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // ========== 新增的文件和提交详情 API ==========
     /** 获取文件的提交历史 */
     getFileLog: (filePath: string, options?: { depth?: number }) =>
-      ipcRenderer.invoke('git:getFileLog', filePath, options),
+      ipcRenderer.invoke('git:getFileHistory', filePath),
 
     /** 获取指定提交的详细信息（含文件列表） */
     getCommitDetail: (oid: string) =>
@@ -120,6 +120,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     /** 获取某文件的指定提交中的 diff */
     getFileDiff: (oid: string, filePath: string) =>
       ipcRenderer.invoke('git:getFileDiff', oid, filePath),
+
+    /** 获取暂存区差异 */
+    getStagedDiff: (filePath?: string, options?: DiffOptions) =>
+      ipcRenderer.invoke('git:getStagedDiff', filePath, options),
 
     // ========== 冲突预判 API ==========
     /** 检测合并是否会产生冲突 */
@@ -133,6 +137,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     /** 检测 cherry-pick 是否会产生冲突 */
     checkCherryPickConflict: (oid: string) =>
       ipcRenderer.invoke('git:checkCherryPickConflict', oid),
+
+    // ========== 外部 Diff 工具 ==========
+    /** 在外部工具中打开 diff */
+    openInDiffTool: (filePath?: string) =>
+      ipcRenderer.invoke('git:openInDiffTool', filePath),
   },
 
   // ========== 凭证服务 ==========
@@ -219,3 +228,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 } as ElectronApi);
 
 console.log('[Preload] Electron API 已暴露');
+
+    // ========== 分支跟踪状态 ==========
+    /** 获取分支跟踪状态 */
+    getBranchTrackingStatus: () => ipcRenderer.invoke('git:getBranchTrackingStatus'),
