@@ -260,8 +260,8 @@ function App() {
         <div className="flex items-center gap-3">
           {/* Logo */}
           <div className="flex items-center gap-2 no-drag">
-            <span className="text-primary-500 font-bold text-lg">⬡</span>
-            <span className="font-semibold text-sm">GitGUI</span>
+            <span className="text-primary-400 font-bold text-lg">◈</span>
+            <span className="font-semibold text-sm">GitScope 码界</span>
           </div>
         </div>
 
@@ -465,7 +465,7 @@ function App() {
       </div>
 
       {/* 状态栏 */}
-      <footer className="h-6 bg-primary-600 flex items-center justify-between px-3 text-xs">
+      <footer className="h-6 bg-[#1a1a2e] flex items-center justify-between px-3 text-xs">
         <div className="flex items-center gap-4">
           {currentRepo && (
             <>
@@ -483,7 +483,7 @@ function App() {
         </div>
         <div className="flex items-center gap-4">
           <span>UTF-8</span>
-          <span>完成</span>
+          <span className="text-gray-400">{new Date().toLocaleTimeString('zh-CN', {hour: '2-digit', minute:'2-digit'})}</span>
           {currentRepo && (
             <span className="text-primary-200 max-w-[300px] truncate">{currentRepo.path}</span>
           )}
