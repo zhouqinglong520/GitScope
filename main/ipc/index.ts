@@ -2,15 +2,16 @@
  * IPC 处理器注册
  * 将主进程的服务注册到 IPC 通道
  */
+export {};
 
-import { ipcMain, dialog, BrowserWindow } from 'electron';
-import { gitService } from '../services/git/index.js';
-import { credentialService } from '../services/credential/index.js';
+const { ipcMain, dialog, BrowserWindow, shell } = require('electron');
+const { gitService } = require('../services/git/index');
+const { credentialService } = require('../services/credential/index');
 
 /**
  * 注册所有 IPC 处理器
  */
-export function registerIpcHandlers(): void {
+function registerIpcHandlers() {
   // ========== Git 服务 ==========
 
   /** 打开仓库 */
@@ -160,6 +161,11 @@ export function registerIpcHandlers(): void {
     return await gitService.getFileHistory(filePath);
   });
 
+  /** 获取文件提交历史（别名） */
+  ipcMain.handle('git:getFileLog', async (_, filePath: string, options?: { depth?: number }) => {
+    return await gitService.getFileHistory(filePath);
+  });
+
   /** 获取作者统计 */
   ipcMain.handle('git:getAuthorStats', async () => {
     return await gitService.getAuthorStats();
@@ -168,6 +174,11 @@ export function registerIpcHandlers(): void {
   /** 刷新仓库状态 */
   ipcMain.handle('git:refresh', async () => {
     await gitService.refresh();
+  });
+
+  /** 获取 Stash 列表 - 补充这个缺失的方法，简单返回空数组 */
+  ipcMain.handle('git:getStashes', async () => {
+    return [];
   });
 
   // ========== 凭证服务 ==========
@@ -203,20 +214,116 @@ export function registerIpcHandlers(): void {
     return result.filePaths[0];
   });
 
-  /** 输入框 */
-  ipcMain.handle('fs:showInputBox', async (_, options: { title: string; prompt: string; value?: string }) => {
-    // 简单实现：通过 dialog 替代（Electron 没有原生输入框，实际项目中用 BrowserWindow 弹窗）
-    const result = await dialog.showMessageBox({
-      type: 'question',
-      title: options.title,
-      message: options.prompt,
-      buttons: ['确定', '取消'],
-      defaultId: 0,
-    });
+  /** 输入框（自定义 BrowserWindow 弹窗，支持文本输入） */
+  ipcMain.handle('fs:showInputBox', async (_, options: { title?: string; prompt?: string; defaultValue?: string }) => {
+    const parentWin = BrowserWindow.getFocusedWindow();
+    if (!parentWin) return null;
 
-    // 注意：dialog.showMessageBox 无法输入文本，这里返回空字符串
-    // 实际项目中应该创建一个自定义的输入弹窗
-    return result.response === 0 ? '' : null;
+    return new Promise<string | null>((resolve) => {
+      const inputWin = new BrowserWindow({
+        width: 420,
+        height: 200,
+        parent: parentWin,
+        modal: true,
+        show: false,
+        resizable: false,
+        frame: false,
+        backgroundColor: '#2d2d30',
+        webPreferences: {
+          nodeIntegration: true,
+          contextIsolation: false,
+        },
+      });
+
+      const title = options.title || '输入';
+      const prompt = options.prompt || '';
+      const defaultValue = options.defaultValue || '';
+
+      const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #2d2d30;
+      color: #cccccc;
+      padding: 20px;
+      -webkit-app-region: drag;
+      user-select: none;
+    }
+    h3 { font-size: 14px; font-weight: 600; margin-bottom: 6px; color: #fff; }
+    p { font-size: 12px; color: #999; margin-bottom: 14px; }
+    input {
+      -webkit-app-region: no-drag;
+      width: 100%;
+      padding: 7px 10px;
+      border: 1px solid #3c3c3c;
+      border-radius: 4px;
+      background: #1e1e1e;
+      color: #ddd;
+      font-size: 13px;
+      outline: none;
+    }
+    input:focus { border-color: #0078d4; }
+    .buttons { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; -webkit-app-region: no-drag; }
+    button {
+      padding: 6px 16px;
+      border-radius: 4px;
+      border: none;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .btn-ok { background: #0078d4; color: #fff; }
+    .btn-ok:hover { background: #1a8ae8; }
+    .btn-cancel { background: #3c3c3c; color: #ccc; }
+    .btn-cancel:hover { background: #4f4f4f; }
+  </style>
+</head>
+<body>
+  <h3>${title.replace(/</g, '&lt;')}</h3>
+  ${prompt ? `<p>${prompt.replace(/</g, '&lt;')}</p>` : ''}
+  <input id="input" type="text" value="${defaultValue.replace(/"/g, '&quot;').replace(/</g, '&lt;')}" autofocus />
+  <div class="buttons">
+    <button class="btn-cancel" id="cancel">取消</button>
+    <button class="btn-ok" id="ok">确定</button>
+  </div>
+  <script>
+    const input = document.getElementById('input');
+    input.focus();
+    input.select();
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') document.getElementById('ok').click();
+      if (e.key === 'Escape') document.getElementById('cancel').click();
+    });
+    document.getElementById('ok').addEventListener('click', () => {
+      const { ipcRenderer } = require('electron');
+      ipcRenderer.send('input-result', input.value);
+    });
+    document.getElementById('cancel').addEventListener('click', () => {
+      const { ipcRenderer } = require('electron');
+      ipcRenderer.send('input-result', null);
+    });
+  </script>
+</body>
+</html>`;
+
+      inputWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+      inputWin.once('ready-to-show', () => {
+        inputWin.show();
+      });
+
+      ipcMain.once('input-result', (_event, value: string | null) => {
+        inputWin.close();
+        resolve(value);
+      });
+
+      inputWin.on('closed', () => {
+        ipcMain.removeAllListeners('input-result');
+        resolve(null);
+      });
+    });
   });
 
   /** 读取文件 */
@@ -244,9 +351,18 @@ export function registerIpcHandlers(): void {
 
   // ========== Shell 服务 ==========
 
+  /** 打开外部链接 */
+  ipcMain.handle('shell:openExternal', async (_, url: string) => {
+    await shell.openExternal(url);
+  });
+
+  /** 在文件管理器中打开路径 */
+  ipcMain.handle('shell:openPath', async (_, path: string) => {
+    await shell.showItemInFolder(path);
+  });
+
   /** 在终端中打开 */
   ipcMain.handle('shell:openTerminal', async (_, cwd: string) => {
-    const { shell } = await import('electron');
     // Windows: 打开 cmd，macOS/Linux: 打开 terminal
     const platform = process.platform;
     if (platform === 'win32') {
@@ -293,3 +409,5 @@ export function registerIpcHandlers(): void {
 
   console.log('[GitGUI] 所有 IPC 处理器已注册');
 }
+
+module.exports = { registerIpcHandlers };

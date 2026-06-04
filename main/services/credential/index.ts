@@ -3,14 +3,15 @@
  * 使用 Electron safeStorage + 本地加密文件存储凭证
  * 无需原生依赖（替代 keytar），跨平台兼容
  */
+export {};
 
-import { safeStorage } from 'electron';
-import * as fs from 'node:fs';
-import * as path from 'node:path';
-import * as os from 'node:os';
+const { safeStorage } = require('electron');
+const fs = require('node:fs');
+const path = require('node:path');
+const os = require('node:os');
 
 /** 凭证信息 */
-export interface Credential {
+interface Credential {
   /** 协议（http 或 https） */
   protocol: 'http' | 'https';
   /** 主机名 */
@@ -31,7 +32,7 @@ interface StoredCredential {
 }
 
 /** 凭证服务类 */
-export class CredentialService {
+class CredentialService {
   private serviceName = 'GitGUI';
   private storePath: string;
 
@@ -161,4 +162,5 @@ export class CredentialService {
 }
 
 // 导出单例
-export const credentialService = new CredentialService();
+const credentialService = new CredentialService();
+module.exports = { CredentialService, credentialService };

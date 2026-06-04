@@ -25,3 +25,8 @@ Thumbs.db
 
 # 测试
 coverage/
+playwright-report/
+test-results/
+test-screenshots/
+tests/
+playwright.config.ts

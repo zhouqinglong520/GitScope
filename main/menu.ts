@@ -2,18 +2,18 @@
  * 应用菜单配置
  * 参考 Fork 的菜单结构，适配 GitScope 已有功能
  */
+export {};
 
-import { Menu, BrowserWindow, app, shell, dialog } from 'electron';
-import * as path from 'path';
+const { Menu, app, shell, dialog } = require('electron');
 
-let mainWindow: BrowserWindow | null = null;
+let mainWindow = null;
 
-export function setMainWindow(win: BrowserWindow) {
+function setMainWindow(win) {
   mainWindow = win;
 }
 
-export function createAppMenu(): Menu {
-  const template: Electron.MenuItemConstructorOptions[] = [
+function createAppMenu() {
+  const template = [
     // 文件
     {
       label: '文件',
@@ -274,7 +274,7 @@ export function createAppMenu(): Menu {
         {
           label: '关于 GitScope',
           click: () => {
-            dialog.showMessageBox(mainWindow!, {
+            dialog.showMessageBox(mainWindow, {
               type: 'info',
               title: '关于 GitScope',
               message: 'GitScope 码界',
@@ -289,3 +289,5 @@ export function createAppMenu(): Menu {
 
   return Menu.buildFromTemplate(template);
 }
+
+module.exports = { createAppMenu, setMainWindow };

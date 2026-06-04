@@ -2,27 +2,23 @@
  * Electron 主进程入口
  * 负责创建窗口、初始化服务、注册 IPC 处理器、设置菜单
  */
+export {};
 
-import { app, BrowserWindow, shell, Menu } from 'electron';
-import * as path from 'path';
-import { fileURLToPath } from 'url';
-import { registerIpcHandlers } from './ipc/index.js';
-import { createAppMenu, setMainWindow } from './menu.js';
-
-// 获取当前文件目录
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const { app, BrowserWindow, shell, Menu } = require('electron');
+const path = require('path');
+const { registerIpcHandlers } = require('./ipc/index');
+const { createAppMenu, setMainWindow } = require('./menu');
 
 // 开发模式标志
 const isDev = !app.isPackaged;
 
 // 主窗口实例
-let mainWindow: BrowserWindow | null = null;
+let mainWindow = null;
 
 /**
  * 创建主窗口
  */
-function createWindow(): void {
+function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
@@ -47,10 +43,13 @@ function createWindow(): void {
 
   // 加载页面
   if (isDev) {
-    mainWindow.loadURL('http://localhost:5173');
+    // 开发模式：加载 Vite 开发服务器
+          mainWindow.loadURL('http://localhost:5175');
+    // 开发模式打开开发者工具
     mainWindow.webContents.openDevTools();
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../../renderer/index.html'));
+    // 生产模式：加载构建后的文件
+    mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
   }
 
   // 处理外部链接
@@ -64,13 +63,15 @@ function createWindow(): void {
     mainWindow = null;
   });
 
-  // 发送最大化状态变化给渲染进程
+  // 发送最大化状态变化给渲染进程（两种格式兼容）
   mainWindow.on('maximize', () => {
     mainWindow?.webContents.send('window:maximizeChange', true);
+    mainWindow?.webContents.send('window:maximize-changed', true);
   });
 
   mainWindow.on('unmaximize', () => {
     mainWindow?.webContents.send('window:maximizeChange', false);
+    mainWindow?.webContents.send('window:maximize-changed', false);
   });
 
   console.log('[GitGUI] 主窗口已创建');

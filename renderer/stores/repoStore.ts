@@ -15,7 +15,7 @@ import type {
   AuthorStats,
   CommitFilter,
   CommitDetail
-} from '@shared/types/git';
+} from '../../shared/types/git';
 
 // 仓库信息扩展（包含 ID）
 export interface RepoTab {
@@ -542,7 +542,7 @@ export const useRepoStore = create<RepoState>((set, get) => ({
    */
   stageFile: async (path: string) => {
     try {
-      await window.electronAPI.git.stage([path]);
+      await window.electronAPI.git.add([path]);
       await get().refresh();
     } catch (error) {
       console.error('暂存文件失败:', error);
@@ -554,7 +554,7 @@ export const useRepoStore = create<RepoState>((set, get) => ({
    */
   unstageFile: async (path: string) => {
     try {
-      await window.electronAPI.git.unstage([path]);
+      await window.electronAPI.git.reset([path]);
       await get().refresh();
     } catch (error) {
       console.error('取消暂存失败:', error);
@@ -566,7 +566,7 @@ export const useRepoStore = create<RepoState>((set, get) => ({
    */
   stageAll: async () => {
     try {
-      await window.electronAPI.git.stageAll();
+      await window.electronAPI.git.addAll();
       await get().refresh();
     } catch (error) {
       console.error('暂存所有文件失败:', error);
@@ -578,7 +578,7 @@ export const useRepoStore = create<RepoState>((set, get) => ({
    */
   unstageAll: async () => {
     try {
-      await window.electronAPI.git.unstageAll();
+      await window.electronAPI.git.reset([]); // 空数组表示取消暂存所有
       await get().refresh();
     } catch (error) {
       console.error('取消暂存所有文件失败:', error);

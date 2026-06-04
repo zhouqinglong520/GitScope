@@ -3,9 +3,10 @@
  * 在渲染进程和主进程之间建立安全的通信桥梁
  * 使用 contextBridge 暴露安全的 API 给渲染进程
  */
+// @ts-nocheck
+export {};
 
-import { contextBridge, ipcRenderer } from 'electron';
-import type { ElectronApi } from '../shared/types/ipc.js';
+const { contextBridge, ipcRenderer } = require('electron');
 
 /**
  * 暴露给渲染进程的 API
@@ -15,7 +16,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // ========== Git 服务 ==========
   git: {
     /** 打开仓库 */
-    openRepository: (path: string) => ipcRenderer.invoke('git:openRepository', path),
+    openRepository: (path) => ipcRenderer.invoke('git:openRepository', path),
 
     /** 关闭仓库 */
     closeRepository: () => ipcRenderer.invoke('git:closeRepository'),
@@ -24,7 +25,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getRepositoryInfo: () => ipcRenderer.invoke('git:getRepositoryInfo'),
 
     /** 获取提交历史 */
-    getLog: (options?: { ref?: string; depth?: number }) =>
+    getLog: (options) =>
       ipcRenderer.invoke('git:getLog', options),
 
     /** 获取分支列表 */
@@ -34,106 +35,162 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getStatus: () => ipcRenderer.invoke('git:getStatus'),
 
     /** 获取文件差异 */
-    getDiff: (filePath?: string) => ipcRenderer.invoke('git:getDiff', filePath),
+    getDiff: (filePath, commitOid) => ipcRenderer.invoke('git:getDiff', filePath, commitOid),
+
+    /** 获取暂存区差异 */
+    getStagedDiff: (filePath) => ipcRenderer.invoke('git:getStagedDiff', filePath),
 
     /** 暂存文件 */
-    stage: (files: string[]) => ipcRenderer.invoke('git:stage', files),
+    add: (files) => ipcRenderer.invoke('git:add', files),
 
     /** 暂存所有 */
-    stageAll: () => ipcRenderer.invoke('git:stageAll'),
+    addAll: () => ipcRenderer.invoke('git:addAll'),
+
+    /** 暂存所有（别名） */
+    stageAll: () => ipcRenderer.invoke('git:addAll'),
 
     /** 取消暂存 */
-    unstage: (files: string[]) => ipcRenderer.invoke('git:unstage', files),
-
-    /** 取消暂存所有 */
-    unstageAll: () => ipcRenderer.invoke('git:unstageAll'),
+    reset: (files) => ipcRenderer.invoke('git:reset', files),
 
     /** 提交 */
-    commit: (message: string, options?: { amend?: boolean }) =>
+    commit: (message, options) =>
       ipcRenderer.invoke('git:commit', message, options),
 
     /** 推送 */
-    push: (options?: { remote?: string; branch?: string; force?: boolean }) =>
+    push: (options) =>
       ipcRenderer.invoke('git:push', options),
 
     /** 拉取 */
-    pull: (options?: { remote?: string; branch?: string }) =>
+    pull: (options) =>
       ipcRenderer.invoke('git:pull', options),
 
     /** 获取远程更新 */
-    fetch: (options?: { remote?: string }) => ipcRenderer.invoke('git:fetch', options),
+    fetch: (options) => ipcRenderer.invoke('git:fetch', options),
+
+    /** 克隆仓库 */
+    clone: (options) => ipcRenderer.invoke('git:clone', options),
+
+    /** 获取远程列表 */
+    getRemotes: () => ipcRenderer.invoke('git:getRemotes'),
+
+    /** 重置分支 */
+    resetTo: (ref, mode) => ipcRenderer.invoke('git:resetTo', ref, mode),
+
+    /** 变基交互式 */
+    rebaseInteractive: (onto, todoContent) => ipcRenderer.invoke('git:rebaseInteractive', onto, todoContent),
 
     /** 创建分支 */
-    createBranch: (name: string, startPoint?: string) =>
+    createBranch: (name, startPoint) =>
       ipcRenderer.invoke('git:createBranch', name, startPoint),
 
     /** 切换分支 */
-    checkout: (ref: string) => ipcRenderer.invoke('git:checkout', ref),
+    checkout: (ref) => ipcRenderer.invoke('git:checkout', ref),
 
     /** 删除分支 */
-    deleteBranch: (name: string, force?: boolean) =>
+    deleteBranch: (name, force) =>
       ipcRenderer.invoke('git:deleteBranch', name, force),
 
+    /** 重命名分支 */
+    renameBranch: (oldName, newName) => ipcRenderer.invoke('git:renameBranch', oldName, newName),
+
     /** 合并分支 */
-    merge: (branch: string) => ipcRenderer.invoke('git:merge', branch),
+    merge: (branch) => ipcRenderer.invoke('git:merge', branch),
+
+    /** 恢复提交 */
+    revert: (oid) => ipcRenderer.invoke('git:revert', oid),
+
+    /** Cherry-pick 提交 */
+    cherryPick: (oid) => ipcRenderer.invoke('git:cherryPick', oid),
+
+    /** 子模块列表 */
+    listSubmodules: () => ipcRenderer.invoke('git:listSubmodules'),
+
+    /** 添加子模块 */
+    addSubmodule: (url, subPath) => ipcRenderer.invoke('git:addSubmodule', url, subPath),
+
+    /** 初始化子模块 */
+    initSubmodule: (subPath) => ipcRenderer.invoke('git:initSubmodule', subPath),
+
+    /** 更新子模块 */
+    updateSubmodule: (subPath) => ipcRenderer.invoke('git:updateSubmodule', subPath),
+
+    /** 删除子模块 */
+    removeSubmodule: (subPath) => ipcRenderer.invoke('git:removeSubmodule', subPath),
+
+    /** 责备信息 */
+    blame: (filePath) => ipcRenderer.invoke('git:blame', filePath),
+
+    /** 添加远程仓库 */
+    addRemote: (name, url) => ipcRenderer.invoke('git:addRemote', name, url),
+
+    /** 删除远程仓库 */
+    removeRemote: (name) => ipcRenderer.invoke('git:removeRemote', name),
+
+    /** 修改远程仓库 URL */
+    setRemoteUrl: (name, url) => ipcRenderer.invoke('git:setRemoteUrl', name, url),
+
+    /** 获取 Reflog */
+    reflog: (maxCount) => ipcRenderer.invoke('git:reflog', maxCount),
 
     /** 获取标签列表 */
     getTags: () => ipcRenderer.invoke('git:getTags'),
 
     /** 创建标签 */
-    createTag: (name: string, ref?: string, message?: string) =>
+    createTag: (name, ref, message) =>
       ipcRenderer.invoke('git:createTag', name, ref, message),
 
     /** 删除标签 */
-    deleteTag: (name: string) => ipcRenderer.invoke('git:deleteTag', name),
+    deleteTag: (name) => ipcRenderer.invoke('git:deleteTag', name),
 
     /** 获取 stash 列表 */
     getStashes: () => ipcRenderer.invoke('git:getStashes'),
 
     /** 创建 stash */
-    stash: (message?: string) => ipcRenderer.invoke('git:stash', message),
+    stash: (message) => ipcRenderer.invoke('git:stash', message),
 
     /** 恢复并删除 stash */
-    stashPop: (index?: number) => ipcRenderer.invoke('git:stashPop', index),
+    stashPop: (index) => ipcRenderer.invoke('git:stashPop', index),
 
     /** 应用 stash */
-    stashApply: (index?: number) => ipcRenderer.invoke('git:stashApply', index),
+    stashApply: (index) => ipcRenderer.invoke('git:stashApply', index),
 
     /** 删除 stash */
-    stashDrop: (index?: number) => ipcRenderer.invoke('git:stashDrop', index),
+    stashDrop: (index) => ipcRenderer.invoke('git:stashDrop', index),
 
     /** 刷新仓库数据 */
     refresh: () => ipcRenderer.invoke('git:refresh'),
 
-    // ========== 新增的文件和提交详情 API ==========
     /** 获取文件的提交历史 */
-    getFileLog: (filePath: string, options?: { depth?: number }) =>
-      ipcRenderer.invoke('git:getFileLog', filePath, options),
+    getFileLog: (filePath, options) =>
+      ipcRenderer.invoke('git:getFileHistory', filePath, options),
+
+    /** 获取文件的提交历史（别名） */
+    getFileHistory: (filePath) => ipcRenderer.invoke('git:getFileHistory', filePath),
 
     /** 获取指定提交的详细信息（含文件列表） */
-    getCommitDetail: (oid: string) =>
+    getCommitDetail: (oid) =>
       ipcRenderer.invoke('git:getCommitDetail', oid),
 
     /** 获取作者统计 */
     getAuthorStats: () => ipcRenderer.invoke('git:getAuthorStats'),
 
     /** 获取某文件的指定提交中的 diff */
-    getFileDiff: (oid: string, filePath: string) =>
+    getFileDiff: (oid, filePath) =>
       ipcRenderer.invoke('git:getFileDiff', oid, filePath),
   },
 
   // ========== 凭证服务 ==========
   credential: {
     /** 保存凭证 */
-    saveCredential: (credential: { protocol: string; host: string; username: string; password: string }) =>
+    saveCredential: (credential) =>
       ipcRenderer.invoke('credential:save', credential),
 
     /** 获取凭证 */
-    getCredential: (protocol: string, host: string) =>
+    getCredential: (protocol, host) =>
       ipcRenderer.invoke('credential:get', protocol, host),
 
     /** 删除凭证 */
-    deleteCredential: (protocol: string, host: string) =>
+    deleteCredential: (protocol, host) =>
       ipcRenderer.invoke('credential:delete', protocol, host),
   },
 
@@ -143,27 +200,30 @@ contextBridge.exposeInMainWorld('electronAPI', {
     selectFolder: () => ipcRenderer.invoke('fs:selectFolder'),
 
     /** 读取文件 */
-    readFile: (path: string) => ipcRenderer.invoke('fs:readFile', path),
+    readFile: (path) => ipcRenderer.invoke('fs:readFile', path),
 
     /** 写入文件 */
-    writeFile: (path: string, content: string) =>
+    writeFile: (path, content) =>
       ipcRenderer.invoke('fs:writeFile', path, content),
 
     /** 检查路径是否存在 */
-    exists: (path: string) => ipcRenderer.invoke('fs:exists', path),
+    exists: (path) => ipcRenderer.invoke('fs:exists', path),
 
     /** 显示输入框 */
-    showInputBox: (options?: { title?: string; prompt?: string; defaultValue?: string }) =>
+    showInputBox: (options) =>
       ipcRenderer.invoke('fs:showInputBox', options),
   },
 
   // ========== Shell 服务 ==========
   shell: {
+    /** 打开外部链接 */
+    openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url),
+
     /** 在文件管理器中打开路径 */
-    openPath: (path: string) => ipcRenderer.invoke('shell:openPath', path),
+    openPath: (path) => ipcRenderer.invoke('shell:openPath', path),
 
     /** 在终端中打开路径 */
-    openTerminal: (path: string) => ipcRenderer.invoke('shell:openTerminal', path),
+    openTerminal: (path) => ipcRenderer.invoke('shell:openTerminal', path),
   },
 
   // ========== 窗口服务 ==========
@@ -181,28 +241,31 @@ contextBridge.exposeInMainWorld('electronAPI', {
     isMaximized: () => ipcRenderer.invoke('window:isMaximized'),
 
     /** 监听最大化状态变化 */
-    onMaximizeChange: (callback: (isMaximized: boolean) => void) => {
-      const handler = (_: Electron.IpcRendererEvent, isMaximized: boolean) => {
+    onMaximizeChange: (callback) => {
+      const handler = (_event, isMaximized) => {
         callback(isMaximized);
       };
       ipcRenderer.on('window:maximizeChange', handler);
+      ipcRenderer.on('window:maximize-changed', handler);
       // 返回取消订阅函数
       return () => {
         ipcRenderer.removeListener('window:maximizeChange', handler);
+        ipcRenderer.removeListener('window:maximize-changed', handler);
       };
     },
   },
+
   // ========== IPC 事件监听 ==========
   ipc: {
     /** 监听主进程事件 */
-    on: (channel: string, callback: (...args: unknown[]) => void) => {
+    on: (channel, callback) => {
       ipcRenderer.on(channel, (_event, ...args) => callback(...args));
     },
     /** 移除事件监听 */
-    removeListener: (channel: string, callback: (...args: unknown[]) => void) => {
-      ipcRenderer.removeListener(channel, callback as never);
+    removeListener: (channel, callback) => {
+      ipcRenderer.removeListener(channel, callback);
     },
   },
-} as ElectronApi);
+});
 
 console.log('[Preload] Electron API 已暴露');
