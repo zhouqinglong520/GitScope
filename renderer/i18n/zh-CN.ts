@@ -140,6 +140,23 @@ export const zhCN = {
     deletions: '删除',
     selectFile: '选择一个文件查看差异',
     selectCommit: '选择一个提交查看变更',
+    viewMode: '视图模式',
+    unified: 'Unified',
+    sideBySide: 'Side-by-Side',
+    viewModeShortcut: '快捷键',
+    // 搜索
+    searchPlaceholder: '搜索...',
+    searchNoResults: '无匹配结果',
+    searchMatchCount: '{current}/{total}',
+    // 导航
+    prevHunk: '上一个变更',
+    nextHunk: '下一个变更',
+    // 视图选项
+    showWhitespace: '显示空白',
+    ignoreWhitespace: '忽略空白',
+    openInExternalTool: '外部工具',
+    diffToolNotConfigured: '请先配置 git difftool',
+    syntaxHighlight: '语法高亮',
   },
 
   // Quick Launch
@@ -306,6 +323,30 @@ export const zhCN = {
     customRange: '自定义范围',
     clear: '清除筛选',
     showing: '显示',
+  },
+
+  // 折叠合并提交
+  collapse: {
+    collapseBranch: '折叠分支',
+    expandBranch: '展开分支',
+    collapseAll: '折叠所有合并',
+    expandAll: '展开所有合并',
+    commitsCollapsed: '个提交已折叠，点击展开',
+  },
+
+  // ========== 冲突预判 ==========
+  conflict: {
+    warningTitle: '⚠️ 冲突预检',
+    warningMessage: '此操作可能产生 {count} 个文件冲突，是否继续？',
+    conflictingFiles: '冲突文件',
+    continue: '继续',
+    cancel: '取消',
+    mergeConflict: '合并冲突',
+    rebaseConflict: '变基冲突',
+    cherryPickConflict: 'Cherry-pick 冲突',
+    noConflict: '无冲突',
+    conflictDetected: '检测到冲突',
+    manualMerge: '请手动解决冲突后继续操作',
   },
 };
 
