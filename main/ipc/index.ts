@@ -5,7 +5,6 @@
 
 import { ipcMain, dialog, BrowserWindow } from 'electron';
 import { gitService } from '../services/git/index.js';
-import { credentialService } from '../services/credential/index.js';
 
 /**
  * 注册所有 IPC 处理器
@@ -170,20 +169,55 @@ export function registerIpcHandlers(): void {
     await gitService.refresh();
   });
 
+  // ========== 冲突预判 API ==========
+
+  /** 检测合并冲突 */
+  ipcMain.handle('git:checkMergeConflict', async (_, branch: string) => {
+    try {
+      return await gitService.checkMergeConflict(branch);
+    } catch (error) {
+      console.error('检测合并冲突失败:', error);
+      return { hasConflict: false, conflictingFiles: [] };
+    }
+  });
+
+  /** 检测变基冲突 */
+  ipcMain.handle('git:checkRebaseConflict', async (_, upstream: string) => {
+    try {
+      return await gitService.checkRebaseConflict(upstream);
+    } catch (error) {
+      console.error('检测变基冲突失败:', error);
+      return { hasConflict: false, conflictingFiles: [] };
+    }
+  });
+
+  /** 检测 cherry-pick 冲突 */
+  ipcMain.handle('git:checkCherryPickConflict', async (_, oid: string) => {
+    try {
+      return await gitService.checkCherryPickConflict(oid);
+    } catch (error) {
+      console.error('检测 Cherry-pick 冲突失败:', error);
+      return { hasConflict: false, conflictingFiles: [] };
+    }
+  });
+
   // ========== 凭证服务 ==========
 
   /** 保存凭证 */
   ipcMain.handle('credential:save', async (_, credential) => {
+    const { credentialService } = await import('../services/credential/index.js');
     await credentialService.save(credential);
   });
 
   /** 获取凭证 */
   ipcMain.handle('credential:get', async (_, protocol: string, host: string) => {
+    const { credentialService } = await import('../services/credential/index.js');
     return await credentialService.get(protocol as 'http' | 'https', host);
   });
 
   /** 删除凭证 */
   ipcMain.handle('credential:delete', async (_, protocol: string, host: string) => {
+    const { credentialService } = await import('../services/credential/index.js');
     await credentialService.delete(protocol as 'http' | 'https', host);
   });
 
