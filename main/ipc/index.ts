@@ -48,13 +48,13 @@ export function registerIpcHandlers(): void {
   });
 
   /** 获取文件差异 */
-  ipcMain.handle('git:getDiff', async (_, filePath?: string, commitOid?: string) => {
-    return await gitService.diff(filePath, commitOid);
+  ipcMain.handle('git:getDiff', async (_, filePath?: string, options?) => {
+    return await gitService.diff(filePath, undefined, options);
   });
 
   /** 获取暂存区差异 */
-  ipcMain.handle('git:getStagedDiff', async (_, filePath?: string) => {
-    return await gitService.stagedDiff(filePath);
+  ipcMain.handle('git:getStagedDiff', async (_, filePath?: string, options?) => {
+    return await gitService.stagedDiff(filePath, options);
   });
 
   /** 暂存文件 */
@@ -201,6 +201,18 @@ export function registerIpcHandlers(): void {
     }
   });
 
+  // ========== 外部 Diff 工具 ==========
+
+  /** 在外部 Diff 工具中打开 */
+  ipcMain.handle('git:openInDiffTool', async (_, filePath?: string) => {
+    try {
+      return await gitService.openDiffTool(filePath);
+    } catch (error) {
+      console.error('打开 difftool 失败:', error);
+      return false;
+    }
+  });
+
   // ========== 凭证服务 ==========
 
   /** 保存凭证 */
@@ -327,3 +339,15 @@ export function registerIpcHandlers(): void {
 
   console.log('[GitGUI] 所有 IPC 处理器已注册');
 }
+
+  // ========== 分支跟踪状态 ==========
+
+  /** 获取分支跟踪状态 */
+  ipcMain.handle('git:getBranchTrackingStatus', async () => {
+    try {
+      return await gitService.getBranchTrackingStatus();
+    } catch (error) {
+      console.error('获取分支跟踪状态失败:', error);
+      return {};
+    }
+  });
