@@ -87,6 +87,32 @@ export function registerIpcHandlers(): void {
   /** 推送 */
   ipcMain.handle('git:push', async (_, options?) => {
     await gitService.push(options?.remote, options?.branch);
+  /** Fetch 所有远程仓库 */
+  ipcMain.handle('git:fetchAll', async (_, options?) => {
+    await gitService.fetchAll(options);
+  });
+
+  /** 添加远程仓库 */
+  ipcMain.handle('git:addRemote', async (_, name: string, url: string) => {
+    await gitService.addRemote(name, url);
+  });
+
+  /** 移除远程仓库 */
+  ipcMain.handle('git:removeRemote', async (_, name: string) => {
+    await gitService.removeRemote(name);
+  });
+
+  /** 设置远程仓库 URL */
+  ipcMain.handle('git:setRemoteUrl', async (_, name: string, url: string) => {
+    await gitService.setRemoteUrl(name, url);
+  });
+
+  /** 获取分支上游信息 */
+  ipcMain.handle('git:getUpstream', async (_, branch?: string) => {
+    return await gitService.getUpstream(branch);
+  });
+
+
   });
 
   /** 拉取 */
@@ -140,13 +166,38 @@ export function registerIpcHandlers(): void {
   });
 
   /** Stash 暂存 */
-  ipcMain.handle('git:stash', async (_, message?: string) => {
-    await gitService.stash(message);
+  ipcMain.handle('git:stash', async (_, options?: { message?: string; includeUntracked?: boolean; keepIndex?: boolean }) => {
+    await gitService.stash(options);
   });
 
   /** Stash pop */
   ipcMain.handle('git:stashPop', async () => {
     await gitService.stashPop();
+  });
+
+  /** 获取 Stash 列表 */
+  ipcMain.handle('git:getStashes', async () => {
+    return await gitService.getStashes();
+  });
+
+  /** Stash Apply */
+  ipcMain.handle('git:stashApply', async (_, index?: number) => {
+    await gitService.stashApply(index);
+  });
+
+  /** Stash Drop */
+  ipcMain.handle('git:stashDrop', async (_, index?: number) => {
+    await gitService.stashDrop(index);
+  });
+
+  /** Stash Branch */
+  ipcMain.handle('git:stashBranch', async (_, index: number, branchName: string) => {
+    await gitService.stashBranch(index, branchName);
+  });
+
+  /** Blame */
+  ipcMain.handle('git:blame', async (_, filePath: string) => {
+    return await gitService.getBlame(filePath);
   });
 
   /** 获取提交详情 */
