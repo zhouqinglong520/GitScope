@@ -2,6 +2,7 @@
  * 提交图组件 (Fork 风格)
  * 提交图和信息在同一行，左侧彩色分支线区域 + 右侧提交信息
  * 支持选中提交展开详情、右键菜单、refs 标签显示
+ * 支持可折叠合并提交功能
  */
 
 import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react';
@@ -36,6 +37,8 @@ interface CommitGraphProps {
   onSavePatch?: (oid: string) => void;
   /** 右键菜单回调 - Interactive Rebase */
   onInteractiveRebase?: (oid: string, action: 'reword' | 'squash' | 'fixup' | 'drop') => void;
+  /** 折叠状态变更回调 - 用于同步 CommitList */
+  onCollapseChange?: (collapsedOids: Set<string>, visibleCommits: GitCommit[]) => void;
 }
 
 // 分支颜色配置
@@ -53,6 +56,7 @@ const BRANCH_COLORS = [
 const ROW_HEIGHT = 36;
 const COLUMN_WIDTH = 20;
 const CIRCLE_RADIUS = 6;
+const COLLAPSED_NODE_SIZE = 8; // 折叠节点的尺寸
 const GRAPH_WIDTH = 120; // 左侧图区域宽度
 
 interface RefInfo {
@@ -62,13 +66,116 @@ interface RefInfo {
 }
 
 /**
- * 生成提交图节点
+ * 计算折叠分支中被跳过的提交数量
+ */
+function countCollapsedCommits(
+  mergeOid: string,
+  allCommits: GitCommit[],
+  collapsedOids: Set<string>
+): number {
+  const mergeCommit = allCommits.find(c => c.oid === mergeOid);
+  if (!mergeCommit || mergeCommit.parentIds.length <= 1) return 0;
+
+  // 第一个父提交是主线，其他是合并的分支
+  const mainParentOid = mergeCommit.parentIds[0];
+  const branchParentOids = mergeCommit.parentIds.slice(1);
+
+  let count = 0;
+  const visited = new Set<string>();
+
+  // 遍历每个被合并的分支上的提交
+  for (const parentOid of branchParentOids) {
+    const stack = [parentOid];
+    while (stack.length > 0) {
+      const oid = stack.pop()!;
+      if (visited.has(oid) || oid === mainParentOid) continue;
+      visited.add(oid);
+
+      // 检查这个提交是否会被折叠（如果父提交也是合并且已折叠）
+      const commit = allCommits.find(c => c.oid === oid);
+      if (commit) {
+        // 如果这个提交本身是一个折叠的合并提交的子提交，说明它已经被计入了
+        if (!collapsedOids.has(oid)) {
+          // 检查是否有其他父提交不在被折叠的分支中
+          const hasVisibleParent = commit.parentIds.some(pid => 
+            !visited.has(pid) && pid !== oid
+          );
+          if (!hasVisibleParent && commit.parentIds.length > 0) {
+            // 所有父提交都在折叠链中
+            count++;
+            // 将这个提交的父提交加入栈
+            commit.parentIds.forEach(pid => {
+              if (!visited.has(pid)) {
+                stack.push(pid);
+              }
+            });
+          } else if (hasVisibleParent) {
+            // 这个提交有可见的父提交，不计数
+          }
+        }
+      }
+    }
+  }
+
+  return count;
+}
+
+/**
+ * 获取折叠分支上所有被隐藏的提交 OID
+ */
+function getCollapsedCommitOids(
+  mergeOid: string,
+  allCommits: GitCommit[]
+): Set<string> {
+  const mergeCommit = allCommits.find(c => c.oid === mergeOid);
+  if (!mergeCommit || mergeCommit.parentIds.length <= 1) return new Set();
+
+  const collapsedOids = new Set<string>();
+  const mainParentOid = mergeCommit.parentIds[0];
+  const branchParentOids = mergeCommit.parentIds.slice(1);
+
+  const visited = new Set<string>();
+
+  // 遍历每个被合并的分支上的提交
+  for (const parentOid of branchParentOids) {
+    const stack = [parentOid];
+    while (stack.length > 0) {
+      const oid = stack.pop()!;
+      if (visited.has(oid) || oid === mainParentOid) continue;
+      visited.add(oid);
+
+      const commit = allCommits.find(c => c.oid === oid);
+      if (commit) {
+        // 检查是否所有父提交都已被访问（说明这是分支上的叶子节点）
+        const allParentsVisited = commit.parentIds.every(
+          pid => pid === oid || visited.has(pid) || pid === mainParentOid
+        );
+        
+        if (allParentsVisited && commit.parentIds.length > 0) {
+          collapsedOids.add(oid);
+          // 将这个提交的父提交加入栈（如果还不是主线的）
+          commit.parentIds.forEach(pid => {
+            if (!visited.has(pid) && pid !== mainParentOid) {
+              stack.push(pid);
+            }
+          });
+        }
+      }
+    }
+  }
+
+  return collapsedOids;
+}
+
+/**
+ * 生成提交图节点（支持折叠状态）
  */
 function buildGraphNodes(
   commits: GitCommit[],
-  branches: GitBranch[]
-): GraphNode[] {
-  if (commits.length === 0) return [];
+  branches: GitBranch[],
+  collapsedOids: Set<string>
+): { nodes: GraphNode[]; visibleCommitOids: Set<string> } {
+  if (commits.length === 0) return { nodes: [], visibleCommitOids: new Set() };
 
   // 构建分支 SHA 到名称的映射
   const branchShaMap = new Map<string, string[]>();
@@ -90,6 +197,19 @@ function buildGraphNodes(
     }
   });
 
+  // 计算所有可见的提交 OID
+  const visibleCommitOids = new Set<string>();
+  const collapsedBranchOids = new Set<string>(); // 被折叠的合并提交的分支提交
+
+  // 首先处理所有折叠的合并提交
+  collapsedOids.forEach(mergeOid => {
+    const childCollapsed = getCollapsedCommitOids(mergeOid, commits);
+    childCollapsed.forEach(oid => collapsedBranchOids.add(oid));
+  });
+
+  // 所有提交都是可见的，但渲染时会跳过折叠分支的提交
+  commits.forEach(c => visibleCommitOids.add(c.oid));
+
   // 列分配算法
   // 主分支（main/master）固定在 column 0
   const columnMap = new Map<string, number>();
@@ -107,6 +227,10 @@ function buildGraphNodes(
   // 从最新提交开始遍历
   for (let row = 0; row < commits.length; row++) {
     const commit = commits[row];
+    
+    // 如果这个提交属于折叠的分支，记录其映射关系但仍然分配列
+    const isInCollapsedBranch = collapsedBranchOids.has(commit.oid);
+    
     let column: number;
 
     // 检查是否有分支/标签指向这个提交
@@ -170,10 +294,11 @@ function buildGraphNodes(
       parentColumns,
       branchName: branchNames[0] || tagNames[0],
       refs,
+      isCollapsed: isInCollapsedBranch,
     });
   }
 
-  return nodes;
+  return { nodes, visibleCommitOids };
 }
 
 /**
@@ -182,10 +307,7 @@ function buildGraphNodes(
 function getRefColor(ref: string, branches: GitBranch[]): string {
   const branch = branches.find((b) => b.name === ref);
   if (branch) {
-    const column = branch.oid ? Array.from(new Set(
-      nodes.filter((n) => n.commit.oid === branch.oid).map((n) => n.column)
-    ))[0] : 0;
-    return BRANCH_COLORS[column % BRANCH_COLORS.length];
+    return BRANCH_COLORS[0]; // 默认颜色
   }
   return '#888888';
 }
@@ -223,8 +345,6 @@ function formatRelativeTime(timestamp: number): string {
   }
 }
 
-let nodes: GraphNode[] = [];
-
 function CommitGraph({
   commits,
   branches,
@@ -239,6 +359,7 @@ function CommitGraph({
   onRevert,
   onSavePatch,
   onInteractiveRebase,
+  onCollapseChange,
 }: CommitGraphProps) {
   const { t } = useI18();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -246,28 +367,88 @@ function CommitGraph({
   const [scrollTop, setScrollTop] = useState(0);
   const [containerHeight, setContainerHeight] = useState(400);
   const [graphNodes, setGraphNodes] = useState<GraphNode[]>([]);
+  
+  // 折叠状态管理
+  const [collapsedMergeOids, setCollapsedMergeOids] = useState<Set<string>>(new Set());
+  
+  // 右键菜单选中的合并提交
+  const [contextMenuMergeCommit, setContextMenuMergeCommit] = useState<GitCommit | null>(null);
 
   // 构建图数据
   useEffect(() => {
-    nodes = buildGraphNodes(commits, branches);
+    const { nodes } = buildGraphNodes(commits, branches, collapsedMergeOids);
     setGraphNodes(nodes);
-  }, [commits, branches]);
+    
+    // 计算可见提交列表
+    const collapsedBranchOids = new Set<string>();
+    collapsedMergeOids.forEach(mergeOid => {
+      const childCollapsed = getCollapsedCommitOids(mergeOid, commits);
+      childCollapsed.forEach(oid => collapsedBranchOids.add(oid));
+    });
+    
+    const visibleCommits = commits.filter(c => !collapsedBranchOids.has(c.oid));
+    onCollapseChange?.(collapsedMergeOids, visibleCommits);
+  }, [commits, branches, collapsedMergeOids]);
+
+  // 折叠/展开合并提交
+  const toggleCollapse = useCallback((mergeOid: string) => {
+    setCollapsedMergeOids(prev => {
+      const next = new Set(prev);
+      if (next.has(mergeOid)) {
+        next.delete(mergeOid);
+      } else {
+        next.add(mergeOid);
+      }
+      return next;
+    });
+  }, []);
+
+  // 折叠所有合并提交
+  const collapseAllMerges = useCallback(() => {
+    const mergeCommits = commits.filter(c => c.parentIds.length > 1);
+    const allMergeOids = new Set(mergeCommits.map(c => c.oid));
+    setCollapsedMergeOids(allMergeOids);
+  }, [commits]);
+
+  // 展开所有合并提交
+  const expandAllMerges = useCallback(() => {
+    setCollapsedMergeOids(new Set());
+  }, []);
+
+  // 获取折叠提示文本
+  const getCollapseTooltip = (mergeOid: string): string => {
+    const collapsedCount = countCollapsedCommits(mergeOid, commits, collapsedMergeOids);
+    if (collapsedCount > 0) {
+      return `${collapsedCount} ${t('collapse.commitsCollapsed')}`;
+    }
+    return '';
+  };
 
   // 虚拟滚动计算
   const virtualData = useMemo(() => {
+    // 过滤掉折叠分支的提交
+    const collapsedBranchOids = new Set<string>();
+    collapsedMergeOids.forEach(mergeOid => {
+      const childCollapsed = getCollapsedCommitOids(mergeOid, commits);
+      childCollapsed.forEach(oid => collapsedBranchOids.add(oid));
+    });
+    
+    const filteredNodes = graphNodes.filter(n => !n.isCollapsed);
+    
     const startRow = Math.floor(scrollTop / ROW_HEIGHT);
     const endRow = Math.min(
       startRow + Math.ceil(containerHeight / ROW_HEIGHT) + 2,
-      graphNodes.length
+      filteredNodes.length
     );
 
     return {
       startRow,
       endRow,
-      visibleNodes: graphNodes.slice(startRow, endRow),
-      totalHeight: graphNodes.length * ROW_HEIGHT,
+      visibleNodes: filteredNodes.slice(startRow, endRow),
+      totalHeight: filteredNodes.length * ROW_HEIGHT,
+      collapsedBranchOids,
     };
-  }, [graphNodes, scrollTop, containerHeight]);
+  }, [graphNodes, scrollTop, containerHeight, collapsedMergeOids, commits]);
 
   // 监听容器大小变化
   useEffect(() => {
@@ -313,65 +494,87 @@ function CommitGraph({
       const actualIndex = virtualData.startRow + index;
       const nodeY = actualIndex * ROW_HEIGHT + ROW_HEIGHT / 2;
       
-      if (nodeY < startY - ROW_HEIGHT || nodeY > endY + ROW_HEIGHT) return;
+      if (nodeY < startY - ROW_HEIGHT * 2 || nodeY > endY + ROW_HEIGHT * 2) return;
 
       const nodeX = node.column * COLUMN_WIDTH + COLUMN_WIDTH;
+      const isCollapsedMerge = collapsedMergeOids.has(node.commit.oid);
 
-      // 绘制到父节点的连线
-      node.parentColumns.forEach((parentCol) => {
+      // 绘制到主父节点的连接线
+      if (((node.commit.parentIds?.length) ?? 0) > 0) {
+        const mainParentOid = node.commit.parentIds[0];
         const parentNode = graphNodes.find(
-          (n) => n.commit.oid === node.commit.parentIds[0] && n.column === parentCol
+          (n) => n.commit.oid === mainParentOid && n.column === node.column
         );
-        if (!parentNode) return;
 
-        const parentIndex = graphNodes.indexOf(parentNode);
-        const parentY = parentIndex * ROW_HEIGHT + ROW_HEIGHT / 2;
-        const parentX = parentCol * COLUMN_WIDTH + COLUMN_WIDTH;
+        if (parentNode && !parentNode.isCollapsed) {
+          const parentIndex = graphNodes.indexOf(parentNode);
+          // 计算过滤后的行号
+          const filteredParentIndex = graphNodes.slice(0, parentIndex).filter(n => !n.isCollapsed).length;
+          const parentY = filteredParentIndex * ROW_HEIGHT + ROW_HEIGHT / 2;
+          const parentX = parentNode.column * COLUMN_WIDTH + COLUMN_WIDTH;
 
-        ctx.strokeStyle = node.color;
+          ctx.strokeStyle = node.color;
+          ctx.shadowBlur = 4;
+          ctx.shadowColor = node.color;
 
-        if (parentX === nodeX) {
-          // 直线
+          if (parentX === nodeX) {
+            // 直线
+            ctx.beginPath();
+            ctx.moveTo(nodeX, nodeY + CIRCLE_RADIUS);
+            ctx.lineTo(parentX, parentY - CIRCLE_RADIUS);
+            ctx.stroke();
+          } else {
+            // Bezier 曲线连接
+            ctx.beginPath();
+            ctx.moveTo(nodeX, nodeY + CIRCLE_RADIUS);
+            
+            const midY = (nodeY + parentY) / 2;
+            ctx.bezierCurveTo(
+              nodeX, midY,
+              parentX, midY,
+              parentX, parentY - CIRCLE_RADIUS
+            );
+            ctx.stroke();
+          }
+        } else if (isCollapsedMerge) {
+          // 折叠合并提交 - 画到主线
+          ctx.strokeStyle = node.color;
+          ctx.shadowBlur = 4;
+          ctx.shadowColor = node.color;
+          
           ctx.beginPath();
-          ctx.moveTo(nodeX, nodeY + CIRCLE_RADIUS);
-          ctx.lineTo(parentX, parentY - CIRCLE_RADIUS);
+          ctx.moveTo(nodeX, nodeY + COLLAPSED_NODE_SIZE);
+          ctx.lineTo(nodeX, nodeY + ROW_HEIGHT);
           ctx.stroke();
-        } else {
-          // Bezier 曲线连接
+        }
+      }
+
+      // 如果是合并提交且未折叠，绘制到其他父节点的连接线
+      if (((node.commit.parentIds?.length) ?? 0) > 1 && !isCollapsedMerge) {
+        node.commit.parentIds.slice(1).forEach((parentOid) => {
+          const parentNode = graphNodes.find((n) => n.commit.oid === parentOid && !n.isCollapsed);
+          if (!parentNode) return;
+
+          const parentIndex = graphNodes.indexOf(parentNode);
+          const filteredParentIndex = graphNodes.slice(0, parentIndex).filter(n => !n.isCollapsed).length;
+          const parentY = filteredParentIndex * ROW_HEIGHT + ROW_HEIGHT / 2;
+          const parentX = parentNode.column * COLUMN_WIDTH + COLUMN_WIDTH;
+
+          ctx.strokeStyle = parentNode.color;
           ctx.beginPath();
-          ctx.moveTo(nodeX, nodeY + CIRCLE_RADIUS);
+          ctx.moveTo(parentX, parentY + CIRCLE_RADIUS);
           
           const midY = (nodeY + parentY) / 2;
           ctx.bezierCurveTo(
-            nodeX, midY,
             parentX, midY,
-            parentX, parentY - CIRCLE_RADIUS
+            nodeX, midY,
+            nodeX, nodeY - CIRCLE_RADIUS
           );
           ctx.stroke();
-        }
-      });
+        });
+      }
 
-      // 如果是合并提交（多个父节点），从其他父节点画线
-      node.commit.parentIds.slice(1).forEach((parentOid) => {
-        const parentNode = graphNodes.find((n) => n.commit.oid === parentOid);
-        if (!parentNode) return;
-
-        const parentIndex = graphNodes.indexOf(parentNode);
-        const parentY = parentIndex * ROW_HEIGHT + ROW_HEIGHT / 2;
-        const parentX = parentNode.column * COLUMN_WIDTH + COLUMN_WIDTH;
-
-        ctx.strokeStyle = parentNode.color;
-        ctx.beginPath();
-        ctx.moveTo(parentX, parentY + CIRCLE_RADIUS);
-        
-        const midY = (nodeY + parentY) / 2;
-        ctx.bezierCurveTo(
-          parentX, midY,
-          nodeX, midY,
-          nodeX, nodeY - CIRCLE_RADIUS
-        );
-        ctx.stroke();
-      });
+      ctx.shadowBlur = 0;
     });
 
     // 绘制节点圆点
@@ -379,16 +582,17 @@ function CommitGraph({
       const actualIndex = virtualData.startRow + index;
       const nodeY = actualIndex * ROW_HEIGHT + ROW_HEIGHT / 2;
       
-      if (nodeY < startY - ROW_HEIGHT || nodeY > endY + ROW_HEIGHT) return;
+      if (nodeY < startY - ROW_HEIGHT * 2 || nodeY > endY + ROW_HEIGHT * 2) return;
 
       const nodeX = node.column * COLUMN_WIDTH + COLUMN_WIDTH;
       const isSelected = selectedCommit === node.commit.oid;
+      const isCollapsedMerge = collapsedMergeOids.has(node.commit.oid);
 
       // 检测是否为 HEAD 提交（当前分支的最新提交）
-      const isHead = node.commit.oid === graphNodes[0]?.commit.oid;
+      const isHead = node.commit.oid === graphNodes.find(n => !n.isCollapsed)?.commit.oid;
       
       // 检测是否为合并提交（多个父节点）
-      const isMergeCommit = node.commit.parentIds.length > 1;
+      const isMergeCommit = ((node.commit.parentIds?.length) ?? 0) > 1;
 
       // 绘制发光效果
       ctx.shadowBlur = isHead ? 12 : 6;
@@ -412,8 +616,34 @@ function CommitGraph({
         ctx.beginPath();
         ctx.arc(nodeX, nodeY, CIRCLE_RADIUS - 3, 0, Math.PI * 2);
         ctx.fill();
+      } else if (isCollapsedMerge) {
+        // 折叠的合并提交：菱形
+        ctx.fillStyle = node.color;
+        ctx.beginPath();
+        ctx.moveTo(nodeX, nodeY - COLLAPSED_NODE_SIZE);
+        ctx.lineTo(nodeX + COLLAPSED_NODE_SIZE, nodeY);
+        ctx.lineTo(nodeX, nodeY + COLLAPSED_NODE_SIZE);
+        ctx.lineTo(nodeX - COLLAPSED_NODE_SIZE, nodeY);
+        ctx.closePath();
+        ctx.fill();
+        
+        // 白色描边
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        
+        // + 号表示可展开
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(nodeX - 4, nodeY);
+        ctx.lineTo(nodeX + 4, nodeY);
+        ctx.moveTo(nodeX, nodeY - 4);
+        ctx.lineTo(nodeX, nodeY + 4);
+        ctx.stroke();
       } else if (isMergeCommit) {
-        // 合并提交：双圆环效果
+        // 合并提交（未折叠）：双圆环效果
         ctx.fillStyle = node.color;
         ctx.beginPath();
         ctx.arc(nodeX, nodeY, CIRCLE_RADIUS, 0, Math.PI * 2);
@@ -424,12 +654,20 @@ function CommitGraph({
         ctx.lineWidth = 1.5;
         ctx.stroke();
         
-        // 内圈（白色）
+        // 内圈（带 - 号表示可折叠）
         ctx.shadowBlur = 0;
         ctx.fillStyle = node.color;
         ctx.beginPath();
         ctx.arc(nodeX, nodeY, CIRCLE_RADIUS - 3, 0, Math.PI * 2);
         ctx.fill();
+        
+        // - 号表示可折叠
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(nodeX - 3, nodeY);
+        ctx.lineTo(nodeX + 3, nodeY);
+        ctx.stroke();
       } else {
         // 普通提交：实心圆
         ctx.fillStyle = node.color;
@@ -449,16 +687,84 @@ function CommitGraph({
       // 重置阴影
       ctx.shadowBlur = 0;
     });
-  }, [virtualData, selectedCommit, scrollTop, containerHeight, graphNodes]);
+  }, [virtualData, selectedCommit, scrollTop, containerHeight, graphNodes, collapsedMergeOids]);
 
   // 处理滚动
   const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
     setScrollTop((e.target as HTMLDivElement).scrollTop);
   }, []);
 
+  // 键盘事件处理
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!selectedCommit) return;
+      
+      const selectedNode = graphNodes.find(n => n.commit.oid === selectedCommit);
+      if (!selectedNode) return;
+      
+      const isMergeCommit = (selectedNode?.commit.parentIds?.length ?? 0) > 1;
+      const isCollapsed = collapsedMergeOids.has(selectedCommit);
+      
+      if (e.key === 'ArrowLeft' && isMergeCommit && !isCollapsed) {
+        // 按左方向键折叠
+        e.preventDefault();
+        toggleCollapse(selectedCommit);
+      } else if (e.key === 'ArrowRight' && isCollapsed) {
+        // 按右方向键展开
+        e.preventDefault();
+        toggleCollapse(selectedCommit);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedCommit, graphNodes, collapsedMergeOids, toggleCollapse]);
+
   // 右键菜单
   const { showContextMenu, ContextMenuWrapper } = useContextMenu(() => {
-    const items: MenuItem[] = [
+    const selectedNode = selectedCommit ? graphNodes.find(n => n.commit.oid === selectedCommit) : null;
+    const selectedCommitData = selectedNode?.commit;
+    const isMergeCommit = selectedCommitData ? selectedCommitData.parentIds.length > 1 : false;
+    const isCollapsed = selectedCommit ? collapsedMergeOids.has(selectedCommit) : false;
+    
+    const items: MenuItem[] = [];
+
+    // 添加折叠/展开选项（如果是合并提交）
+    if (isMergeCommit) {
+      if (isCollapsed) {
+        items.push({
+          id: 'expand-branch',
+          label: t('collapse.expandBranch'),
+          onClick: () => selectedCommit && toggleCollapse(selectedCommit),
+        });
+      } else {
+        items.push({
+          id: 'collapse-branch',
+          label: t('collapse.collapseBranch'),
+          onClick: () => selectedCommit && toggleCollapse(selectedCommit),
+        });
+      }
+      items.push({ id: 'divider-collapse', label: '', divider: true });
+    }
+
+    // 添加折叠/展开所有选项
+    const hasMerges = commits.some(c => c.parentIds.length > 1);
+    if (hasMerges) {
+      items.push({
+        id: 'collapse-all',
+        label: t('collapse.collapseAll'),
+        onClick: collapseAllMerges,
+      });
+      items.push({
+        id: 'expand-all',
+        label: t('collapse.expandAll'),
+        onClick: expandAllMerges,
+      });
+      items.push({ id: 'divider-collapse-all', label: '', divider: true });
+    }
+
+    // 其他菜单项
+    items.push(
       {
         id: 'create-branch',
         label: t('contextMenu.createBranch') + ' (Ctrl+Shift+B)',
@@ -546,10 +852,57 @@ function CommitGraph({
             }
           }
         },
-      },
-    ];
+      }
+    );
     return items;
   });
+
+  // 处理节点点击（折叠/展开）
+  const handleNodeClick = useCallback((node: GraphNode, e: React.MouseEvent) => {
+    const isMergeCommit = ((node.commit.parentIds?.length) ?? 0) > 1;
+    const isCollapsed = collapsedMergeOids.has(node.commit.oid);
+    
+    if (isMergeCommit) {
+      // 双击或 Ctrl+单击切换折叠状态
+      if (e.detail === 2 || e.ctrlKey) {
+        toggleCollapse(node.commit.oid);
+        return;
+      }
+    }
+    
+    onCommitSelect?.(node.commit.oid);
+  }, [collapsedMergeOids, toggleCollapse, onCommitSelect]);
+
+  // 鼠标悬停提示
+  const [tooltip, setTooltip] = useState<{ x: number; y: number; text: string } | null>(null);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top + scrollTop;
+
+    // 检查是否悬停在折叠的合并节点上
+    for (const node of virtualData.visibleNodes) {
+      if (!collapsedMergeOids.has(node.commit.oid)) continue;
+      
+      const nodeX = node.column * COLUMN_WIDTH + COLUMN_WIDTH;
+      const nodeY = (virtualData.startRow + virtualData.visibleNodes.indexOf(node)) * ROW_HEIGHT + ROW_HEIGHT / 2;
+      
+      const dist = Math.sqrt((x - nodeX) ** 2 + (y - nodeY) ** 2);
+      if (dist < COLLAPSED_NODE_SIZE + 5) {
+        const tooltipText = getCollapseTooltip(node.commit.oid);
+        if (tooltipText) {
+          setTooltip({ x: e.clientX, y: e.clientY, text: tooltipText });
+          return;
+        }
+      }
+    }
+    
+    setTooltip(null);
+  }, [virtualData, collapsedMergeOids, scrollTop]);
 
   if (commits.length === 0) {
     return (
@@ -574,8 +927,20 @@ function CommitGraph({
           <canvas
             ref={canvasRef}
             className="absolute top-0 left-0"
+            onMouseMove={handleMouseMove}
+            onMouseLeave={() => setTooltip(null)}
           />
         </div>
+        
+        {/* 折叠提示 Tooltip */}
+        {tooltip && (
+          <div
+            className="fixed z-50 bg-[#3c3c3c] text-white text-xs px-2 py-1 rounded shadow-lg pointer-events-none"
+            style={{ left: tooltip.x + 10, top: tooltip.y + 10 }}
+          >
+            {tooltip.text}
+          </div>
+        )}
       </div>
 
       {/* 右侧提交信息区域 */}
@@ -590,13 +955,15 @@ function CommitGraph({
           {virtualData.visibleNodes.map((node, index) => {
             const actualIndex = virtualData.startRow + index;
             const isSelected = selectedCommit === node.commit.oid;
-            const nodeX = node.column * COLUMN_WIDTH + COLUMN_WIDTH;
+            const isCollapsed = collapsedMergeOids.has(node.commit.oid);
+            const isMergeCommit = ((node.commit.parentIds?.length) ?? 0) > 1;
+            const collapsedCount = isCollapsed ? countCollapsedCommits(node.commit.oid, commits, collapsedMergeOids) : 0;
 
             return (
               <div
                 key={node.commit.oid}
                 data-index={actualIndex}
-                onClick={() => onCommitSelect?.(node.commit.oid)}
+                onClick={(e) => handleNodeClick(node, e)}
                 onContextMenu={showContextMenu}
                 className={`
                   absolute left-0 right-0 flex items-center cursor-pointer
@@ -610,16 +977,28 @@ function CommitGraph({
                   paddingRight: 12,
                 }}
               >
+                {/* 折叠指示器 */}
+                {isCollapsed && (
+                  <span className="absolute left-2 flex items-center gap-1 text-xs text-gray-400">
+                    <span className="text-yellow-400">◆</span>
+                    <span className="text-yellow-500">({collapsedCount})</span>
+                  </span>
+                )}
+
                 {/* SHA */}
                 <span 
-                  className="font-mono text-xs text-[#5799da] flex-shrink-0 mr-3"
+                  className={`font-mono text-xs flex-shrink-0 mr-3 ${
+                    isCollapsed ? 'text-yellow-500' : 'text-[#5799da]'
+                  }`}
                   style={{ minWidth: 60 }}
                 >
                   {node.commit.shortOid}
                 </span>
 
                 {/* 提交消息 */}
-                <span className="flex-1 text-sm text-gray-200 truncate mr-3">
+                <span className={`flex-1 text-sm truncate mr-3 ${
+                  isCollapsed ? 'text-gray-400' : 'text-gray-200'
+                }`}>
                   {node.commit.message}
                 </span>
 
@@ -649,6 +1028,13 @@ function CommitGraph({
                       );
                     })}
                   </div>
+                )}
+
+                {/* 合并提交标记 */}
+                {isMergeCommit && !isCollapsed && (
+                  <span className="text-xs text-gray-500 mr-2 flex-shrink-0">
+                    ↙{((node.commit.parentIds?.length) ?? 0) - 1}
+                  </span>
                 )}
 
                 {/* 作者头像 */}
