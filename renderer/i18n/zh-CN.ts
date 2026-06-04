@@ -119,6 +119,39 @@ export const zhCN = {
     renamed: '已重命名',
   },
 
+  // 文件操作
+  fileActions: {
+    discardChanges: '放弃更改',
+    discardConfirm: '确定要放弃此文件的更改吗？此操作不可撤销。',
+    discardAllConfirm: '确定要放弃所有更改吗？此操作不可撤销。',
+    deleteFile: '删除文件',
+    deleteConfirm: '确定要删除此未跟踪文件吗？',
+    stageByExtension: '按扩展名暂存',
+    discardChangesAll: '放弃所有更改',
+  },
+
+  // 冲突解决
+  conflictResolve: {
+    title: '冲突解决',
+    conflictedFiles: '冲突文件',
+    conflictsRemaining: '个冲突待解决',
+    useMine: '使用我的版本',
+    useTheirs: '使用他们的版本',
+    useMineAll: '全部使用我的版本',
+    useTheirsAll: '全部使用他们的版本',
+    useMineAllConfirm: '确定对所有冲突文件使用你的版本吗？',
+    useTheirsAllConfirm: '确定对所有冲突文件使用他们的版本吗？',
+    continueMerge: '继续合并',
+    continueRebase: '继续变基',
+    continueCherryPick: '继续 Cherry-pick',
+    abortMerge: '中止合并',
+    abortRebase: '中止变基',
+    abortCherryPick: '中止 Cherry-pick',
+    abortConfirm: '确定要中止此操作吗？所有更改将丢失。',
+    allResolved: '所有冲突已解决',
+    conflictCount: '{count} 处冲突',
+  },
+
   // 提交对话框
   commitDialog: {
     title: '提交更改',
@@ -127,6 +160,15 @@ export const zhCN = {
     commit: '提交',
     cancel: '取消',
     amend: '修改上一次提交',
+    amendConfirm: 'Amend 会修改上次提交，确认？',
+    sign: '签名提交 (GPG/SSH)',
+    signTooltip: '使用 -S 参数签名提交',
+    coAuthor: '添加共提交者',
+    coAuthorPlaceholder: '姓名 <email>',
+    coAuthorRemove: '移除',
+    template: '提交模板',
+    loadTemplate: '加载模板',
+    subjectLength: '{current}/{max}',
   },
 
   // 差异显示
