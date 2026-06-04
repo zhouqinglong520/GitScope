@@ -32,6 +32,11 @@ import type {
   CommitFileChange,
   AuthorStats,
   FileCommitHistory,
+  GitStashEntry,
+  StashOptions,
+  BlameResult,
+  BlameLine,
+  BlameFilter,
 } from '../../../shared/types/git.js';
 
 const execFileAsync = promisify(execFile);
@@ -604,10 +609,28 @@ export class GitService {
 
   /**
    * Stash 暂存
+   * @param options Stash 选项
    */
-  async stash(message?: string): Promise<void> {
+  async stash(options?: StashOptions): Promise<void> {
     if (!this.dir) throw new Error('仓库未打开');
-    await git.stash({ fs: isoFs, dir: this.dir, message });
+    
+    const args: string[] = ['stash'];
+    
+    if (options?.keepIndex) {
+      args.push('--keep-index');
+    }
+    
+    if (options?.includeUntracked) {
+      args.push('-u');
+    }
+    
+    if (options?.message) {
+      args.push('push', '-m', options.message);
+    } else {
+      args.push('push');
+    }
+    
+    await this.gitCliExec(args);
   }
 
   /**
@@ -616,6 +639,235 @@ export class GitService {
   async stashPop(): Promise<void> {
     if (!this.dir) throw new Error('仓库未打开');
     await git.stashPop({ fs: isoFs, dir: this.dir });
+  }
+
+  /**
+   * 获取 Stash 列表（详细信息）
+   */
+  async getStashes(): Promise<GitStashEntry[]> {
+    if (!this.dir) throw new Error('仓库未打开');
+
+    try {
+      // 使用 git stash list --format 获取详细信息
+      const { stdout } = await execFileAsync(
+        'git',
+        ['stash', 'list', '--format=%H|%gd|%s|%ai'],
+        { cwd: this.dir }
+      );
+
+      const stashes: GitStashEntry[] = [];
+      const lines = stdout.trim().split('
+').filter(line => line.trim());
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+
+        const [hash, ref, message, dateStr] = line.split('|');
+        const index = i;
+
+        // 获取 stash 的文件统计
+        let stats = { additions: 0, deletions: 0, filesChanged: 0 };
+        let files: StashFileChange[] = [];
+        
+        try {
+          const statOutput = await this.gitCliExec([
+            'stash', 'show', '-p', '--stat', `stash@{${index}}`
+          ]);
+          
+          // 解析统计信息
+          const filesMatch = statOutput.match(/(\d+) file/);
+          const addMatch = statOutput.match(/(\d+) insertion/);
+          const delMatch = statOutput.match(/(\d+) deletion/);
+          
+          if (filesMatch) stats.filesChanged = parseInt(filesMatch[1]);
+          if (addMatch) stats.additions = parseInt(addMatch[1]);
+          if (delMatch) stats.deletions = parseInt(delMatch[1]);
+
+          // 解析文件列表
+          const fileLines = statOutput.split('
+').filter(l => {
+            const trimmed = l.trim();
+            return trimmed && !trimmed.includes('|') && 
+                   !trimmed.includes('insert') && !trimmed.includes('delet') &&
+                   !trimmed.includes('stash@{') && !l.startsWith('diff');
+          });
+          
+          files = fileLines.map(fileLine => {
+            const [filePath, changeStr] = fileLine.trim().split('|').map(s => s.trim());
+            let type: 'added' | 'modified' | 'deleted' = 'modified';
+            let additions = 0, deletions = 0;
+            
+            if (changeStr) {
+              const addM = changeStr.match(/(\d+)\+/);
+              const delM = changeStr.match(/(\d+)-/);
+              if (addM) additions = parseInt(addM[1]);
+              if (delM) deletions = parseInt(delM[1]);
+            }
+            
+            return { path: filePath, type, additions, deletions };
+          }).filter(f => f.path);
+        } catch {
+          // 解析文件列表失败，忽略
+        }
+
+        // 解析日期
+        let date = Date.now();
+        let parsedDateStr = dateStr;
+        try {
+          const d = new Date(dateStr);
+          if (!isNaN(d.getTime())) {
+            date = Math.floor(d.getTime() / 1000);
+          }
+        } catch {
+          // 日期解析失败，使用当前时间
+        }
+
+        stashes.push({
+          index,
+          ref: `stash@{${index}}`,
+          message: message || `WIP on ${await this.getCurrentBranch()}`,
+          date,
+          dateStr: parsedDateStr,
+          files,
+          stats,
+        });
+      }
+
+      return stashes;
+    } catch (error) {
+      console.error('[GitService] 获取 stash 列表失败:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Stash Apply（不弹出）
+   */
+  async stashApply(index?: number): Promise<void> {
+    if (!this.dir) throw new Error('仓库未打开');
+    const ref = index !== undefined ? `stash@{${index}}` : 'stash@{0}';
+    await this.gitCliExec(['stash', 'apply', ref]);
+  }
+
+  /**
+   * Stash Drop（删除单个）
+   */
+  async stashDrop(index?: number): Promise<void> {
+    if (!this.dir) throw new Error('仓库未打开');
+    const ref = index !== undefined ? `stash@{${index}}` : 'stash@{0}';
+    await this.gitCliExec(['stash', 'drop', ref]);
+  }
+
+  /**
+   * Stash Branch（从 stash 创建分支）
+   */
+  async stashBranch(index: number, branchName: string): Promise<void> {
+    if (!this.dir) throw new Error('仓库未打开');
+    await this.gitCliExec(['stash', 'branch', branchName, `stash@{${index}}`]);
+  }
+
+  /**
+   * 获取 Blame 信息
+   */
+  async getBlame(filePath: string): Promise<BlameResult | null> {
+    if (!this.dir) throw new Error('仓库未打开');
+
+    try {
+      // 使用 git blame --line-porcelain 获取详细信息
+      const { stdout } = await execFileAsync(
+        'git',
+        ['blame', '--line-porcelain', '--', filePath],
+        { cwd: this.dir, maxBuffer: 50 * 1024 * 1024 }
+      );
+
+      const lines: BlameLine[] = [];
+      const authors = new Set<string>();
+      let dateRange = { oldest: Infinity, newest: 0 };
+
+      // 解析 porcelain 格式
+      const lineBlocks = stdout.split('
+');
+      let currentCommit = '';
+      let currentAuthor = '';
+      let currentEmail = '';
+      let currentDate = 0;
+      let currentMessage = '';
+      let lineNumber = 0;
+      let content = '';
+
+      for (const block of lineBlocks) {
+        if (block.startsWith('	')) {
+          // 这是文件内容行
+          content = block.substring(1);
+          lineNumber++;
+          
+          lines.push({
+            lineNumber,
+            content,
+            commit: currentCommit,
+            shortCommit: currentCommit.substring(0, 7),
+            author: currentAuthor,
+            authorEmail: currentEmail,
+            date: currentDate,
+            commitMessage: currentMessage,
+          });
+
+          authors.add(currentAuthor);
+          if (currentDate > 0) {
+            if (currentDate < dateRange.oldest) dateRange.oldest = currentDate;
+            if (currentDate > dateRange.newest) dateRange.newest = currentDate;
+          }
+        } else if (block.startsWith('')) {
+          const colonIdx = block.indexOf(' ');
+          if (colonIdx > 0) {
+            const key = block.substring(0, colonIdx);
+            const value = block.substring(colonIdx + 1);
+            
+            switch (key) {
+              case 'author':
+                currentAuthor = value;
+                break;
+              case 'author-mail':
+                currentEmail = value;
+                break;
+              case 'author-time':
+                currentDate = parseInt(value);
+                break;
+              case 'summary':
+                currentMessage = value;
+                break;
+            }
+          }
+        } else if (block.match(/^[0-9a-f]{40}/)) {
+          currentCommit = block;
+        }
+      }
+
+      return {
+        filePath,
+        lines,
+        authors: Array.from(authors),
+        dateRange: dateRange.oldest === Infinity 
+          ? { oldest: 0, newest: 0 } 
+          : dateRange,
+      };
+    } catch (error) {
+      console.error('[GitService] 获取 blame 失败:', error);
+      return null;
+    }
+  }
+
+  /**
+   * 获取当前分支名称
+   */
+  private async getCurrentBranch(): Promise<string> {
+    if (!this.dir) return 'unknown';
+    try {
+      return await git.currentBranch({ fs: isoFs, dir: this.dir, fullname: false }) || 'HEAD';
+    } catch {
+      return 'HEAD';
+    }
   }
 
   /**
@@ -1119,6 +1371,193 @@ export class GitService {
   /**
    * 执行 git CLI 命令
    */
+  // ========== 远程仓库管理 ==========
+
+  /**
+   * 添加远程仓库
+   */
+  async addRemote(name: string, url: string): Promise<void> {
+    if (!this.dir) throw new Error('仓库未打开');
+
+    try {
+      await git.addRemote({ fs: isoFs, dir: this.dir, remote: name, url });
+      console.log(`[GitService] 添加远程仓库 ${name} -> ${url}`);
+    } catch (error) {
+      console.error('[GitService] 添加远程仓库失败:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 移除远程仓库
+   */
+  async removeRemote(name: string): Promise<void> {
+    if (!this.dir) throw new Error('仓库未打开');
+
+    try {
+      await git.deleteRemote({ fs: isoFs, dir: this.dir, remote: name });
+      console.log(`[GitService] 移除远程仓库 ${name}`);
+    } catch (error) {
+      console.error('[GitService] 移除远程仓库失败:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 设置远程仓库 URL
+   */
+  async setRemoteUrl(name: string, url: string): Promise<void> {
+    if (!this.dir) throw new Error('仓库未打开');
+
+    try {
+      // git remote set-url 会替换现有 URL
+      await execFileAsync(
+        'git',
+        ['remote', 'set-url', name, url],
+        { cwd: this.dir }
+      );
+      console.log(`[GitService] 更新远程仓库 URL ${name} -> ${url}`);
+    } catch (error) {
+      console.error('[GitService] 设置远程仓库 URL 失败:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Fetch 所有远程仓库
+   */
+  async fetchAll(options?: { prune?: boolean }): Promise<void> {
+    if (!this.dir) throw new Error('仓库未打开');
+
+    try {
+      const args = ['fetch', '--all'];
+      if (options?.prune) {
+        args.push('--prune');
+      }
+      await execFileAsync('git', args, { cwd: this.dir, maxBuffer: 50 * 1024 * 1024 });
+      console.log('[GitService] Fetch all remotes');
+    } catch (error) {
+      console.error('[GitService] Fetch all 失败:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Fetch（增强版，支持 prune）
+   */
+  async fetch(remote?: string, branch?: string, options?: { prune?: boolean }): Promise<void> {
+    if (!this.dir) throw new Error('仓库未打开');
+
+    try {
+      const args = ['fetch'];
+      
+      if (remote) {
+        args.push(remote);
+        if (branch) {
+          args.push(branch);
+        }
+      }
+      
+      if (options?.prune) {
+        args.push('--prune');
+      }
+
+      await execFileAsync('git', args, { cwd: this.dir, maxBuffer: 50 * 1024 * 1024 });
+      console.log('[GitService] Fetch 完成');
+    } catch (error) {
+      console.error('[GitService] Fetch 失败:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Push（增强版，支持 forceWithLease）
+   */
+  async push(remote?: string, branch?: string, options?: { 
+    force?: boolean; 
+    forceWithLease?: boolean;
+    setUpstream?: boolean;
+  }): Promise<void> {
+    if (!this.dir) throw new Error('仓库未打开');
+
+    try {
+      const args = ['push'];
+      
+      if (remote) {
+        args.push(remote);
+      }
+      
+      if (branch) {
+        args.push(branch);
+      }
+      
+      if (options?.force) {
+        args.push('--force');
+      } else if (options?.forceWithLease) {
+        args.push('--force-with-lease');
+      }
+      
+      if (options?.setUpstream && remote && branch) {
+        args.push('--set-upstream');
+        args.push(remote);
+        args.push(branch);
+      }
+
+      await execFileAsync('git', args, { cwd: this.dir, maxBuffer: 50 * 1024 * 1024 });
+      console.log('[GitService] Push 完成');
+    } catch (error) {
+      console.error('[GitService] Push 失败:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Pull（增强版，支持 rebase）
+   */
+  async pull(remote?: string, branch?: string, options?: { rebase?: boolean }): Promise<void> {
+    if (!this.dir) throw new Error('仓库未打开');
+
+    try {
+      const args = ['pull'];
+      
+      if (remote) {
+        args.push(remote);
+      }
+      
+      if (branch) {
+        args.push(branch);
+      }
+      
+      if (options?.rebase) {
+        args.push('--rebase');
+      }
+
+      await execFileAsync('git', args, { cwd: this.dir, maxBuffer: 50 * 1024 * 1024 });
+      console.log('[GitService] Pull 完成');
+    } catch (error) {
+      console.error('[GitService] Pull 失败:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 获取分支跟踪信息（判断是否有上游）
+   */
+  async getUpstream(branch?: string): Promise<string | null> {
+    if (!this.dir) return null;
+
+    try {
+      const branchName = branch || await git.currentBranch({ fs: isoFs, dir: this.dir, fullname: false });
+      if (!branchName) return null;
+
+      const upstream = await this.gitCliExec(['rev-parse', '--abbrev-ref', `${branchName}@{upstream}`]).catch(() => '');
+      return upstream.trim() || null;
+    } catch {
+      return null;
+    }
+  }
+
+
   private async gitCliExec(args: string[], cwd?: string): Promise<string> {
     const { stdout, stderr } = await execFileAsync('git', args, {
       cwd: cwd || this.dir || undefined,
