@@ -106,10 +106,13 @@ function MainLayout() {
   };
 
   // 处理提交
-  const handleCommit = async (message: string, amend: boolean) => {
+  const handleCommit = async (message: string, options?: { amend?: boolean; sign?: boolean }) => {
     setIsCommitting(true);
     try {
-      await window.electronAPI.git.commit(message, { amend });
+      const commitArgs: string[] = [];
+      if (options?.amend) commitArgs.push('--amend');
+      if (options?.sign) commitArgs.push('-S');
+      await window.electronAPI.git.commit(message, { amend: options?.amend, sign: options?.sign });
       await refresh();
     } catch (error) {
       console.error('提交失败:', error);
