@@ -1,3 +1,4 @@
+import type { ImageDiffInfo, FileHistoryEntry } from '@shared/types/git';
 /**
  * Electron IPC 类型定义
  * 定义主进程和渲染进程之间的通信协议
@@ -98,6 +99,16 @@ export interface IpcGitApi {
   abortRebase: () => Promise<void>;
   continueCherryPick: () => Promise<void>;
   abortCherryPick: () => Promise<void>;
+
+  /** 获取图片Diff */
+  getImageDiff: (filePath: string, oldOid?: string, newOid?: string) =>
+    Promise<ImageDiffInfo | null>;
+  /** 获取文件历史（增强版） */
+  getFileHistoryEnhanced: (filePath: string) =>
+    Promise<FileHistoryEntry[]>;
+  /** 获取文件在指定提交的内容(base64) */
+  getFileContent: (filePath: string, oid: string) =>
+    Promise<string | null>;
 }
 
 export interface CredentialInfo {
@@ -150,4 +161,5 @@ declare global {
   interface Window {
     electronAPI: ElectronApi;
   }
+
 }
