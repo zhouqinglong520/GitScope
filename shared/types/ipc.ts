@@ -5,6 +5,18 @@
 
 import type { GitCommit, GitBranch, GitStatus, GitDiff, RepositoryInfo, GitTag, CommitDetail, AuthorStats, FileCommitHistory } from './git.js';
 
+/** 冲突检测结果 */
+export interface ConflictCheckResult {
+  hasConflict: boolean;
+  conflictingFiles?: string[];
+}
+
+/** Diff 选项参数 */
+export interface DiffOptions {
+  /** 忽略空白差异 */
+  ignoreWhitespace?: boolean;
+}
+
 /** Git 服务 IPC 调用接口 */
 export interface IpcGitApi {
   openRepository: (path: string) => Promise<RepositoryInfo | null>;
@@ -13,7 +25,7 @@ export interface IpcGitApi {
   getLog: (options?: { ref?: string; depth?: number }) => Promise<GitCommit[]>;
   getBranches: () => Promise<GitBranch[]>;
   getStatus: () => Promise<GitStatus | null>;
-  getDiff: (filePath?: string) => Promise<GitDiff[]>;
+  getDiff: (filePath?: string, options?: DiffOptions) => Promise<GitDiff[]>;
   stage: (files: string[]) => Promise<void>;
   stageAll: () => Promise<void>;
   unstage: (files: string[]) => Promise<void>;
@@ -41,7 +53,7 @@ export interface IpcGitApi {
   getAuthorStats: () => Promise<AuthorStats[]>;
   getFileDiff: (oid: string, filePath: string) => Promise<GitDiff[]>;
   clone: (url: string, dir: string) => Promise<void>;
-  getStagedDiff: (filePath?: string) => Promise<GitDiff[]>;
+  getStagedDiff: (filePath?: string, options?: DiffOptions) => Promise<GitDiff[]>;
   getRemotes: () => Promise<Array<{ name: string; url: string; type: string }>>;
   addRemote: (name: string, url: string) => Promise<void>;
   removeRemote: (name: string) => Promise<void>;
@@ -57,6 +69,12 @@ export interface IpcGitApi {
   initSubmodule: (path: string) => Promise<void>;
   updateSubmodule: (path: string) => Promise<void>;
   removeSubmodule: (path: string) => Promise<void>;
+  // ========== 冲突预判 API ==========
+  checkMergeConflict: (branch: string) => Promise<ConflictCheckResult>;
+  checkRebaseConflict: (upstream: string) => Promise<ConflictCheckResult>;
+  checkCherryPickConflict: (oid: string) => Promise<ConflictCheckResult>;
+  // ========== 外部 Diff 工具 ==========
+  openInDiffTool: (filePath?: string) => Promise<boolean>;
 }
 
 export interface CredentialInfo {
