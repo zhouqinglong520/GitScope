@@ -369,6 +369,11 @@ export const zhCN = {
     diff: '差异',
     viewOnGitee: '在 Gitee 中查看',
     viewDiff: '查看该提交中的文件差异',
+    filterPlaceholder: '搜索提交...',
+    loading: '加载中...',
+    noHistory: '暂无历史记录',
+    today: '今天',
+    yesterday: '昨天',
   },
 
   // 作者筛选
@@ -519,6 +524,16 @@ export const zhCN = {
     fetchAll: 'Fetch All',
     fetchPrune: 'Fetch + Prune',
     fetchAllPrune: 'Fetch All + Prune',
+  },
+
+  imageDiff: {
+    sideBySide: '并排对比',
+    slider: '滑块对比',
+    onionSkin: '洋葱皮叠加',
+    noOldVersion: '无旧版本',
+    newFile: '新文件（无上一版本）',
+    deleted: '已删除',
+    title: '图片差异',
   },
 };
 
