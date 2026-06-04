@@ -135,10 +135,10 @@ function Section({ title, expanded, onToggle, icon, children }: SectionProps) {
     <div className="border-b border-panel-border">
       <div
         onClick={onToggle}
-        className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-sidebar-hover transition-colors"
+        className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-sidebar-hover transition-colors duration-200"
       >
         <svg
-          className={`w-3 h-3 text-gray-500 transition-transform ${expanded ? 'rotate-90' : ''}`}
+          className={`w-3 h-3 text-gray-500 transition-transform duration-200 ${expanded ? 'rotate-90' : ''}`}
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -148,7 +148,11 @@ function Section({ title, expanded, onToggle, icon, children }: SectionProps) {
         {icon}
         <span className="flex-1 text-xs font-medium text-gray-300">{title}</span>
       </div>
-      {expanded && <div className="pb-1">{children}</div>}
+      {expanded && (
+          <div className="pb-1 overflow-hidden transition-all duration-200">
+            {children}
+          </div>
+        )}
     </div>
   );
 }
@@ -207,7 +211,7 @@ function RepoSection() {
           onClick={() => setActiveRepo(repo.id)}
           onContextMenu={showContextMenu}
           className={`
-            flex items-center gap-2 px-3 py-1.5 cursor-pointer transition-colors
+            flex items-center gap-2 px-3 py-1 cursor-pointer transition-colors
             ${activeRepoId === repo.id ? 'bg-sidebar-active' : 'hover:bg-sidebar-hover'}
           `}
         >
@@ -216,7 +220,12 @@ function RepoSection() {
           </svg>
           <div className="flex-1 min-w-0">
             <div className="text-sm truncate">{repo.name}</div>
-            <div className="text-xs text-gray-500 truncate">{repo.path}</div>
+            <div className="text-xs text-gray-500 truncate">
+            {(() => {
+              const parts = repo.path.split(/[/\\]/);
+              return parts.length > 2 ? '.../' + parts.slice(-2).join('/') : repo.path;
+            })()}
+          </div>
           </div>
           {repo.currentBranch && (
             <span className="text-xs text-primary-400">{repo.currentBranch}</span>
@@ -301,7 +310,7 @@ function BranchSection() {
           onContextMenu={showContextMenu}
           onClick={() => window.electronAPI.git.checkout(branch.name)}
           className={`
-            flex items-center gap-2 px-3 py-1.5 cursor-pointer transition-colors
+            flex items-center gap-2 px-3 py-1 cursor-pointer transition-colors
             ${branch.current ? 'text-primary-400' : 'hover:bg-sidebar-hover'}
           `}
         >
@@ -331,7 +340,7 @@ function BranchSection() {
               <svg className="w-4 h-4 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
               </svg>
-              <span className="text-sm truncate text-gray-400">{branch.name}</span>
+              <span className="text-sm truncate text-gray-400 pl-2">↳ {branch.name}</span>
             </div>
           ))}
         </>
