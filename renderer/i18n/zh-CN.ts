@@ -144,14 +144,10 @@ export const zhCN = {
     unified: 'Unified',
     sideBySide: 'Side-by-Side',
     viewModeShortcut: '快捷键',
-    // 搜索
     searchPlaceholder: '搜索...',
     searchNoResults: '无匹配结果',
-    searchMatchCount: '{current}/{total}',
-    // 导航
     prevHunk: '上一个变更',
     nextHunk: '下一个变更',
-    // 视图选项
     showWhitespace: '显示空白',
     ignoreWhitespace: '忽略空白',
     openInExternalTool: '外部工具',
@@ -266,8 +262,6 @@ export const zhCN = {
     upToDate: '已是最新',
   },
 
-  // ========== 新增翻译 ==========
-  
   // 提交详情面板
   commitDetail: {
     title: '提交详情',
@@ -334,7 +328,7 @@ export const zhCN = {
     commitsCollapsed: '个提交已折叠，点击展开',
   },
 
-  // ========== 冲突预判 ==========
+  // 冲突预判
   conflict: {
     warningTitle: '⚠️ 冲突预检',
     warningMessage: '此操作可能产生 {count} 个文件冲突，是否继续？',
@@ -347,6 +341,44 @@ export const zhCN = {
     noConflict: '无冲突',
     conflictDetected: '检测到冲突',
     manualMerge: '请手动解决冲突后继续操作',
+  },
+
+  // 分支管理
+  branchManage: {
+    upstreamStatus: {
+      upToDate: '已同步',
+      ahead: '领先',
+      behind: '落后',
+      aheadBehind: '领先落后',
+      diverged: '分叉',
+      noUpstream: '仅本地',
+      noUpstreamTooltip: '该分支没有配置上游分支',
+      aheadTooltip: '领先上游 {count} 个提交',
+      behindTooltip: '落后上游 {count} 个提交',
+      aheadBehindTooltip: '领先 {ahead} 个，落后 {behind} 个提交',
+    },
+    filter: {
+      placeholder: '搜索分支...',
+      noMatch: '无匹配分支',
+      hint: '按 / 聚焦搜索框',
+    },
+    pinned: {
+      title: '已收藏',
+      pinBranch: '收藏分支',
+      unpinBranch: '取消收藏',
+      empty: '暂无收藏分支',
+    },
+    group: {
+      local: '本地',
+      remote: '远程',
+      feature: '功能',
+      bugfix: '修复',
+      release: '发布',
+    },
+    toolbarBadge: {
+      pullBehind: '↓{count}',
+      pushAhead: '↑{count}',
+    },
   },
 };
 
