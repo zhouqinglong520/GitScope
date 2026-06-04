@@ -331,3 +331,122 @@ export interface BranchTrackingStatus {
 export type BranchTrackingMap = Record<string, BranchTrackingStatus>;
 
 
+
+// ============= Stash 相关类型 =============
+
+/**
+ * Stash 条目信息
+ */
+export interface GitStashEntry {
+  /** Stash 索引（如 stash@{0}） */
+  index: number;
+  /** Stash 引用（如 stash@{0}） */
+  ref: string;
+  /** Stash 消息 */
+  message: string;
+  /** 创建日期时间戳（秒） */
+  date: number;
+  /** 创建日期格式化字符串 */
+  dateStr: string;
+  /** 包含的文件列表 */
+  files: StashFileChange[];
+  /** 变更统计 */
+  stats: {
+    additions: number;
+    deletions: number;
+    filesChanged: number;
+  };
+}
+
+/**
+ * Stash 中的文件变更
+ */
+export interface StashFileChange {
+  /** 文件路径 */
+  path: string;
+  /** 变更类型：added, modified, deleted */
+  type: 'added' | 'modified' | 'deleted';
+  /** 新增行数 */
+  additions: number;
+  /** 删除行数 */
+  deletions: number;
+}
+
+/**
+ * Stash 选项
+ */
+export interface StashOptions {
+  /** Stash 消息 */
+  message?: string;
+  /** 是否包含未跟踪文件 */
+  includeUntracked?: boolean;
+  /** 是否保持暂存区状态 */
+  keepIndex?: boolean;
+}
+
+// ============= Blame 相关类型 =============
+
+/**
+ * Blame 行信息
+ */
+export interface BlameLine {
+  /** 行号 */
+  lineNumber: number;
+  /** 行内容 */
+  content: string;
+  /** 提交 SHA */
+  commit: string;
+  /** 短 SHA（7位） */
+  shortCommit: string;
+  /** 作者 */
+  author: string;
+  /** 作者邮箱 */
+  authorEmail: string;
+  /** 提交日期时间戳（秒） */
+  date: number;
+  /** 完整提交消息 */
+  commitMessage: string;
+  /** 行在提交中的原始行号 */
+  originalLineNumber?: number;
+  /** 是否为多人编辑（同一行被多人修改过） */
+  isCoAuthored?: boolean;
+}
+
+/**
+ * Blame 结果
+ */
+export interface BlameResult {
+  /** 文件路径 */
+  filePath: string;
+  /** Blame 行列表 */
+  lines: BlameLine[];
+  /** 涉及的作者列表 */
+  authors: string[];
+  /** 日期范围 */
+  dateRange: {
+    oldest: number;
+    newest: number;
+  };
+}
+
+/**
+ * Blame 过滤选项
+ */
+export interface BlameFilter {
+  /** 按作者过滤 */
+  authors?: string[];
+  /** 开始日期（时间戳，秒） */
+  startDate?: number;
+  /** 结束日期（时间戳，秒） */
+  endDate?: number;
+}
+
+/**
+ * 热力图颜色配置
+ */
+export interface HeatmapColorConfig {
+  /** 颜色值（如 rgba(255,0,0,0.3)） */
+  color: string;
+  /** 渐变起始值 */
+  value: number;
+}
