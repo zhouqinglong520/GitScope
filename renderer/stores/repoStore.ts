@@ -15,7 +15,9 @@ import type {
   AuthorStats,
   CommitFilter,
   CommitDetail,
-  BranchTrackingMap
+  BranchTrackingMap,
+  GitStashEntry,
+  StashFileChange,
 } from '@shared/types/git';
 
 // 仓库信息扩展（包含 ID）
@@ -27,12 +29,8 @@ export interface RepoTab {
   isActive: boolean;
 }
 
-// Stash 信息
-export interface StashInfo {
-  id: string;
-  message: string;
-  date?: string;
-}
+// Stash 信息（使用共享类型）
+export type StashInfo = GitStashEntry;
 
 // 仓库状态接口
 interface RepoState {
