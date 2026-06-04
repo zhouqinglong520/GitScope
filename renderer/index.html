@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GitScope 码界</title>
+  <script>
+    // Mock electronAPI for browser preview - MUST be before React loads
+    if (!window.electronAPI) {
+      console.log('[GitScope] Using mock electronAPI for browser preview');
+      window.electronAPI = {
+        git: {
+          openRepository: async () => ({ path: '/home/user/project', name: 'project', currentBranch: 'main', ahead: 2, behind: 0, isGitRepo: true, remotes: [{name:'origin',url:'https://github.com/user/project.git'}] }),
+          closeRepository: async () => {},
+          getRepositoryInfo: async () => ({ path: '/home/user/project', name: 'project', currentBranch: 'main', ahead: 2, behind: 0, isGitRepo: true, remotes: [{name:'origin',url:'https://github.com/user/project.git'}] }),
+          getLog: async () => [
+            { oid: 'abc1234567890def1234567890abc1234567890', shortOid: 'abc1234', message: 'feat: add interactive rebase UI', fullMessage: 'feat: add interactive rebase UI\n\nImplement drag-and-drop rebase with conflict detection', authorName: 'Zhang San', authorEmail: 'zhangsan@ex.com', authorTimestamp: 1717500000, committerName: 'Zhang San', committerEmail: 'zhangsan@ex.com', committerTimestamp: 1717500000, parentIds: ['def4567890abc1234567890abcdef1234567890'], refs: ['HEAD', 'main'] },
+            { oid: 'def4567890abc1234567890abcdef1234567890', shortOid: 'def4567', message: 'fix: resolve merge conflict in parser', fullMessage: 'fix: resolve merge conflict in parser', authorName: 'Li Si', authorEmail: 'lisi@ex.com', authorTimestamp: 1717400000, committerName: 'Li Si', committerEmail: 'lisi@ex.com', committerTimestamp: 1717400000, parentIds: ['1111111111111111111111111111111111111111','2222222222222222222222222222222222222222'], refs: ['feature/rebase-ui'] },
+            { oid: '1111111111111111111111111111111111111111', shortOid: '1111111', message: 'chore: update dependencies', fullMessage: 'chore: update dependencies', authorName: 'Zhang San', authorEmail: 'zhangsan@ex.com', authorTimestamp: 1717300000, committerName: 'Zhang San', committerEmail: 'zhangsan@ex.com', committerTimestamp: 1717300000, parentIds: ['3333333333333333333333333333333333333333'], refs: [] },
+            { oid: '2222222222222222222222222222222222222222', shortOid: '2222222', message: 'feat: parser v2 implementation', fullMessage: 'feat: parser v2 implementation', authorName: 'Wang Wu', authorEmail: 'wangwu@ex.com', authorTimestamp: 1717200000, committerName: 'Wang Wu', committerEmail: 'wangwu@ex.com', committerTimestamp: 1717200000, parentIds: ['3333333333333333333333333333333333333333'], refs: ['fix/conflict'] },
+            { oid: '3333333333333333333333333333333333333333', shortOid: '3333333', message: 'chore: initial commit', fullMessage: 'chore: initial commit', authorName: 'Zhang San', authorEmail: 'zhangsan@ex.com', authorTimestamp: 1717100000, committerName: 'Zhang San', committerEmail: 'zhangsan@ex.com', committerTimestamp: 1717100000, parentIds: [], refs: ['v0.1.0'] },
+            { oid: '4444444444444444444444444444444444444444', shortOid: '4444444', message: 'refactor: extract git service layer', fullMessage: 'refactor: extract git service layer', authorName: 'Zhang San', authorEmail: 'zhangsan@ex.com', authorTimestamp: 1717000000, committerName: 'Zhang San', committerEmail: 'zhangsan@ex.com', committerTimestamp: 1717000000, parentIds: ['abc1234567890def1234567890abc1234567890'], refs: [] },
+            { oid: '5555555555555555555555555555555555555555', shortOid: '5555555', message: 'feat: add conflict resolver component', fullMessage: 'feat: add conflict resolver component\n\nThree-pane merge UI with syntax highlighting', authorName: 'Li Si', authorEmail: 'lisi@ex.com', authorTimestamp: 1716900000, committerName: 'Li Si', committerEmail: 'lisi@ex.com', committerTimestamp: 1716900000, parentIds: ['def4567890abc1234567890abcdef1234567890'], refs: [] },
+            { oid: '6666666666666666666666666666666666666666', shortOid: '6666666', message: 'fix: branch graph rendering performance', fullMessage: 'fix: branch graph rendering performance', authorName: 'Wang Wu', authorEmail: 'wangwu@ex.com', authorTimestamp: 1716800000, committerName: 'Wang Wu', committerEmail: 'wangwu@ex.com', committerTimestamp: 1716800000, parentIds: ['4444444444444444444444444444444444444444'], refs: [] },
+          ],
+          getBranches: async () => [
+            { name: 'main', current: true, oid: 'abc1234567890def1234567890abc1234567890' },
+            { name: 'feature/rebase-ui', current: false, oid: 'def4567890abc1234567890abcdef1234567890' },
+            { name: 'fix/conflict', current: false, oid: '2222222222222222222222222222222222222222' },
+            { name: 'develop', current: false, oid: '1111111111111111111111111111111111111111' },
+            { name: 'release/v0.3', current: false, oid: 'def4567890abc1234567890abcdef1234567890' },
+          ],
+          getStatus: async () => ({ current: 'main', staged: [{ path: 'src/rebase/InteractiveRebase.tsx', status: 'M', shortStatus: 'M', oldPath: '' }, { path: 'src/components/ConflictResolver.tsx', status: 'A', shortStatus: 'A', oldPath: '' }], unstaged: [{ path: 'src/App.tsx', status: 'M', shortStatus: 'M', oldPath: '' }, { path: 'package.json', status: 'M', shortStatus: 'M', oldPath: '' }], untracked: [{ path: 'src/new-feature.ts', status: '?', shortStatus: '??', oldPath: '' }, { path: 'docs/api.md', status: '?', shortStatus: '??', oldPath: '' }] }),
+          getDiff: async () => [{ path: 'src/App.tsx', status: 'M', additions: 12, deletions: 5, hunks: [{ header: '@@ -10,7 +10,14 @@', lines: ['-import React', '+import React, { useState }', ' from', '-const App', '+const App = () => {', '+  const [count, setCount] = useState(0);', '+  return ('] }] }],
+          getStagedDiff: async () => [{ path: 'src/rebase/InteractiveRebase.tsx', status: 'M', additions: 25, deletions: 3, hunks: [{ header: '@@ -1,5 +1,27 @@', lines: ['-export function InteractiveRebase() {', '+export function InteractiveRebase({ commits, onRebase }) {', '+  const [draggedItem, setDraggedItem] = useState(null);', '+  const handleDragStart = (commit) => {', '+    setDraggedItem(commit);'] }] }],
+          add: async () => {},
+          stage: async () => {},
+          addAll: async () => {},
+          stageAll: async () => {},
+          reset: async () => {},
+          unstage: async () => {},
+          unstageAll: async () => {},
+          commit: async () => {},
+          push: async () => {},
+          pull: async () => {},
+          fetch: async () => {},
+          revert: async () => {},
+          cherryPick: async () => {},
+          createBranch: async () => {},
+          checkout: async () => {},
+          deleteBranch: async () => {},
+          renameBranch: async () => {},
+          merge: async () => {},
+          resetTo: async () => {},
+          addRemote: async () => {},
+          removeRemote: async () => {},
+          setRemoteUrl: async () => {},
+          getReflog: async () => [],
+          blame: async () => [],
+          listSubmodules: async () => [],
+          addSubmodule: async () => {},
+          initSubmodule: async () => {},
+          updateSubmodule: async () => {},
+          removeSubmodule: async () => {},
+          rebaseInteractive: async () => {},
+          clone: async () => {},
+          getTags: async () => [{ name: 'v0.1.0', oid: '3333333333333333333333333333333333333333' }, { name: 'v0.2.0', oid: 'abc1234567890def1234567890abc1234567890' }],
+          createTag: async () => {},
+          deleteTag: async () => {},
+          stash: async () => {},
+          stashPop: async () => {},
+          stashApply: async () => {},
+          stashDrop: async () => {},
+          getStashes: async () => [{ id: 'stash@{0}', message: 'WIP on main: feat work in progress', date: '2024-06-04' }],
+          refresh: async () => {},
+          getFileLog: async () => [],
+          getCommitDetail: async () => ({ oid: 'abc1234567890def1234567890abc1234567890', message: 'feat: add interactive rebase UI', fullMessage: 'feat: add interactive rebase UI\n\nImplement drag-and-drop rebase with conflict detection', authorName: 'Zhang San', authorEmail: 'zhangsan@ex.com', authorTimestamp: 1717500000, files: [{ path: 'src/rebase/InteractiveRebase.tsx', status: 'M', additions: 120, deletions: 15 }, { path: 'src/components/DragList.tsx', status: 'A', additions: 85, deletions: 0 }] }),
+          getAuthorStats: async () => [{ name: 'Zhang San', email: 'zhangsan@ex.com', commits: 5, insertions: 340, deletions: 45 }, { name: 'Li Si', email: 'lisi@ex.com', commits: 3, insertions: 180, deletions: 60 }, { name: 'Wang Wu', email: 'wangwu@ex.com', commits: 2, insertions: 95, deletions: 20 }],
+          getFileDiff: async () => [],
+          getFileHistory: async () => [],
+          getRemotes: async () => [{ name: 'origin', url: 'https://github.com/user/project.git', type: 'https' }],
+        },
+        fs: {
+          selectFolder: async () => '/home/user/project',
+          showInputBox: async () => '',
+          exists: async () => true,
+          readFile: async () => '',
+          writeFile: async () => {},
+        },
+        shell: {
+          openPath: async () => {},
+          openTerminal: async () => {},
+        },
+        window: {
+          minimize: async () => {},
+          maximize: async () => {},
+          close: async () => {},
+          onMaximizeChange: (cb) => { return () => {}; },
+        },
+        credential: {
+          save: async () => {},
+          get: async () => null,
+        },
+      };
+    }
+  </script>
+</head>
+<body class="bg-[#1e1e1e] text-white">
+  <div id="root"></div>
+  <script type="module" src="./main.tsx"></script>
+</body>
+</html>

@@ -1,0 +1,27 @@
+# 依赖
+node_modules/
+
+# 构建输出
+dist/
+release/
+
+# 开发文件
+*.log
+*.log.*
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Electron
+*.asar
+*.map
+
+# 测试
+coverage/

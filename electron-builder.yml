@@ -1,0 +1,41 @@
+appId: com.gitscope.app
+productName: GitScope
+copyright: Copyright © 2024-2026 GitScope Team. 个人永久免费使用
+
+directories:
+  output: release
+  buildResources: resources
+
+files:
+  - dist/**/*
+  - package.json
+
+extraMetadata:
+  main: dist/main/main/index.js
+
+win:
+  target:
+    - target: portable
+      arch:
+        - x64
+    - target: zip
+      arch:
+        - x64
+  artifactName: ${productName}-${version}-${ext}.${ext}
+  icon: resources/icons/icon.ico
+  signAndEditExecutable: false
+
+mac:
+  target:
+    - target: dmg
+      arch:
+        - x64
+        - arm64
+  category: public.app-category.developer-tools
+
+linux:
+  target:
+    - target: AppImage
+      arch:
+        - x64
+  category: Development
