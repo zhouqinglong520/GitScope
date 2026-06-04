@@ -121,6 +121,37 @@ export const enUS: I18nKeys = {
     renamed: 'Renamed',
   },
 
+  fileActions: {
+    discardChanges: 'Discard Changes',
+    discardConfirm: 'Are you sure you want to discard changes? This cannot be undone.',
+    discardAllConfirm: 'Are you sure you want to discard all changes? This cannot be undone.',
+    deleteFile: 'Delete File',
+    deleteConfirm: 'Are you sure you want to delete this untracked file?',
+    stageByExtension: 'Stage by Extension',
+    discardChangesAll: 'Discard All Changes',
+  },
+
+  conflictResolve: {
+    title: 'Conflict Resolution',
+    conflictedFiles: 'Conflicted Files',
+    conflictsRemaining: 'conflicts remaining',
+    useMine: 'Use Mine',
+    useTheirs: 'Use Theirs',
+    useMineAll: 'Use Mine for All',
+    useTheirsAll: 'Use Theirs for All',
+    useMineAllConfirm: 'Use your version for all conflict files?',
+    useTheirsAllConfirm: 'Use their version for all conflict files?',
+    continueMerge: 'Continue Merge',
+    continueRebase: 'Continue Rebase',
+    continueCherryPick: 'Continue Cherry-pick',
+    abortMerge: 'Abort Merge',
+    abortRebase: 'Abort Rebase',
+    abortCherryPick: 'Abort Cherry-pick',
+    abortConfirm: 'Abort this operation? All changes will be lost.',
+    allResolved: 'All conflicts resolved',
+    conflictCount: '{count} conflicts',
+  },
+
   // 提交对话框
   commitDialog: {
     title: 'Commit Changes',
@@ -129,6 +160,15 @@ export const enUS: I18nKeys = {
     commit: 'Commit',
     cancel: 'Cancel',
     amend: 'Amend last commit',
+    amendConfirm: 'Amend will modify the last commit. Continue?',
+    sign: 'Sign commit (GPG/SSH)',
+    signTooltip: 'Use -S flag for signed commit',
+    coAuthor: 'Add Co-author',
+    coAuthorPlaceholder: 'Name <email>',
+    coAuthorRemove: 'Remove',
+    template: 'Commit Template',
+    loadTemplate: 'Load Template',
+    subjectLength: '{current}/{max}',
   },
 
   // 差异显示
