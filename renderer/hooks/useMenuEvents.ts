@@ -100,7 +100,7 @@ export function useMenuEvents() {
             title: 'Stash',
             prompt: '输入 stash 备注（可选）',
           });
-          await window.electronAPI.git.stash(message || undefined);
+          await window.electronAPI.git.stash({ message: message || undefined });
         }
       },
 
@@ -203,7 +203,7 @@ export function useMenuEvents() {
           title: '推送标签',
           prompt: '输入要推送的标签名称',
         });
-        if (name) await window.electronAPI.git.push({ ref: name });
+        if (name) await window.electronAPI.git.push({ remote: 'origin', branch: name });
       },
 
       'menu:shortcuts': () => {
