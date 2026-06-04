@@ -3,7 +3,7 @@
  * 定义主进程和渲染进程之间的通信协议
  */
 
-import type { GitCommit, GitBranch, GitStatus, GitDiff, RepositoryInfo, GitTag, CommitDetail, AuthorStats, FileCommitHistory } from './git.js';
+import type { GitCommit, GitBranch, GitStatus, GitDiff, RepositoryInfo, GitTag, CommitDetail, AuthorStats, FileCommitHistory, BranchTrackingStatus } from './git.js';
 
 /** 冲突检测结果 */
 export interface ConflictCheckResult {
@@ -75,6 +75,8 @@ export interface IpcGitApi {
   checkCherryPickConflict: (oid: string) => Promise<ConflictCheckResult>;
   // ========== 外部 Diff 工具 ==========
   openInDiffTool: (filePath?: string) => Promise<boolean>;
+  // ========== 分支跟踪状态 ==========
+  getBranchTrackingStatus: () => Promise<Record<string, BranchTrackingStatus>>;
 }
 
 export interface CredentialInfo {
