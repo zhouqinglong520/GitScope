@@ -53,15 +53,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.invoke('git:commit', message, options),
 
     /** 推送 */
-    push: (options?: { remote?: string; branch?: string; force?: boolean }) =>
+    push: (options?: { remote?: string; branch?: string; force?: boolean; forceWithLease?: boolean; setUpstream?: boolean }) =>
       ipcRenderer.invoke('git:push', options),
 
     /** 拉取 */
-    pull: (options?: { remote?: string; branch?: string }) =>
+    pull: (options?: { remote?: string; branch?: string; rebase?: boolean }) =>
       ipcRenderer.invoke('git:pull', options),
 
     /** 获取远程更新 */
-    fetch: (options?: { remote?: string }) => ipcRenderer.invoke('git:fetch', options),
+    fetch: (options?: { remote?: string; prune?: boolean }) => ipcRenderer.invoke('git:fetch', options),
 
     /** 创建分支 */
     createBranch: (name: string, startPoint?: string) =>
@@ -91,16 +91,27 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getStashes: () => ipcRenderer.invoke('git:getStashes'),
 
     /** 创建 stash */
-    stash: (message?: string) => ipcRenderer.invoke('git:stash', message),
+    stash: (options?: { message?: string; includeUntracked?: boolean; keepIndex?: boolean }) => 
+      ipcRenderer.invoke('git:stash', options),
 
     /** 恢复并删除 stash */
     stashPop: (index?: number) => ipcRenderer.invoke('git:stashPop', index),
 
-    /** 应用 stash */
+    /** 获取 stash 列表 */
+    getStashes: () => ipcRenderer.invoke('git:getStashes'),
+
+    /** 应用 stash（不弹出） */
     stashApply: (index?: number) => ipcRenderer.invoke('git:stashApply', index),
 
     /** 删除 stash */
     stashDrop: (index?: number) => ipcRenderer.invoke('git:stashDrop', index),
+
+    /** 从 stash 创建分支 */
+    stashBranch: (index: number, branchName: string) => 
+      ipcRenderer.invoke('git:stashBranch', index, branchName),
+
+    /** Blame */
+    blame: (filePath: string) => ipcRenderer.invoke('git:blame', filePath),
 
     /** 刷新仓库数据 */
     refresh: () => ipcRenderer.invoke('git:refresh'),
@@ -139,6 +150,27 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.invoke('git:checkCherryPickConflict', oid),
 
     // ========== 外部 Diff 工具 ==========
+    // ========== 远程仓库管理 ==========
+    /** Fetch 所有远程仓库 */
+    fetchAll: (options?: { prune?: boolean }) =>
+      ipcRenderer.invoke('git:fetchAll', options),
+
+    /** 添加远程仓库 */
+    addRemote: (name: string, url: string) =>
+      ipcRenderer.invoke('git:addRemote', name, url),
+
+    /** 移除远程仓库 */
+    removeRemote: (name: string) =>
+      ipcRenderer.invoke('git:removeRemote', name),
+
+    /** 设置远程仓库 URL */
+    setRemoteUrl: (name: string, url: string) =>
+      ipcRenderer.invoke('git:setRemoteUrl', name, url),
+
+    /** 获取分支上游信息 */
+    getUpstream: (branch?: string) =>
+      ipcRenderer.invoke('git:getUpstream', branch),
+
     /** 在外部工具中打开 diff */
     openInDiffTool: (filePath?: string) =>
       ipcRenderer.invoke('git:openInDiffTool', filePath),
