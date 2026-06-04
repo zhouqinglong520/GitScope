@@ -3,7 +3,7 @@
  * 定义主进程和渲染进程之间的通信协议
  */
 
-import type { GitCommit, GitBranch, GitStatus, GitDiff, RepositoryInfo, GitTag, CommitDetail, AuthorStats, FileCommitHistory, BranchTrackingStatus } from './git.js';
+import type { GitCommit, GitBranch, GitStatus, GitDiff, RepositoryInfo, GitTag, CommitDetail, AuthorStats, FileCommitHistory, BranchTrackingStatus, GitStashEntry, BlameResult, StashOptions } from './git.js';
 
 /** 冲突检测结果 */
 export interface ConflictCheckResult {
@@ -31,9 +31,9 @@ export interface IpcGitApi {
   unstage: (files: string[]) => Promise<void>;
   unstageAll: () => Promise<void>;
   commit: (message: string, options?: { amend?: boolean; sign?: boolean }) => Promise<string>;
-  push: (options?: { remote?: string; branch?: string; force?: boolean; ref?: string }) => Promise<void>;
-  pull: (options?: { remote?: string; branch?: string }) => Promise<void>;
-  fetch: (options?: { remote?: string }) => Promise<void>;
+  push: (options?: { remote?: string; branch?: string; force?: boolean; forceWithLease?: boolean; setUpstream?: boolean }) => Promise<void>;
+  pull: (options?: { remote?: string; branch?: string; rebase?: boolean }) => Promise<void>;
+  fetch: (options?: { remote?: string; prune?: boolean }) => Promise<void>;
   createBranch: (name: string, startPoint?: string) => Promise<void>;
   checkout: (ref: string) => Promise<void>;
   deleteBranch: (name: string, force?: boolean) => Promise<void>;
@@ -42,11 +42,12 @@ export interface IpcGitApi {
   getTags: () => Promise<GitTag[]>;
   createTag: (name: string, ref?: string, message?: string) => Promise<void>;
   deleteTag: (name: string) => Promise<void>;
-  getStashes: () => Promise<Array<{ id: string; message: string; date?: string }>>;
-  stash: (message?: string) => Promise<void>;
+  getStashes: () => Promise<GitStashEntry[]>;
+  stash: (options?: StashOptions) => Promise<void>;
   stashPop: (index?: number) => Promise<void>;
   stashApply: (index?: number) => Promise<void>;
   stashDrop: (index?: number) => Promise<void>;
+  stashBranch: (index: number, branchName: string) => Promise<void>;
   refresh: () => Promise<void>;
   getFileLog: (filePath: string, options?: { depth?: number }) => Promise<GitCommit[]>;
   getCommitDetail: (oid: string) => Promise<CommitDetail | null>;
@@ -55,11 +56,15 @@ export interface IpcGitApi {
   clone: (url: string, dir: string) => Promise<void>;
   getStagedDiff: (filePath?: string, options?: DiffOptions) => Promise<GitDiff[]>;
   getRemotes: () => Promise<Array<{ name: string; url: string; type: string }>>;
+  
   addRemote: (name: string, url: string) => Promise<void>;
   removeRemote: (name: string) => Promise<void>;
   setRemoteUrl: (name: string, url: string) => Promise<void>;
+  fetchAll: (options?: { prune?: boolean }) => Promise<void>;
+  getUpstream: (branch?: string) => Promise<string | null>;
+
   reflog: () => Promise<Array<{ hash: string; action: string; ref: string; message: string; date: string }>>;
-  blame: (filePath: string) => Promise<Array<{ line: number; author: string; date: string; commit: string; content: string }>>;
+  blame: (filePath: string) => Promise<BlameResult | null>;
   revert: (oid: string) => Promise<void>;
   cherryPick: (oid: string) => Promise<void>;
   resetTo: (ref: string, mode?: 'soft' | 'mixed' | 'hard') => Promise<void>;
