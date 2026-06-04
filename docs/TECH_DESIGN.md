@@ -98,7 +98,7 @@ interface GiteeService {
   listRepos(): Promise<Repository[]>;
   cloneRepo(repo: Repository): Promise<void>;
   
-  // PR/MR（V2 付费功能）
+  // PR/MR（V2 规划功能）
   listPullRequests(): Promise<PR[]>;
   createPullRequest(pr: CreatePR): Promise<PR>;
   reviewPullRequest(pr: PR): Promise<void>;
