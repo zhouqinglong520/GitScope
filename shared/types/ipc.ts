@@ -59,10 +59,15 @@ export interface IpcGitApi {
   removeSubmodule: (path: string) => Promise<void>;
 }
 
+export interface CredentialInfo {
+  username: string;
+  password: string;
+}
+
 export interface IpcCredentialApi {
-  saveCredential: (credential: { protocol: string; host: string; username: string; password: string }) => Promise<void>;
-  getCredential: (protocol: string, host: string) => Promise<{ username: string; password: string } | null>;
-  deleteCredential: (protocol: string; host: string) => Promise<void>;
+  saveCredential: (credential: CredentialInfo & { protocol: string; host: string }) => Promise<void>;
+  getCredential: (protocol: string, host: string) => Promise<CredentialInfo | null>;
+  deleteCredential: (protocol: string, host: string) => Promise<void>;
 }
 
 export interface IpcFsApi {
