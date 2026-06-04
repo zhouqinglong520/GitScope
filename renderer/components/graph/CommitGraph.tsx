@@ -52,8 +52,8 @@ const BRANCH_COLORS = [
 
 const ROW_HEIGHT = 36;
 const COLUMN_WIDTH = 20;
-const CIRCLE_RADIUS = 5;
-const GRAPH_WIDTH = 100; // 左侧图区域宽度
+const CIRCLE_RADIUS = 6;
+const GRAPH_WIDTH = 120; // 左侧图区域宽度
 
 interface RefInfo {
   name: string;
@@ -198,15 +198,29 @@ function formatRelativeTime(timestamp: number): string {
   const now = new Date();
   const diff = now.getTime() - date.getTime();
 
+  // 7天内用相对时间
   if (diff < 60000) return '刚刚';
-  if (diff < 3600000) return `${Math.floor(diff / 60000)} 分钟前`;
-  if (diff < 86400000) return `${Math.floor(diff / 3600000)} 小时前`;
-  if (diff < 604800000) return `${Math.floor(diff / 86400000)} 天前`;
+  if (diff < 3600000) return `${Math.floor(diff / 60000)}分钟前`;
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)}小时前`;
+  if (diff < 604800000) return `${Math.floor(diff / 86400000)}天前`;
 
-  return date.toLocaleDateString('zh-CN', {
-    month: 'short',
-    day: 'numeric',
-  });
+  // 超过7天显示紧凑格式
+  const year = date.getFullYear();
+  const currentYear = now.getFullYear();
+  
+  if (year === currentYear) {
+    // 今年内只显示月日 (Mar 11 或 3/11)
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+    });
+  } else {
+    // 跨年显示年月
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      year: 'numeric',
+    });
+  }
 }
 
 let nodes: GraphNode[] = [];
@@ -292,9 +306,9 @@ function CommitGraph({
     const startY = scrollTop;
     const endY = scrollTop + containerHeight;
 
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 2.5;
 
-    // 绘制连接线
+    // 绘制连接线（带发光效果）
     virtualData.visibleNodes.forEach((node, index) => {
       const actualIndex = virtualData.startRow + index;
       const nodeY = actualIndex * ROW_HEIGHT + ROW_HEIGHT / 2;
@@ -370,18 +384,70 @@ function CommitGraph({
       const nodeX = node.column * COLUMN_WIDTH + COLUMN_WIDTH;
       const isSelected = selectedCommit === node.commit.oid;
 
-      // 绘制圆点
-      ctx.fillStyle = node.color;
-      ctx.beginPath();
-      ctx.arc(nodeX, nodeY, isSelected ? CIRCLE_RADIUS + 2 : CIRCLE_RADIUS, 0, Math.PI * 2);
-      ctx.fill();
+      // 检测是否为 HEAD 提交（当前分支的最新提交）
+      const isHead = node.commit.oid === graphNodes[0]?.commit.oid;
+      
+      // 检测是否为合并提交（多个父节点）
+      const isMergeCommit = node.commit.parentIds.length > 1;
 
-      // 选中高亮
-      if (isSelected) {
+      // 绘制发光效果
+      ctx.shadowBlur = isHead ? 12 : 6;
+      ctx.shadowColor = node.color;
+
+      if (isHead) {
+        // HEAD 提交：空心圆 + 白色描边
+        ctx.fillStyle = node.color;
+        ctx.beginPath();
+        ctx.arc(nodeX, nodeY, CIRCLE_RADIUS, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // 白色描边
         ctx.strokeStyle = '#ffffff';
         ctx.lineWidth = 2;
         ctx.stroke();
+        
+        // 内圈白色填充
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(nodeX, nodeY, CIRCLE_RADIUS - 3, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (isMergeCommit) {
+        // 合并提交：双圆环效果
+        ctx.fillStyle = node.color;
+        ctx.beginPath();
+        ctx.arc(nodeX, nodeY, CIRCLE_RADIUS, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // 外圈描边
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        
+        // 内圈（白色）
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = node.color;
+        ctx.beginPath();
+        ctx.arc(nodeX, nodeY, CIRCLE_RADIUS - 3, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        // 普通提交：实心圆
+        ctx.fillStyle = node.color;
+        ctx.beginPath();
+        ctx.arc(nodeX, nodeY, isSelected ? CIRCLE_RADIUS + 2 : CIRCLE_RADIUS, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // 选中高亮
+        if (isSelected) {
+          ctx.shadowBlur = 0;
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        }
       }
+      
+      // 重置阴影
+      ctx.shadowBlur = 0;
     });
   }, [virtualData, selectedCommit, scrollTop, containerHeight, graphNodes]);
 
