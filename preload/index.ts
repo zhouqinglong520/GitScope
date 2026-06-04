@@ -120,6 +120,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
     /** 获取某文件的指定提交中的 diff */
     getFileDiff: (oid: string, filePath: string) =>
       ipcRenderer.invoke('git:getFileDiff', oid, filePath),
+
+    // ========== 冲突预判 API ==========
+    /** 检测合并是否会产生冲突 */
+    checkMergeConflict: (branch: string) =>
+      ipcRenderer.invoke('git:checkMergeConflict', branch),
+
+    /** 检测变基是否会产生冲突 */
+    checkRebaseConflict: (upstream: string) =>
+      ipcRenderer.invoke('git:checkRebaseConflict', upstream),
+
+    /** 检测 cherry-pick 是否会产生冲突 */
+    checkCherryPickConflict: (oid: string) =>
+      ipcRenderer.invoke('git:checkCherryPickConflict', oid),
   },
 
   // ========== 凭证服务 ==========
