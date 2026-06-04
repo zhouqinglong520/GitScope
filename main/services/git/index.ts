@@ -921,6 +921,199 @@ export class GitService {
     }
   }
 
+  // ========== 提交模板 ==========
+
+  /**
+   * 获取提交模板内容
+   */
+  async getCommitTemplate(): Promise<string | null> {
+    if (!this.dir) return null;
+
+    try {
+      // 1. 检查 git config commit.template
+      const { stdout: templatePath } = await execFileAsync(
+        'git', ['config', 'commit.template'],
+        { cwd: this.dir }
+      ).catch(() => ({ stdout: '', stderr: '' }));
+
+      if (templatePath.trim()) {
+        const fullPath = path.isAbsolute(templatePath.trim())
+          ? templatePath.trim()
+          : path.join(this.dir, templatePath.trim());
+        try {
+          const content = await fs.readFile(fullPath, 'utf-8');
+          return content.trim();
+        } catch {
+          // 模板文件不存在，继续尝试默认位置
+        }
+      }
+
+      // 2. 检查 .git/commit-template
+      const defaultPath = path.join(this.dir, '.git', 'commit-template');
+      try {
+        const content = await fs.readFile(defaultPath, 'utf-8');
+        return content.trim();
+      } catch {
+        return null;
+      }
+    } catch {
+      return null;
+    }
+  }
+
+  // ========== 文件操作 ==========
+
+  /**
+   * 丢弃文件工作区修改
+   */
+  async discardChanges(paths: string[]): Promise<void> {
+    if (!this.dir || paths.length === 0) return;
+
+    try {
+      await execFileAsync(
+        'git', ['checkout', '--', ...paths],
+        { cwd: this.dir, maxBuffer: 10 * 1024 * 1024 }
+      );
+    } catch (error) {
+      console.error('[GitService] 丢弃更改失败:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 删除未跟踪文件
+   */
+  async deleteUntrackedFile(filePath: string): Promise<void> {
+    if (!this.dir) return;
+
+    try {
+      const fullPath = path.join(this.dir, filePath);
+      await fs.unlink(fullPath);
+    } catch (error) {
+      console.error('[GitService] 删除文件失败:', error);
+      throw error;
+    }
+  }
+
+  // ========== 冲突解决 ==========
+
+  /**
+   * 获取冲突文件列表（含冲突数量）
+   */
+  async getConflictedFiles(): Promise<Array<{ path: string; conflictCount: number }>> {
+    if (!this.dir) return [];
+
+    try {
+      const { stdout } = await execFileAsync(
+        'git', ['diff', '--name-only', '--diff-filter=U'],
+        { cwd: this.dir }
+      );
+
+      const files: Array<{ path: string; conflictCount: number }> = [];
+
+      for (const filePath of stdout.trim().split('\n')) {
+        if (!filePath.trim()) continue;
+
+        try {
+          const fullPath = path.join(this.dir, filePath);
+          const content = await fs.readFile(fullPath, 'utf-8');
+          const conflictCount = (content.match(/<<<<<<< /g) || []).length;
+          files.push({ path: filePath, conflictCount });
+        } catch {
+          files.push({ path: filePath, conflictCount: 0 });
+        }
+      }
+
+      return files;
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * 使用本地版本解决冲突
+   */
+  async resolveConflictUseOurs(filePath: string): Promise<void> {
+    if (!this.dir) return;
+
+    await execFileAsync('git', ['checkout', '--ours', '--', filePath], { cwd: this.dir });
+    await execFileAsync('git', ['add', '--', filePath], { cwd: this.dir });
+  }
+
+  /**
+   * 使用远程版本解决冲突
+   */
+  async resolveConflictUseTheirs(filePath: string): Promise<void> {
+    if (!this.dir) return;
+
+    await execFileAsync('git', ['checkout', '--theirs', '--', filePath], { cwd: this.dir });
+    await execFileAsync('git', ['add', '--', filePath], { cwd: this.dir });
+  }
+
+  /**
+   * 批量解决所有冲突
+   */
+  async resolveAllConflicts(strategy: 'ours' | 'theirs'): Promise<void> {
+    if (!this.dir) return;
+
+    const conflicts = await this.getConflictedFiles();
+    for (const file of conflicts) {
+      if (strategy === 'ours') {
+        await this.resolveConflictUseOurs(file.path);
+      } else {
+        await this.resolveConflictUseTheirs(file.path);
+      }
+    }
+  }
+
+  /**
+   * 继续合并
+   */
+  async continueMerge(): Promise<void> {
+    if (!this.dir) return;
+    await execFileAsync('git', ['merge', '--continue'], { cwd: this.dir, maxBuffer: 10 * 1024 * 1024 });
+  }
+
+  /**
+   * 中止合并
+   */
+  async abortMerge(): Promise<void> {
+    if (!this.dir) return;
+    await execFileAsync('git', ['merge', '--abort'], { cwd: this.dir });
+  }
+
+  /**
+   * 继续变基
+   */
+  async continueRebase(): Promise<void> {
+    if (!this.dir) return;
+    await execFileAsync('git', ['rebase', '--continue'], { cwd: this.dir, maxBuffer: 10 * 1024 * 1024 });
+  }
+
+  /**
+   * 中止变基
+   */
+  async abortRebase(): Promise<void> {
+    if (!this.dir) return;
+    await execFileAsync('git', ['rebase', '--abort'], { cwd: this.dir });
+  }
+
+  /**
+   * 继续 cherry-pick
+   */
+  async continueCherryPick(): Promise<void> {
+    if (!this.dir) return;
+    await execFileAsync('git', ['cherry-pick', '--continue'], { cwd: this.dir, maxBuffer: 10 * 1024 * 1024 });
+  }
+
+  /**
+   * 中止 cherry-pick
+   */
+  async abortCherryPick(): Promise<void> {
+    if (!this.dir) return;
+    await execFileAsync('git', ['cherry-pick', '--abort'], { cwd: this.dir });
+  }
+
   // ========== 私有方法 ==========
 
   /**
