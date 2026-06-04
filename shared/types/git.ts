@@ -300,4 +300,32 @@ export interface GraphNode {
   branchName?: string;
   /** 该提交的 refs 标签 */
   refs: string[];
+  /** 是否属于折叠的分支 */
+  isCollapsed?: boolean;
 }
+
+// ============= 新增：分支跟踪状态 =============
+
+/**
+ * 分支跟踪状态
+ * 表示本地分支与上游分支的同步状态
+ */
+export interface BranchTrackingStatus {
+  /** 分支名称（本地分支名，不含 remote 前缀） */
+  branch: string;
+  /** 上游分支名称（不含 refs/remotes/ 前缀），如 "origin/main" */
+  upstream: string | null;
+  /** 状态类型 */
+  state: 'up-to-date' | 'ahead' | 'behind' | 'ahead-behind' | 'diverged' | 'no-upstream';
+  /** 领先远程的提交数 */
+  ahead: number;
+  /** 落后远程的提交数 */
+  behind: number;
+}
+
+/**
+ * 所有分支的跟踪状态映射
+ * key: 本地分支名（不含 origin/ 前缀）
+ * value: 跟踪状态
+ */
+export type BranchTrackingMap = Record<string, BranchTrackingStatus>;
