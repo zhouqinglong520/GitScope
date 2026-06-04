@@ -4,9 +4,11 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { PushDialog, PullDialog, FetchDialog } from './components/operations/PushPullDialog';
 import MainLayout from './components/layout/MainLayout';
 import Sidebar from './components/layout/Sidebar';
 import QuickLaunch, { type QuickLaunchCommand } from './components/quicklaunch/QuickLaunch';
+import StashDialog from './components/stash/StashDialog';
 import { useRepoStore } from './stores/repoStore';
 import { useMenuEvents } from './hooks/useMenuEvents';
 import { zhCN } from './i18n/zh-CN';
@@ -38,6 +40,11 @@ function App() {
   } = useRepoStore();
 
   const [showQuickLaunch, setShowQuickLaunch] = useState(false);
+  const [showPushDialog, setShowPushDialog] = useState(false);
+  const [showPullDialog, setShowPullDialog] = useState(false);
+  const [showFetchDialog, setShowFetchDialog] = useState(false);
+  const [hasUpstream, setHasUpstream] = useState(false);
+  const [showStashDialog, setShowStashDialog] = useState(false);
   const [sidebarWidth] = useState(220);
 
   // 获取当前分支的跟踪状态
@@ -58,10 +65,10 @@ function App() {
   };
 
   // 处理 Pull
-  const handlePull = async () => {
+  const handlePull = async (options?: { rebase?: boolean }) => {
     if (currentRepo) {
       try {
-        await window.electronAPI.git.pull();
+        await window.electronAPI.git.pull({ rebase: options?.rebase });
         await refresh();
       } catch (error) {
         console.error('Pull failed:', error);
@@ -69,28 +76,80 @@ function App() {
     }
   };
 
+  // 快速 Pull（使用保存的偏好设置）
+  const handleQuickPull = async () => {
+    const rebase = localStorage.getItem('gitgui-pull-rebase') === 'true';
+    await handlePull({ rebase });
+  };
+
   // 处理 Push
-  const handlePush = async () => {
+  const handlePush = async (options?: { force?: boolean; forceWithLease?: boolean; setUpstream?: boolean }) => {
     if (currentRepo) {
       try {
-        await window.electronAPI.git.push();
+        await window.electronAPI.git.push(options);
         await refresh();
+        await checkUpstream();
       } catch (error) {
         console.error('Push failed:', error);
       }
     }
   };
 
+  // 快速 Push（点击按钮直接执行，带确认）
+  const handleQuickPush = async () => {
+    if (currentRepo) {
+      if (!hasUpstream) {
+        // 没有上游，弹出对话框让用户选择
+        setShowPushDialog(true);
+      } else {
+        try {
+          await window.electronAPI.git.push();
+          await refresh();
+        } catch (error) {
+          console.error('Push failed:', error);
+        }
+      }
+    }
+  };
+
+  // 检查当前分支是否有上游
+  const checkUpstream = async () => {
+    if (currentRepo?.currentBranch) {
+      try {
+        const upstream = await window.electronAPI.git.getUpstream(currentRepo.currentBranch);
+        setHasUpstream(!!upstream);
+      } catch {
+        setHasUpstream(false);
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (currentRepo) {
+      checkUpstream();
+    }
+  }, [currentRepo, currentBranch]);
+
   // 处理 Fetch
-  const handleFetch = async () => {
+  const handleFetch = async (options: { prune?: boolean; fetchAll?: boolean } = {}) => {
     if (currentRepo) {
       try {
-        await window.electronAPI.git.fetch();
+        if (options?.fetchAll) {
+          await window.electronAPI.git.fetchAll({ prune: options.prune });
+        } else {
+          await window.electronAPI.git.fetch({ prune: options.prune });
+        }
         await refresh();
       } catch (error) {
         console.error('Fetch failed:', error);
       }
     }
+  };
+
+  // 快速 Fetch（点击按钮直接执行）
+  const handleQuickFetch = async () => {
+    const prune = localStorage.getItem('gitgui-fetch-prune') === 'true';
+    await handleFetch({ prune });
   };
 
   // Quick Launch 命令
@@ -178,11 +237,7 @@ function App() {
       shortcut: 'Ctrl+Shift+S',
       action: async () => {
         if (currentRepo) {
-          const message = await window.electronAPI.fs.showInputBox({
-            title: 'Stash',
-            prompt: '输入 stash 备注（可选）',
-          });
-          await window.electronAPI.git.stash(message || undefined);
+          setShowStashDialog(true);
         }
       },
     },
@@ -377,7 +432,7 @@ function App() {
           <div className="flex items-center gap-1">
             {/* Fetch */}
             <button
-              onClick={handleFetch}
+              onClick={() => setShowFetchDialog(true)}
               className="btn-icon flex items-center gap-1.5 px-2"
               title={`${i18n.toolbar.fetch} (Ctrl+Shift+F)`}
             >
@@ -389,7 +444,7 @@ function App() {
 
             {/* Pull */}
             <button
-              onClick={handlePull}
+              onClick={() => setShowPullDialog(true)}
               className="btn-icon flex items-center gap-1.5 px-2 relative"
               title={`${i18n.toolbar.pull} (Ctrl+Shift+P)`}
             >
@@ -407,7 +462,7 @@ function App() {
 
             {/* Push */}
             <button
-              onClick={handlePush}
+              onClick={handleQuickPush}
               className="btn-icon flex items-center gap-1.5 px-2 relative"
               title={`${i18n.toolbar.push} (Ctrl+P)`}
             >
@@ -427,8 +482,9 @@ function App() {
 
             {/* Stash */}
             <button
+              onClick={() => setShowStashDialog(true)}
               className="btn-icon flex items-center gap-1.5 px-2"
-              title="Stash"
+              title={i18n.stash.create}
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
@@ -555,11 +611,45 @@ function App() {
         </div>
       </footer>
 
+      {/* Push 对话框 */}
+      <PushDialog
+        isOpen={showPushDialog}
+        onClose={() => setShowPushDialog(false)}
+        onPush={handlePush}
+        remote="origin"
+        branch={currentRepo?.currentBranch}
+        hasUpstream={hasUpstream}
+        i18n={i18n}
+      />
+
+      {/* Pull 对话框 */}
+      <PullDialog
+        isOpen={showPullDialog}
+        onClose={() => setShowPullDialog(false)}
+        onPull={handlePull}
+        i18n={i18n}
+      />
+
+      {/* Fetch 对话框 */}
+      <FetchDialog
+        isOpen={showFetchDialog}
+        onClose={() => setShowFetchDialog(false)}
+        onFetch={handleFetch}
+        i18n={i18n}
+      />
+
       {/* Quick Launch 弹窗 */}
       <QuickLaunch
         isOpen={showQuickLaunch}
         onClose={() => setShowQuickLaunch(false)}
         commands={quickLaunchCommands}
+      />
+
+      {/* Stash 对话框 */}
+      <StashDialog
+        isOpen={showStashDialog}
+        onClose={() => setShowStashDialog(false)}
+        onSuccess={refresh}
       />
     </div>
   );
