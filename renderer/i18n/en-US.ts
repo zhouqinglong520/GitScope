@@ -369,6 +369,11 @@ export const enUS: I18nKeys = {
     diff: 'Diff',
     viewOnGitee: 'View on Gitee',
     viewDiff: 'View diff for this commit',
+    filterPlaceholder: 'Filter commits...',
+    loading: 'Loading...',
+    noHistory: 'No history found',
+    today: 'Today',
+    yesterday: 'Yesterday',
   },
 
   // 作者筛选
@@ -521,4 +526,14 @@ export const enUS: I18nKeys = {
     fetchAllPrune: 'Fetch All + Prune',
   },
 
+
+  imageDiff: {
+    sideBySide: 'Side by Side',
+    slider: 'Slider',
+    onionSkin: 'Onion Skin',
+    noOldVersion: 'No old version',
+    newFile: 'New file (no previous version)',
+    deleted: 'Deleted',
+    title: 'Image Diff',
+  },
 };
