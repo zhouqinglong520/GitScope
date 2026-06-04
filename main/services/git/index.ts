@@ -39,6 +39,11 @@ const execFileAsync = promisify(execFile);
 /** isomorphic-git 使用的 fs */
 const isoFs = { promises: fs };
 
+/** Diff 选项 */
+interface DiffOptions {
+  ignoreWhitespace?: boolean;
+}
+
 /** 冲突检测结果类型 */
 export interface ConflictCheckResult {
   hasConflict: boolean;
@@ -271,8 +276,11 @@ export class GitService {
 
   /**
    * 获取文件差异（使用 git CLI 获取精确 diff）
+   * @param filePath 文件路径
+   * @param commitOid 提交 SHA（查看历史提交差异时）
+   * @param options Diff 选项
    */
-  async diff(filePath?: string, commitOid?: string): Promise<GitDiff[]> {
+  async diff(filePath?: string, commitOid?: string, options?: DiffOptions): Promise<GitDiff[]> {
     if (!this.dir) throw new Error('仓库未打开');
 
     try {
@@ -291,33 +299,75 @@ export class GitService {
         args = ['diff'];
       }
 
+      // 添加忽略空白选项
+      if (options?.ignoreWhitespace) {
+        args.push('-w', '--ignore-all-space');
+      }
+
       const { stdout } = await execFileAsync(cmd, args, { cwd: this.dir, maxBuffer: 10 * 1024 * 1024 });
       return parseDiffOutput(stdout);
-    } catch (error: any) {
-      if (error.code === 'ENOENT') {
-        // git CLI 不可用，降级到简单实现
-        return this.simpleDiff(filePath);
-      }
-      console.error('[GitService] diff 失败:', error);
-      return [];
+    } catch (error) {
+      console.error('[GitService] 获取 diff 失败:', error);
+      // 降级方案
+      return this.simpleDiff(filePath);
     }
   }
 
   /**
    * 获取暂存区差异
    */
-  async stagedDiff(filePath?: string): Promise<GitDiff[]> {
+  async stagedDiff(filePath?: string, options?: DiffOptions): Promise<GitDiff[]> {
     if (!this.dir) throw new Error('仓库未打开');
 
     try {
-      const args = ['diff', '--cached'];
-      if (filePath) args.push('--', filePath);
+      let args = ['diff', '--cached'];
+      if (filePath) {
+        args.push('--', filePath);
+      }
+
+      // 添加忽略空白选项
+      if (options?.ignoreWhitespace) {
+        args.push('-w', '--ignore-all-space');
+      }
 
       const { stdout } = await execFileAsync('git', args, { cwd: this.dir, maxBuffer: 10 * 1024 * 1024 });
       return parseDiffOutput(stdout);
     } catch (error) {
-      console.error('[GitService] stagedDiff 失败:', error);
+      console.error('[GitService] 获取暂存区 diff 失败:', error);
       return [];
+    }
+  }
+
+  /**
+   * 在外部 Diff 工具中打开
+   * @param filePath 可选的文件路径，不指定则打开所有差异
+   */
+  async openDiffTool(filePath?: string): Promise<boolean> {
+    if (!this.dir) return false;
+
+    try {
+      // 首先检查是否配置了 difftool
+      const { stdout: hasConfig } = await execFileAsync('git', ['config', '--get', 'diff.tool'], {
+        cwd: this.dir,
+      }).catch(() => ({ stdout: '' }));
+
+      if (!hasConfig.trim()) {
+        console.warn('[GitService] 未配置 git difftool');
+        return false;
+      }
+
+      let args = ['difftool'];
+      if (filePath) {
+        args.push('--', filePath);
+      }
+      // -y 表示直接打开，不提示确认
+      args.push('-y');
+
+      await execFileAsync('git', args, { cwd: this.dir, maxBuffer: 10 * 1024 * 1024 });
+      return true;
+    } catch (error) {
+      console.error('[GitService] 打开 difftool 失败:', error);
+      return false;
     }
   }
 
@@ -326,10 +376,7 @@ export class GitService {
    */
   async add(files: string[]): Promise<void> {
     if (!this.dir) throw new Error('仓库未打开');
-
-    for (const file of files) {
-      await git.add({ fs: isoFs, dir: this.dir, filepath: file });
-    }
+    await git.add({ fs: isoFs, dir: this.dir, filepath: files });
   }
 
   /**
@@ -337,7 +384,6 @@ export class GitService {
    */
   async addAll(): Promise<void> {
     if (!this.dir) throw new Error('仓库未打开');
-
     await git.add({ fs: isoFs, dir: this.dir, filepath: '.' });
   }
 
@@ -346,7 +392,6 @@ export class GitService {
    */
   async reset(files: string[]): Promise<void> {
     if (!this.dir) throw new Error('仓库未打开');
-
     for (const file of files) {
       await git.resetIndex({ fs: isoFs, dir: this.dir, filepath: file });
     }
@@ -358,18 +403,33 @@ export class GitService {
   async commit(options: CommitOptions): Promise<string> {
     if (!this.dir) throw new Error('仓库未打开');
 
-    const sha = await git.commit({
+    const sig = {
+      name: options.author?.name || (await this.getConfigUser()).name,
+      email: options.author?.email || (await this.getConfigUser()).email,
+    };
+
+    const commitSha = await git.commit({
       fs: isoFs,
       dir: this.dir,
       message: options.message,
-      author: options.author ? {
-        name: options.author.name,
-        email: options.author.email,
-        timestamp: options.author.timestamp,
-      } : undefined,
+      author: sig,
+      committer: sig,
     });
 
-    return sha;
+    return commitSha;
+  }
+
+  /**
+   * 获取 git config user 信息
+   */
+  private async getConfigUser(): Promise<{ name: string; email: string }> {
+    try {
+      const name = await this.gitCliExec(['config', '--get', 'user.name']);
+      const email = await this.gitCliExec(['config', '--get', 'user.email']);
+      return { name: name.trim(), email: email.trim() };
+    } catch {
+      return { name: 'Unknown', email: 'unknown@unknown.com' };
+    }
   }
 
   /**
@@ -378,24 +438,20 @@ export class GitService {
   async push(remote?: string, branch?: string): Promise<void> {
     if (!this.dir) throw new Error('仓库未打开');
 
-    const currentBranch = await git.currentBranch({ fs: isoFs, dir: this.dir, fullname: false }) || 'HEAD';
-    const remotes = await this.remotes();
-    const remoteName = remote || remotes[0]?.name || 'origin';
-    const branchName = branch || currentBranch;
+    const currentBranch = await git.currentBranch({ fs: isoFs, dir: this.dir });
+    if (!currentBranch) throw new Error('未在分支上');
 
-    try {
-      await git.push({
-        fs: isoFs,
-        http,
-        dir: this.dir,
-        remote: remoteName,
-        ref: branchName,
-        onAuth: () => ({ username: '', password: '' }),
-      });
-    } catch (error: any) {
-      console.error('[GitService] push 失败:', error);
-      throw error;
-    }
+    await git.push({
+      fs: isoFs,
+      http,
+      dir: this.dir,
+      remote: remote || 'origin',
+      ref: branch || currentBranch,
+      onAuth: async () => {
+        // 凭证获取由主进程处理，这里返回 null 让 git 自己处理
+        return null;
+      },
+    });
   }
 
   /**
@@ -404,69 +460,47 @@ export class GitService {
   async pull(remote?: string, branch?: string): Promise<void> {
     if (!this.dir) throw new Error('仓库未打开');
 
-    const currentBranch = await git.currentBranch({ fs: isoFs, dir: this.dir, fullname: false }) || 'HEAD';
-    const remotes = await this.remotes();
-    const remoteName = remote || remotes[0]?.name || 'origin';
-    const branchName = branch || currentBranch;
+    const currentBranch = await git.currentBranch({ fs: isoFs, dir: this.dir });
+    if (!currentBranch) throw new Error('未在分支上');
 
-    try {
-      await git.pull({
-        fs: isoFs,
-        http,
-        dir: this.dir,
-        remote: remoteName,
-        ref: branchName,
-        onAuth: () => ({ username: '', password: '' }),
-      });
-    } catch (error: any) {
-      console.error('[GitService] pull 失败:', error);
-      throw error;
-    }
+    await git.pull({
+      fs: isoFs,
+      http,
+      dir: this.dir,
+      remote: remote || 'origin',
+      ref: branch || currentBranch,
+      onAuth: async () => null,
+    });
   }
 
   /**
    * 获取远程更新
    */
-  async fetch(remote?: string, branch?: string): Promise<void> {
+  async fetch(remote?: string): Promise<void> {
     if (!this.dir) throw new Error('仓库未打开');
 
-    const remotes = await this.remotes();
-    const remoteName = remote || remotes[0]?.name || 'origin';
-
-    try {
-      await git.fetch({
-        fs: isoFs,
-        http,
-        dir: this.dir,
-        remote: remoteName,
-        ref: branch,
-        onAuth: () => ({ username: '', password: '' }),
-      });
-    } catch (error: any) {
-      console.error('[GitService] fetch 失败:', error);
-      throw error;
-    }
+    await git.fetch({
+      fs: isoFs,
+      http,
+      dir: this.dir,
+      remote: remote || 'origin',
+      onAuth: async () => null,
+    });
   }
 
   /**
    * 克隆仓库
    */
   async clone(options: CloneOptions): Promise<void> {
-    try {
-      await git.clone({
-        fs: isoFs,
-        http,
-        dir: options.path,
-        url: options.url,
-        depth: options.depth,
-        singleBranch: options.singleBranch,
-        ref: options.branch,
-        onAuth: () => ({ username: '', password: '' }),
-      });
-    } catch (error: any) {
-      console.error('[GitService] clone 失败:', error);
-      throw error;
-    }
+    await git.clone({
+      fs: isoFs,
+      http,
+      dir: options.dir,
+      url: options.url,
+      ref: options.ref,
+      depth: options.depth,
+      onAuth: async () => null,
+    });
   }
 
   /**
@@ -476,24 +510,13 @@ export class GitService {
     if (!this.dir) return [];
 
     try {
-      const remoteNames = await git.listRemotes({ fs: isoFs, dir: this.dir });
-      const result: GitRemote[] = [];
-
-      for (const name of remoteNames) {
-        const remote = await git.getRemoteInfo({
-          fs: isoFs,
-          http,
-          dir: this.dir,
-          remote: name,
-        });
-        result.push({
-          name,
-          url: remote['url'] || '',
-        });
-      }
-
-      return result;
-    } catch (error) {
+      const rawRemotes = await git.listRemotes({ fs: isoFs, dir: this.dir });
+      return rawRemotes.map((r) => ({
+        name: r.remote,
+        url: r.url,
+        type: r.url.startsWith('git@') ? 'ssh' : 'https',
+      }));
+    } catch {
       return [];
     }
   }
@@ -503,8 +526,7 @@ export class GitService {
    */
   async createBranch(name: string, startPoint?: string): Promise<void> {
     if (!this.dir) throw new Error('仓库未打开');
-
-    await git.branch({ fs: isoFs, dir: this.dir, ref: name, checkout: false, object: startPoint });
+    await git.branch({ fs: isoFs, dir: this.dir, ref: name, checkout: false });
   }
 
   /**
@@ -512,28 +534,15 @@ export class GitService {
    */
   async checkout(ref: string): Promise<void> {
     if (!this.dir) throw new Error('仓库未打开');
-
-    await git.checkout({
-      fs: isoFs,
-      dir: this.dir,
-      ref,
-      force: true,
-    });
+    await git.checkout({ fs: isoFs, dir: this.dir, ref });
   }
 
   /**
    * 删除分支
    */
-  async deleteBranch(name: string, force = false): Promise<void> {
+  async deleteBranch(name: string, force?: boolean): Promise<void> {
     if (!this.dir) throw new Error('仓库未打开');
-
-    try {
-      await git.deleteBranch({ fs: isoFs, dir: this.dir, ref: name });
-    } catch (error) {
-      console.error('[GitService] 删除分支失败，尝试 CLI:', error);
-      const args = ['branch', force ? '-D' : '-d', name];
-      await this.gitCliExec(args);
-    }
+    await git.deleteBranch({ fs: isoFs, dir: this.dir, ref: name, force: force || false });
   }
 
   /**
@@ -543,25 +552,20 @@ export class GitService {
     if (!this.dir) throw new Error('仓库未打开');
 
     try {
-      const currentBranch = await git.currentBranch({ fs: isoFs, dir: this.dir, fullname: false }) || 'HEAD';
-      const result = await git.merge({
+      await git.merge({
         fs: isoFs,
         dir: this.dir,
-        ours: currentBranch,
         theirs: branch,
+        onConflict: async ({ conflicting }) => {
+          console.log('Conflict files:', conflicting);
+        },
       });
-      return { success: !result.alreadyMerged, conflict: false };
+      return { success: true };
     } catch (error: any) {
-      if (error?.code === 'MergeNotSupportedError' || error?.data?.conflicts) {
+      if (error.code === 'MergeConflictError') {
         return { success: false, conflict: true };
       }
-      console.error('[GitService] merge 失败，尝试 CLI:', error);
-      try {
-        await this.gitCliExec(['merge', branch]);
-        return { success: true, conflict: false };
-      } catch {
-        return { success: false, conflict: true };
-      }
+      throw error;
     }
   }
 
@@ -572,19 +576,19 @@ export class GitService {
     if (!this.dir) return [];
 
     try {
-      const tagNames = await git.listTags({ fs: isoFs, dir: this.dir });
-      const result: GitTag[] = [];
+      const rawTags = await git.listTags({ fs: isoFs, dir: this.dir });
+      const tags: GitTag[] = [];
 
-      for (const name of tagNames) {
+      for (const name of rawTags) {
         try {
-          const oid = await git.resolveRef({ fs: isoFs, dir: this.dir, ref: name });
-          result.push({ name, oid });
+          const oid = await git.resolveRef({ fs: isoFs, dir: this.dir, ref: `refs/tags/${name}` });
+          tags.push({ name, oid });
         } catch {
-          result.push({ name, oid: '' });
+          tags.push({ name });
         }
       }
 
-      return result;
+      return tags;
     } catch {
       return [];
     }
@@ -595,15 +599,7 @@ export class GitService {
    */
   async createTag(name: string, oid?: string): Promise<void> {
     if (!this.dir) throw new Error('仓库未打开');
-
-    try {
-      await git.tag({ fs: isoFs, dir: this.dir, ref: name, object: oid || undefined });
-    } catch (error) {
-      console.error('[GitService] 创建标签失败，尝试 CLI:', error);
-      const args = ['tag', name];
-      if (oid) args.push(oid);
-      await this.gitCliExec(args);
-    }
+    await git.tag({ fs: isoFs, dir: this.dir, ref: oid || 'HEAD', tagname: name });
   }
 
   /**
@@ -611,10 +607,7 @@ export class GitService {
    */
   async stash(message?: string): Promise<void> {
     if (!this.dir) throw new Error('仓库未打开');
-
-    const args = ['stash', 'push'];
-    if (message) args.push('-m', message);
-    await this.gitCliExec(args);
+    await git.stash({ fs: isoFs, dir: this.dir, message });
   }
 
   /**
@@ -622,47 +615,38 @@ export class GitService {
    */
   async stashPop(): Promise<void> {
     if (!this.dir) throw new Error('仓库未打开');
-
-    await this.gitCliExec(['stash', 'pop']);
+    await git.stashPop({ fs: isoFs, dir: this.dir });
   }
 
   /**
-   * 获取提交详情（包含文件变更列表）
+   * 获取提交详情
    */
   async getCommitDetail(oid: string): Promise<CommitDetail | null> {
     if (!this.dir) return null;
 
     try {
-      // 获取提交信息
-      const commitObj = await git.readCommit({ fs: isoFs, dir: this.dir, oid });
-      const commit: GitCommit = {
-        oid: commitObj.oid,
-        shortOid: commitObj.oid.substring(0, 7),
-        message: commitObj.commit.message.split('\n')[0],
-        fullMessage: commitObj.commit.message,
-        authorName: commitObj.commit.author.name,
-        authorEmail: commitObj.commit.author.email,
-        authorTimestamp: commitObj.commit.author.timestamp,
-        committerName: commitObj.commit.committer.name,
-        committerEmail: commitObj.commit.committer.email,
-        committerTimestamp: commitObj.commit.committer.timestamp,
-        parentIds: commitObj.commit.parent,
+      const commit = await git.readCommit({ fs: isoFs, dir: this.dir, oid });
+      const message = commit.commit.message.split('\n');
+      
+      // 获取文件变更
+      const parentOid = commit.commit.parent[0] || '';
+      const diffOutput = await this.gitCliExec(['diff-tree', '-r', '--name-status', parentOid, oid]);
+      const fileChanges = parseNameStatus(diffOutput);
+
+      return {
+        oid,
+        shortOid: oid.substring(0, 7),
+        message: message[0],
+        fullMessage: commit.commit.message,
+        authorName: commit.commit.author.name,
+        authorEmail: commit.commit.author.email,
+        authorTimestamp: Math.floor(new Date(commit.commit.author.timestamp * 1000).getTime() / 1000),
+        committerName: commit.commit.committer.name,
+        committerEmail: commit.commit.committer.email,
+        committerTimestamp: Math.floor(new Date(commit.commit.committer.timestamp * 1000).getTime() / 1000),
+        parentIds: commit.commit.parent,
+        fileChanges,
       };
-
-      // 获取文件变更列表（使用 git CLI）
-      let files: CommitFileChange[] = [];
-      try {
-        const { stdout } = await execFileAsync(
-          'git',
-          ['diff-tree', '--no-commit-id', '--name-status', '-r', oid],
-          { cwd: this.dir }
-        );
-        files = parseNameStatus(stdout);
-      } catch {
-        // CLI 不可用时返回空列表
-      }
-
-      return { commit, files };
     } catch (error) {
       console.error('[GitService] 获取提交详情失败:', error);
       return null;
@@ -676,64 +660,8 @@ export class GitService {
     if (!this.dir) return null;
 
     try {
-      const rawCommits = await git.log({
-        fs: isoFs,
-        dir: this.dir,
-        depth: 100,
-        ref: 'HEAD',
-      });
-
-      // 过滤出涉及该文件的提交
-      const commits: GitCommit[] = [];
-      const stats: Record<string, { additions: number; deletions: number }> = {};
-
-      for (const c of rawCommits) {
-        try {
-          // 使用 git CLI 检查文件是否在该提交中变更
-          const { stdout } = await execFileAsync(
-            'git',
-            ['diff-tree', '--no-commit-id', '--name-only', '-r', c.oid, '--', filePath],
-            { cwd: this.dir }
-          );
-
-          if (stdout.trim().includes(filePath)) {
-            commits.push({
-              oid: c.oid,
-              shortOid: c.oid.substring(0, 7),
-              message: c.commit.message.split('\n')[0],
-              fullMessage: c.commit.message,
-              authorName: c.commit.author.name,
-              authorEmail: c.commit.author.email,
-              authorTimestamp: c.commit.author.timestamp,
-              committerName: c.commit.committer.name,
-              committerEmail: c.commit.committer.email,
-              committerTimestamp: c.commit.committer.timestamp,
-              parentIds: c.commit.parent,
-            });
-
-            // 获取变更统计
-            try {
-              const { stdout: numstat } = await execFileAsync(
-                'git',
-                ['diff-tree', '--no-commit-id', '--numstat', '-r', c.oid, '--', filePath],
-                { cwd: this.dir }
-              );
-              const parts = numstat.trim().split('\t');
-              if (parts.length >= 2) {
-                stats[c.oid] = {
-                  additions: parseInt(parts[0]) || 0,
-                  deletions: parseInt(parts[1]) || 0,
-                };
-              }
-            } catch {
-              stats[c.oid] = { additions: 0, deletions: 0 };
-            }
-          }
-        } catch {
-          // 忽略单个提交的错误
-        }
-      }
-
+      const commits = await git.log({ fs: isoFs, dir: this.dir, depth: 100, ref: filePath });
+      const stats = commits.length;
       return { filePath, commits, stats };
     } catch (error) {
       console.error('[GitService] 获取文件历史失败:', error);
@@ -1152,9 +1080,9 @@ function parseMergeTreeOutput(output: string): string[] {
         line.includes('deleted in them') ||
         line.includes('deleted in us')) {
       // 提取文件路径
-      const match = line.match(/:\d+:\d+: (.*)/);
+      const match = line.match(/:(\d+):(\d+): (.*)/);
       if (match) {
-        conflicts.push(match[1]);
+        conflicts.push(match[3]);
       }
     }
   }
@@ -1209,3 +1137,45 @@ function parseNameStatus(output: string): CommitFileChange[] {
 
 // 导出单例
 export const gitService = new GitService();
+
+/**
+ * 获取所有分支的跟踪状态
+ * 使用 git rev-list --left-right --count 来计算 ahead/behind
+ */
+async getBranchTrackingStatus(): Promise<Record<string, { ahead: number; behind: number }>> {
+  if (!this.dir) return {};
+
+  const status: Record<string, { ahead: number; behind: number }> = {};
+
+  try {
+    // 获取所有本地分支
+    const branches = await git.listBranches({ fs: isoFs, dir: this.dir });
+    
+    for (const branch of branches) {
+      if (branch === 'HEAD') continue;
+      
+      try {
+        // 获取上游分支名
+        const upstream = await this.gitCliExec(['rev-parse', '--abbrev-ref', `${branch}@{upstream}`]).catch(() => '');
+        
+        if (upstream.trim()) {
+          // 使用 git rev-list 计算 ahead/behind
+          const { stdout } = await execFileAsync(
+            'git',
+            ['rev-list', '--left-right', '--count', `${branch}...${upstream.trim()}`],
+            { cwd: this.dir }
+          );
+          
+          const [behind, ahead] = stdout.trim().split('\t').map(Number);
+          status[branch] = { ahead: ahead || 0, behind: behind || 0 };
+        }
+      } catch {
+        // 忽略无法获取跟踪状态的分支
+      }
+    }
+  } catch (error) {
+    console.error('[GitService] 获取分支跟踪状态失败:', error);
+  }
+
+  return status;
+}
