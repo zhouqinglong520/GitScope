@@ -450,3 +450,39 @@ export interface HeatmapColorConfig {
   /** 渐变起始值 */
   value: number;
 }
+
+
+/** 图片Diff模式 */
+export type ImageDiffMode = 'side-by-side' | 'slider' | 'onion-skin';
+
+/** 图片Diff信息 */
+export interface ImageDiffInfo {
+  /** 旧图片路径（空表示新增） */
+  oldPath: string | null;
+  /** 新图片路径（空表示删除） */
+  newPath: string | null;
+  /** 旧图片base64 */
+  oldImage?: string;
+  /** 新图片base64 */
+  newImage?: string;
+  /** 图片宽度 */
+  width?: number;
+  /** 图片高度 */
+  height?: number;
+  /** 是否为二进制文件 */
+  isBinary: boolean;
+}
+
+/** 文件历史条目 */
+export interface FileHistoryEntry {
+  /** 提交SHA */
+  oid: string;
+  /** 提交消息 */
+  message: string;
+  /** 作者 */
+  author: string;
+  /** 日期 */
+  date: string;
+  /** 文件变更状态(M/A/D/R) */
+  status: string;
+}
