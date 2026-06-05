@@ -1,30 +1,66 @@
 .lfs-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; align-items: center; justify-content: center; }
-.lfs-dialog { background: #1e1e2e; border-radius: 12px; width: 560px; max-height: 70vh; display: flex; flex-direction: column; }
+.lfs-dialog { background: #1e1e2e; border-radius: 12px; max-height: 75vh; display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
 .lfs-header { display: flex; align-items: center; padding: 16px 20px; border-bottom: 1px solid #333; }
 .lfs-header h3 { margin: 0; color: #e0e0e0; }
-.lfs-version { color: #888; font-size: 12px; margin-left: 8px; }
+.lfs-version { color: #888; font-size: 12px; margin-left: 8px; background: #2a2a3a; padding: 2px 8px; border-radius: 4px; }
 .lfs-header .btn-close { margin-left: auto; background: none; border: none; color: #888; cursor: pointer; font-size: 18px; }
+.lfs-header .btn-close:hover { color: #e0e0e0; }
 .lfs-not-installed { padding: 40px 20px; text-align: center; }
 .lfs-not-installed p { color: #aaa; margin-bottom: 16px; }
-.lfs-not-installed button { background: #4CAF50; border: none; color: #fff; padding: 8px 20px; border-radius: 6px; cursor: pointer; }
-.lfs-tabs { display: flex; gap: 0; border-bottom: 1px solid #333; }
-.lfs-tabs button { background: none; border: none; color: #888; padding: 10px 16px; cursor: pointer; border-bottom: 2px solid transparent; }
+.lfs-install-btn { background: #4CAF50; border: none; color: #fff; padding: 8px 20px; border-radius: 6px; cursor: pointer; font-size: 14px; }
+.lfs-install-btn:hover { background: #45a049; }
+.lfs-tabs { display: flex; gap: 0; border-bottom: 1px solid #333; padding: 0 8px; }
+.lfs-tabs button { background: none; border: none; color: #888; padding: 10px 16px; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s; }
 .lfs-tabs button.active { color: #e0e0e0; border-bottom-color: #4CAF50; }
-.lfs-action-btn { background: #2a2a3a; border: 1px solid #444; color: #aaa; padding: 4px 10px; border-radius: 4px; font-size: 12px; cursor: pointer; margin: auto 4px; }
+.lfs-tabs button:hover { color: #ccc; }
+.lfs-action-btn { background: #2a2a3a; border: 1px solid #444; color: #aaa; padding: 4px 10px; border-radius: 4px; font-size: 12px; cursor: pointer; margin: auto 2px; transition: all 0.2s; }
+.lfs-action-btn:hover { background: #353545; color: #ddd; }
+.lfs-action-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.lfs-prune-btn-danger { border-color: #e85d75; color: #e85d75; }
+.lfs-prune-btn-danger:hover { background: #3a2025; }
 .lfs-content { flex: 1; overflow-y: auto; padding: 12px 20px; }
-.lfs-add-track { display: flex; gap: 8px; margin-bottom: 12px; }
-.lfs-add-track input { flex: 1; background: #252535; border: 1px solid #444; color: #fff; padding: 6px 10px; border-radius: 6px; }
-.lfs-add-track button { background: #4CAF50; border: none; color: #fff; padding: 6px 14px; border-radius: 6px; cursor: pointer; }
-.lfs-track-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: #252535; border-radius: 4px; margin-bottom: 4px; }
-.track-pattern { color: #e0e0e0; font-family: monospace; }
-.track-lockable { color: #FF9800; font-size: 12px; }
-.track-remove { margin-left: auto; background: none; border: none; color: #ff5252; cursor: pointer; }
-.lfs-lock-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: #252535; border-radius: 4px; margin-bottom: 4px; }
-.lock-path { color: #e0e0e0; flex: 1; }
-.lock-owner { color: #888; font-size: 12px; }
-.lfs-lock-item button { background: #2a2a3a; border: 1px solid #444; color: #aaa; padding: 2px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; }
-.lfs-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.stat-item { display: flex; justify-content: space-between; padding: 10px 14px; background: #252535; border-radius: 6px; }
-.stat-item span:first-child { color: #888; }
-.stat-item span:last-child { color: #e0e0e0; font-weight: 500; }
+.lfs-prune-preview { background: #2a2020; border: 1px solid #5a3030; border-radius: 8px; padding: 12px; margin-bottom: 12px; }
+.lfs-prune-header { display: flex; justify-content: space-between; align-items: center; color: #e85d75; font-size: 13px; margin-bottom: 8px; }
+.lfs-prune-header button { background: none; border: none; color: #888; cursor: pointer; }
+.lfs-prune-item { color: #aaa; font-size: 12px; font-family: monospace; padding: 2px 0; }
+.lfs-prune-more { color: #888; font-size: 11px; padding-top: 4px; }
+.lfs-add-track { display: flex; gap: 8px; margin-bottom: 8px; }
+.lfs-add-track input { flex: 1; background: #252535; border: 1px solid #444; color: #fff; padding: 8px 12px; border-radius: 6px; font-size: 13px; }
+.lfs-add-track input:focus { outline: none; border-color: #4CAF50; }
+.lfs-add-btn { background: #4CAF50; border: none; color: #fff; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+.lfs-add-btn:hover { background: #45a049; }
+.lfs-sort-bar { display: flex; gap: 4px; align-items: center; margin-bottom: 8px; font-size: 12px; color: #888; }
+.lfs-sort-bar button { background: none; border: 1px solid transparent; color: #888; padding: 2px 8px; border-radius: 3px; cursor: pointer; font-size: 11px; }
+.lfs-sort-bar button.active { color: #e0e0e0; background: #2a2a3a; border-color: #444; }
+.lfs-track-item { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #252535; border-radius: 6px; margin-bottom: 4px; }
+.track-pattern { color: #e0e0e0; font-family: monospace; flex: 1; }
+.track-lockable { color: #FF9800; font-size: 11px; background: #3a2a15; padding: 1px 6px; border-radius: 3px; }
+.track-size { color: #5799da; font-size: 12px; font-family: monospace; }
+.track-files { color: #888; font-size: 12px; }
+.track-remove { margin-left: auto; background: none; border: none; color: #ff5252; cursor: pointer; font-size: 14px; opacity: 0.6; }
+.track-remove:hover { opacity: 1; }
+.lfs-lock-item { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #252535; border-radius: 6px; margin-bottom: 4px; }
+.lock-icon { font-size: 12px; }
+.lock-path { color: #e0e0e0; flex: 1; font-family: monospace; font-size: 13px; }
+.lock-owner { color: #5799da; font-size: 12px; }
+.lock-time { color: #666; font-size: 11px; }
+.lock-unlock-btn { background: #2a2a3a; border: 1px solid #444; color: #aaa; padding: 3px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+.lock-unlock-btn:hover { background: #353545; color: #e0e0e0; }
+.lfs-stats-content { display: flex; flex-direction: column; gap: 16px; }
+.lfs-stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.stat-card { background: #252535; border-radius: 8px; padding: 14px 16px; }
+.stat-label { color: #888; font-size: 12px; margin-bottom: 4px; }
+.stat-value { color: #e0e0e0; font-size: 18px; font-weight: 600; }
+.lfs-storage-bar { background: #252535; border-radius: 8px; padding: 14px 16px; }
+.lfs-storage-label { display: flex; justify-content: space-between; color: #888; font-size: 12px; margin-bottom: 8px; }
+.lfs-storage-track { height: 8px; background: #1a1a2a; border-radius: 4px; overflow: hidden; }
+.lfs-storage-fill { height: 100%; background: linear-gradient(90deg, #4CAF50, #5799da); border-radius: 4px; transition: width 0.3s ease; }
+.lfs-storage-detail { color: #666; font-size: 11px; margin-top: 6px; }
+.lfs-distribution { background: #252535; border-radius: 8px; padding: 14px 16px; }
+.lfs-distribution h4 { color: #ccc; font-size: 13px; margin: 0 0 12px 0; }
+.lfs-dist-item { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.dist-pattern { color: #e0e0e0; font-family: monospace; font-size: 12px; min-width: 80px; }
+.dist-bar-track { flex: 1; height: 6px; background: #1a1a2a; border-radius: 3px; overflow: hidden; }
+.dist-bar-fill { height: 100%; background: #5799da; border-radius: 3px; transition: width 0.3s ease; }
+.dist-size { color: #888; font-size: 11px; white-space: nowrap; }
 .empty { text-align: center; color: #666; padding: 40px; }
