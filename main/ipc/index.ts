@@ -181,6 +181,11 @@ function registerIpcHandlers() {
     return [];
   });
 
+  /** 获取 ahead/behind 数量 */
+  ipcMain.handle('git:getAheadBehind', async () => {
+    return await gitService.getAheadBehind();
+  });
+
   // ========== 凭证服务 ==========
 
   /** 保存凭证 */

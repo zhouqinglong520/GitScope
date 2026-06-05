@@ -32,6 +32,9 @@ function App() {
     isLoading,
     error,
     toggleSidebar,
+    refresh,
+    ahead,
+    behind,
   } = useRepoStore();
 
   const [showQuickLaunch, setShowQuickLaunch] = useState(false);
@@ -348,6 +351,17 @@ function App() {
           <div className="flex items-center gap-1">
             {/* Fetch */}
             <button
+              onClick={async () => {
+                console.log('[App] 点击了 Fetch 按钮');
+                try {
+                  await window.electronAPI.git.fetch();
+                  console.log('[App] Fetch 成功');
+                  // 刷新仓库 UI 数据
+                  await refresh();
+                } catch (err) {
+                  console.error('[App] Fetch 失败:', err);
+                }
+              }}
               className="btn-icon flex items-center gap-1.5 px-2"
               title={`${i18n.toolbar.fetch} (Ctrl+Shift+F)`}
             >
@@ -359,6 +373,17 @@ function App() {
 
             {/* Pull */}
             <button
+              onClick={async () => {
+                console.log('[App] 点击了 Pull 按钮');
+                try {
+                  await window.electronAPI.git.pull();
+                  console.log('[App] Pull 成功');
+                  // 刷新仓库 UI 数据
+                  await refresh();
+                } catch (err) {
+                  console.error('[App] Pull 失败:', err);
+                }
+              }}
               className="btn-icon flex items-center gap-1.5 px-2"
               title={`${i18n.toolbar.pull} (Ctrl+Shift+P)`}
             >
@@ -366,10 +391,26 @@ function App() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
               </svg>
               <span className="text-xs">{i18n.toolbar.pull}</span>
+              {behind > 0 && (
+                <span className="text-xs px-1.5 py-0.5 rounded bg-blue-600 text-white">
+                  ↓ {behind}
+                </span>
+              )}
             </button>
 
             {/* Push */}
             <button
+              onClick={async () => {
+                console.log('[App] 点击了 Push 按钮');
+                try {
+                  await window.electronAPI.git.push();
+                  console.log('[App] Push 成功');
+                  // 刷新仓库 UI 数据
+                  await refresh();
+                } catch (err) {
+                  console.error('[App] Push 失败:', err);
+                }
+              }}
               className="btn-icon flex items-center gap-1.5 px-2"
               title={`${i18n.toolbar.push} (Ctrl+P)`}
             >
@@ -377,12 +418,34 @@ function App() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
               </svg>
               <span className="text-xs">{i18n.toolbar.push}</span>
+              {ahead > 0 && (
+                <span className="text-xs px-1.5 py-0.5 rounded bg-green-600 text-white">
+                  ↑ {ahead}
+                </span>
+              )}
             </button>
 
             <div className="h-5 w-px bg-[#3c3c3c] mx-2" />
 
             {/* Stash */}
             <button
+              onClick={async () => {
+                console.log('[App] 点击了 Stash 按钮');
+                try {
+                  const message = await window.electronAPI.fs.showInputBox({
+                    title: 'Stash',
+                    prompt: '输入 stash 备注（可选）',
+                  });
+                  if (message !== null) {
+                    await window.electronAPI.git.stash(message || undefined);
+                    console.log('[App] Stash 成功');
+                    // 刷新仓库 UI 数据
+                    await refresh();
+                  }
+                } catch (err) {
+                  console.error('[App] Stash 失败:', err);
+                }
+              }}
               className="btn-icon flex items-center gap-1.5 px-2"
               title="Stash"
             >

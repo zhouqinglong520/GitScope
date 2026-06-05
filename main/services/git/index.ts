@@ -481,23 +481,35 @@ class GitService {
   }
 
   /**
-   * 创建分支
+   * 创建分支并切换
    */
   async createBranch(name: string, startPoint?: string): Promise<void> {
     if (!this.dir) throw new Error('仓库未打开');
 
     try {
-      await git.branch({
-        fs: isoFs,
-        dir: this.dir,
-        ref: name,
-        object: startPoint || undefined,
-      });
-    } catch (error) {
-      console.error('[GitService] 创建分支失败，尝试 CLI:', error);
-      const args = ['branch', name];
+      // 使用 git CLI 直接创建并切换分支（更可靠）
+      const args = ['checkout', '-b', name];
       if (startPoint) args.push(startPoint);
       await this.gitCliExec(args);
+    } catch (error) {
+      console.error('[GitService] 创建分支失败:', error);
+      // 降级到分步操作
+      try {
+        await git.branch({
+          fs: isoFs,
+          dir: this.dir,
+          ref: name,
+          object: startPoint || undefined,
+        });
+        await git.checkout({
+          fs: isoFs,
+          dir: this.dir,
+          ref: name,
+        });
+      } catch (fallbackError) {
+        console.error('[GitService] 降级方案也失败:', fallbackError);
+        throw error;
+      }
     }
   }
 
@@ -775,6 +787,58 @@ class GitService {
       return Array.from(authorMap.values()).sort((a, b) => b.commitCount - a.commitCount);
     } catch {
       return [];
+    }
+  }
+
+  /**
+   * 获取当前分支与远程分支的 ahead/behind 数量
+   */
+  async getAheadBehind(): Promise<{ ahead: number; behind: number }> {
+    if (!this.dir) return { ahead: 0, behind: 0 };
+
+    try {
+      // 使用 git rev-list 来统计 ahead 和 behind 的提交数
+      const currentBranch = await this.currentBranch();
+      if (!currentBranch) return { ahead: 0, behind: 0 };
+
+      // 获取远程分支名（假设是 origin/<branch>）
+      const remoteBranch = `origin/${currentBranch}`;
+
+      // 统计本地领先远程的提交数
+      let ahead = 0;
+      try {
+        const { stdout: aheadStdout } = await this.gitCliExec(['rev-list', '--count', `${remoteBranch}..HEAD`]);
+        ahead = parseInt(aheadStdout.trim()) || 0;
+      } catch (e) {
+        // 可能远程分支不存在
+      }
+
+      // 统计远程领先本地的提交数
+      let behind = 0;
+      try {
+        const { stdout: behindStdout } = await this.gitCliExec(['rev-list', '--count', `HEAD..${remoteBranch}`]);
+        behind = parseInt(behindStdout.trim()) || 0;
+      } catch (e) {
+        // 可能远程分支不存在
+      }
+
+      return { ahead, behind };
+    } catch (error) {
+      console.error('[GitService] 获取 ahead/behind 失败:', error);
+      return { ahead: 0, behind: 0 };
+    }
+  }
+
+  /**
+   * 获取当前分支名
+   */
+  private async currentBranch(): Promise<string | null> {
+    if (!this.dir) return null;
+
+    try {
+      return await git.currentBranch({ fs: isoFs, dir: this.dir, fullname: false }) || null;
+    } catch {
+      return null;
     }
   }
 

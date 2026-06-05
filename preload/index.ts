@@ -177,6 +177,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     /** 获取某文件的指定提交中的 diff */
     getFileDiff: (oid, filePath) =>
       ipcRenderer.invoke('git:getFileDiff', oid, filePath),
+
+    /** 获取 ahead/behind 数量 */
+    getAheadBehind: () => ipcRenderer.invoke('git:getAheadBehind'),
   },
 
   // ========== 凭证服务 ==========

@@ -1,198 +1,137 @@
-/**
- * 提交图组件 (Fork 风格)
- * 提交图和信息在同一行，左侧彩色分支线区域 + 右侧提交信息
- * 支持选中提交展开详情、右键菜单、refs 标签显示
- */
-
-import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react';
-import type { GitCommit, GitBranch, GraphNode } from '@shared/types/git';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { useRepoStore, type GitCommit, type GitBranch } from '../../stores/repoStore';
 import { useContextMenu, type MenuItem } from '../contextmenu/ContextMenu';
-import { useI18 } from '../../i18n';
 
-interface CommitGraphProps {
-  /** 提交列表 */
-  commits: GitCommit[];
-  /** 分支列表 */
-  branches: GitBranch[];
-  /** 当前分支名称 */
-  currentBranch?: string;
-  /** 选中的提交 */
-  selectedCommit?: string | null;
-  /** 选择提交回调 */
-  onCommitSelect?: (oid: string | null) => void;
-  /** 右键菜单回调 - 创建分支 */
-  onCreateBranch?: (oid: string) => void;
-  /** 右键菜单回调 - 创建标签 */
-  onCreateTag?: (oid: string) => void;
-  /** 右键菜单回调 - 重置 */
-  onReset?: (oid: string) => void;
-  /** 右键菜单回调 - 检出提交 */
-  onCheckout?: (oid: string) => void;
-  /** 右键菜单回调 - Cherry-pick */
-  onCherryPick?: (oid: string) => void;
-  /** 右键菜单回调 - Revert */
-  onRevert?: (oid: string) => void;
-  /** 右键菜单回调 - 保存为 Patch */
-  onSavePatch?: (oid: string) => void;
-  /** 右键菜单回调 - Interactive Rebase */
-  onInteractiveRebase?: (oid: string, action: 'reword' | 'squash' | 'fixup' | 'drop') => void;
-}
-
-// 分支颜色配置
 const BRANCH_COLORS = [
-  '#5799da', // 蓝色
-  '#7dce82', // 绿色
-  '#e2a855', // 橙色
-  '#b47ccf', // 紫色
-  '#52c4e8', // 青色
-  '#e85d75', // 红色
-  '#72d6c9', // 青绿
-  '#f0c674', // 金色
+  '#e05673', // 红色 - 主分支
+  '#5b8def', // 蓝色
+  '#68c263', // 绿色
+  '#c9a73c', // 黄色
+  '#a06cd5', // 紫色
+  '#3eb4c6', // 青色
+  '#d4844e', // 橙色
+  '#e86580', // 粉色
 ];
 
 const ROW_HEIGHT = 36;
-const COLUMN_WIDTH = 20;
-const CIRCLE_RADIUS = 5;
-const GRAPH_WIDTH = 100; // 左侧图区域宽度
+const COLUMN_WIDTH = 36;
+const NODE_RADIUS = 5.5;
+const GRAPH_WIDTH = 220;
 
-interface RefInfo {
-  name: string;
-  type: 'branch' | 'tag';
-  isHead?: boolean;
+interface GraphNode {
+  commit: GitCommit;
+  column: number;
+  color: string;
+  row: number;
+  isMainBranch: boolean;
 }
 
-/**
- * 生成提交图节点
- */
+interface Slot {
+  nextParentHash: string;
+  color: string;
+}
+
 function buildGraphNodes(
   commits: GitCommit[],
   branches: GitBranch[]
 ): GraphNode[] {
   if (commits.length === 0) return [];
 
-  // 构建分支 SHA 到名称的映射
-  const branchShaMap = new Map<string, string[]>();
-  const tagShaMap = new Map<string, string[]>();
+  const nodes: GraphNode[] = [];
   
-  branches.forEach((b) => {
-    if (b.oid) {
-      if (b.remote) {
-        // 远程分支
-        const list = tagShaMap.get(b.oid) || [];
-        list.push(b.name);
-        tagShaMap.set(b.oid, list);
-      } else {
-        // 本地分支
-        const list = branchShaMap.get(b.oid) || [];
-        list.push(b.name);
-        branchShaMap.set(b.oid, list);
-      }
-    }
-  });
-
-  // 列分配算法
-  // 主分支（main/master）固定在 column 0
-  const columnMap = new Map<string, number>();
-  const activeColumns: (string | null)[] = [null]; // column 0 预留给主分支
-  let maxColumn = 0;
+  // 活跃插槽：每个插槽代表一个垂直列
+  const activeSlots: Map<string, Slot> = new Map();
   
-  // 找到主分支的 SHA
+  // 找到主分支
   const mainBranch = branches.find(
     (b) => b.name === 'main' || b.name === 'master' || b.current
   );
-  const mainBranchOid = mainBranch?.oid || commits[0]?.oid;
+  const mainBranchOid = mainBranch?.oid;
 
-  const nodes: GraphNode[] = [];
-
-  // 从最新提交开始遍历
+  // 从最新到最旧遍历（从上到下）
   for (let row = 0; row < commits.length; row++) {
     const commit = commits[row];
     let column: number;
+    let color: string;
 
-    // 检查是否有分支/标签指向这个提交
-    const branchNames = branchShaMap.get(commit.oid) || [];
-    const tagNames = tagShaMap.get(commit.oid) || [];
-    const refs: string[] = [...branchNames, ...tagNames];
-
-    // 如果这个提交有分支指向，确定它的列
-    if (branchNames.length > 0 || tagNames.length > 0) {
-      // 优先使用主分支所在的列
-      if (branchNames.includes('main') || branchNames.includes('master') || commit.oid === mainBranchOid) {
-        column = 0;
-      } else {
-        // 找第一个可用列
-        column = activeColumns.findIndex((v) => v === null);
-        if (column === -1) {
-          column = ++maxColumn;
-        }
+    // 1. 处理入度：检查是否有插槽正在寻找这个 commit
+    let existingSlotKey: string | undefined;
+    for (const [key, slot] of activeSlots) {
+      if (slot.nextParentHash === commit.oid) {
+        existingSlotKey = key;
+        break;
       }
-      columnMap.set(commit.oid, column);
-      activeColumns[column] = commit.oid;
-    } else if (columnMap.has(commit.oid)) {
-      // 已经分配过列
-      column = columnMap.get(commit.oid)!;
+    }
+
+    if (existingSlotKey) {
+      // 有插槽指向它，使用该插槽
+      const slotIndex = parseInt(existingSlotKey);
+      column = slotIndex;
+      color = activeSlots.get(existingSlotKey)!.color;
+      activeSlots.delete(existingSlotKey);
     } else {
-      // 新提交，找可用列
-      column = activeColumns.findIndex((v) => v === null);
-      if (column === -1) {
-        column = ++maxColumn;
+      // 没有插槽指向它，是一个新分支的顶端，找一个新的可用插槽
+      let newColumn = 0;
+      const usedColumns = new Set<number>();
+      for (const key of activeSlots.keys()) {
+        usedColumns.add(parseInt(key));
       }
-      columnMap.set(commit.oid, column);
+      while (usedColumns.has(newColumn)) {
+        newColumn++;
+      }
+      column = newColumn;
+      color = BRANCH_COLORS[column % BRANCH_COLORS.length];
     }
 
-    // 找到父节点列
-    const parentColumns: number[] = [];
-    commit.parentIds.forEach((parentOid) => {
-      if (columnMap.has(parentOid)) {
-        parentColumns.push(columnMap.get(parentOid)!);
+    // 2. 处理出度：设置父节点的插槽
+    for (let i = 0; i < commit.parentIds.length; i++) {
+      const parentOid = commit.parentIds[i];
+      
+      if (i === 0) {
+        // 第一个父节点继承当前插槽
+        activeSlots.set(column.toString(), {
+          nextParentHash: parentOid,
+          color: color,
+        });
+      } else {
+        // 合并提交的其他父节点，分配新的插槽
+        let mergeColumn = 0;
+        const usedColumns = new Set<number>();
+        for (const key of activeSlots.keys()) {
+          usedColumns.add(parseInt(key));
+        }
+        while (usedColumns.has(mergeColumn)) {
+          mergeColumn++;
+        }
+        activeSlots.set(mergeColumn.toString(), {
+          nextParentHash: parentOid,
+          color: BRANCH_COLORS[mergeColumn % BRANCH_COLORS.length],
+        });
       }
-    });
+    }
 
-    // 颜色基于列
-    const colorIndex = column % BRANCH_COLORS.length;
-    const color = BRANCH_COLORS[colorIndex];
-
-    // 释放当前提交的列（如果不是主分支且没有子提交）
-    const isLastInColumn = !commits.slice(row + 1).some(
-      (c) => columnMap.get(c.oid) === column
-    );
+    // 判断是否是主分支
+    const isMainBranch = mainBranchOid === commit.oid || column === 0;
     
-    // 只有当这是分支的最后一个提交时才释放列
-    if (isLastInColumn && !branchNames.includes('main') && !branchNames.includes('master') && column > 0) {
-      activeColumns[column] = null;
+    // 如果是主分支，强制使用主颜色
+    if (isMainBranch) {
+      color = BRANCH_COLORS[0];
     }
 
-    nodes.push({
+    const node: GraphNode = {
       commit,
       column,
       color,
       row,
-      parentColumns,
-      branchName: branchNames[0] || tagNames[0],
-      refs,
-    });
+      isMainBranch,
+    };
+
+    nodes.push(node);
   }
 
   return nodes;
 }
 
-/**
- * 获取 refs 标签的颜色
- */
-function getRefColor(ref: string, branches: GitBranch[]): string {
-  const branch = branches.find((b) => b.name === ref);
-  if (branch) {
-    const column = branch.oid ? Array.from(new Set(
-      nodes.filter((n) => n.commit.oid === branch.oid).map((n) => n.column)
-    ))[0] : 0;
-    return BRANCH_COLORS[column % BRANCH_COLORS.length];
-  }
-  return '#888888';
-}
-
-/**
- * 格式化相对时间
- */
 function formatRelativeTime(timestamp: number): string {
   const date = new Date(timestamp * 1000);
   const now = new Date();
@@ -209,12 +148,19 @@ function formatRelativeTime(timestamp: number): string {
   });
 }
 
-let nodes: GraphNode[] = [];
+function getAvatarColor(email: string): string {
+  const colors = [
+    '#5b8def', '#68c263', '#c9a73c', '#a06cd5',
+    '#3eb4c6', '#e86580', '#d4844e', '#5b8def',
+  ];
+  let hash = 0;
+  for (let i = 0; i < email.length; i++) {
+    hash = email.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return colors[Math.abs(hash) % colors.length];
+}
 
 function CommitGraph({
-  commits,
-  branches,
-  currentBranch,
   selectedCommit,
   onCommitSelect,
   onCreateBranch,
@@ -224,54 +170,28 @@ function CommitGraph({
   onCherryPick,
   onRevert,
   onSavePatch,
-  onInteractiveRebase,
-}: CommitGraphProps) {
-  const { t } = useI18();
+}: {
+  selectedCommit?: string | null;
+  onCommitSelect?: (oid: string | null) => void;
+  onCreateBranch?: (oid: string) => void;
+  onCreateTag?: (oid: string) => void;
+  onReset?: (oid: string) => void;
+  onCheckout?: (oid: string) => void;
+  onCherryPick?: (oid: string) => void;
+  onRevert?: (oid: string) => void;
+  onSavePatch?: (oid: string) => void;
+}) {
+  const { commits, branches, currentBranch } = useRepoStore();
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
-  const [containerHeight, setContainerHeight] = useState(400);
-  const [graphNodes, setGraphNodes] = useState<GraphNode[]>([]);
 
-  // 构建图数据
-  useEffect(() => {
-    nodes = buildGraphNodes(commits, branches);
-    setGraphNodes(nodes);
+  const graphNodes = useMemo(() => {
+    return buildGraphNodes(commits, branches);
   }, [commits, branches]);
 
-  // 虚拟滚动计算
-  const virtualData = useMemo(() => {
-    const startRow = Math.floor(scrollTop / ROW_HEIGHT);
-    const endRow = Math.min(
-      startRow + Math.ceil(containerHeight / ROW_HEIGHT) + 2,
-      graphNodes.length
-    );
+  const totalHeight = commits.length * ROW_HEIGHT;
 
-    return {
-      startRow,
-      endRow,
-      visibleNodes: graphNodes.slice(startRow, endRow),
-      totalHeight: graphNodes.length * ROW_HEIGHT,
-    };
-  }, [graphNodes, scrollTop, containerHeight]);
-
-  // 监听容器大小变化
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    const observer = new ResizeObserver((entries) => {
-      const entry = entries[0];
-      if (entry) {
-        setContainerHeight(entry.contentRect.height);
-      }
-    });
-
-    observer.observe(container);
-    return () => observer.disconnect();
-  }, []);
-
-  // Canvas 渲染分支线
   useEffect(() => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
@@ -279,7 +199,7 @@ function CommitGraph({
 
     const dpr = window.devicePixelRatio || 1;
     const width = GRAPH_WIDTH;
-    const height = Math.max(virtualData.totalHeight, containerHeight);
+    const height = totalHeight;
 
     canvas.width = width * dpr;
     canvas.height = height * dpr;
@@ -287,320 +207,271 @@ function CommitGraph({
     canvas.style.height = `${height}px`;
 
     ctx.scale(dpr, dpr);
-    ctx.clearRect(0, 0, width, height);
+    ctx.fillStyle = '#1e1e1e';
+    ctx.fillRect(0, 0, width, height);
 
-    const startY = scrollTop;
-    const endY = scrollTop + containerHeight;
+    // 先绘制所有连线
+    for (let i = 0; i < graphNodes.length; i++) {
+      const node = graphNodes[i];
+      const nodeX = node.column * COLUMN_WIDTH + COLUMN_WIDTH / 2;
+      const nodeY = node.row * ROW_HEIGHT + ROW_HEIGHT / 2;
 
-    ctx.lineWidth = 2;
+      for (let j = 0; j < node.commit.parentIds.length; j++) {
+        const parentOid = node.commit.parentIds[j];
+        const parentNode = graphNodes.find((n) => n.commit.oid === parentOid);
+        if (!parentNode) continue;
 
-    // 绘制连接线
-    virtualData.visibleNodes.forEach((node, index) => {
-      const actualIndex = virtualData.startRow + index;
-      const nodeY = actualIndex * ROW_HEIGHT + ROW_HEIGHT / 2;
-      
-      if (nodeY < startY - ROW_HEIGHT || nodeY > endY + ROW_HEIGHT) return;
+        const parentX = parentNode.column * COLUMN_WIDTH + COLUMN_WIDTH / 2;
+        const parentY = parentNode.row * ROW_HEIGHT + ROW_HEIGHT / 2;
 
-      const nodeX = node.column * COLUMN_WIDTH + COLUMN_WIDTH;
+        const isMainBranch = node.isMainBranch || parentNode.isMainBranch;
+        const lineWidth = isMainBranch ? 4 : 2.5;
 
-      // 绘制到父节点的连线
-      node.parentColumns.forEach((parentCol) => {
-        const parentNode = graphNodes.find(
-          (n) => n.commit.oid === node.commit.parentIds[0] && n.column === parentCol
-        );
-        if (!parentNode) return;
+        // 绘制阴影线
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+        ctx.lineWidth = lineWidth + 2;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
 
-        const parentIndex = graphNodes.indexOf(parentNode);
-        const parentY = parentIndex * ROW_HEIGHT + ROW_HEIGHT / 2;
-        const parentX = parentCol * COLUMN_WIDTH + COLUMN_WIDTH;
+        drawConnectingLine(ctx, nodeX + 1.5, nodeY + 1.5, parentX + 1.5, parentY + 1.5);
+        ctx.stroke();
 
+        // 绘制主线
         ctx.strokeStyle = node.color;
+        ctx.lineWidth = lineWidth;
+        ctx.beginPath();
+        drawConnectingLine(ctx, nodeX, nodeY, parentX, parentY);
+        ctx.stroke();
 
-        if (parentX === nodeX) {
-          // 直线
+        // 主分支绘制高光
+        if (isMainBranch) {
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+          ctx.lineWidth = lineWidth * 0.4;
           ctx.beginPath();
-          ctx.moveTo(nodeX, nodeY + CIRCLE_RADIUS);
-          ctx.lineTo(parentX, parentY - CIRCLE_RADIUS);
-          ctx.stroke();
-        } else {
-          // Bezier 曲线连接
-          ctx.beginPath();
-          ctx.moveTo(nodeX, nodeY + CIRCLE_RADIUS);
-          
-          const midY = (nodeY + parentY) / 2;
-          ctx.bezierCurveTo(
-            nodeX, midY,
-            parentX, midY,
-            parentX, parentY - CIRCLE_RADIUS
-          );
+          drawConnectingLine(ctx, nodeX, nodeY - 0.5, parentX, parentY - 0.5);
           ctx.stroke();
         }
-      });
+      }
+    }
 
-      // 如果是合并提交（多个父节点），从其他父节点画线
-      node.commit.parentIds.slice(1).forEach((parentOid) => {
-        const parentNode = graphNodes.find((n) => n.commit.oid === parentOid);
-        if (!parentNode) return;
+    // 再绘制所有节点
+    for (let i = 0; i < graphNodes.length; i++) {
+      const node = graphNodes[i];
+      const nodeX = node.column * COLUMN_WIDTH + COLUMN_WIDTH / 2;
+      const nodeY = node.row * ROW_HEIGHT + ROW_HEIGHT / 2;
 
-        const parentIndex = graphNodes.indexOf(parentNode);
-        const parentY = parentIndex * ROW_HEIGHT + ROW_HEIGHT / 2;
-        const parentX = parentNode.column * COLUMN_WIDTH + COLUMN_WIDTH;
-
-        ctx.strokeStyle = parentNode.color;
-        ctx.beginPath();
-        ctx.moveTo(parentX, parentY + CIRCLE_RADIUS);
-        
-        const midY = (nodeY + parentY) / 2;
-        ctx.bezierCurveTo(
-          parentX, midY,
-          nodeX, midY,
-          nodeX, nodeY - CIRCLE_RADIUS
-        );
-        ctx.stroke();
-      });
-    });
-
-    // 绘制节点圆点
-    virtualData.visibleNodes.forEach((node, index) => {
-      const actualIndex = virtualData.startRow + index;
-      const nodeY = actualIndex * ROW_HEIGHT + ROW_HEIGHT / 2;
-      
-      if (nodeY < startY - ROW_HEIGHT || nodeY > endY + ROW_HEIGHT) return;
-
-      const nodeX = node.column * COLUMN_WIDTH + COLUMN_WIDTH;
-      const isSelected = selectedCommit === node.commit.oid;
-
-      // 绘制圆点
-      ctx.fillStyle = node.color;
+      // 绘制节点阴影
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
       ctx.beginPath();
-      ctx.arc(nodeX, nodeY, isSelected ? CIRCLE_RADIUS + 2 : CIRCLE_RADIUS, 0, Math.PI * 2);
+      ctx.arc(nodeX + 2, nodeY + 2, NODE_RADIUS + 1, 0, Math.PI * 2);
       ctx.fill();
 
-      // 选中高亮
-      if (isSelected) {
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 2;
-        ctx.stroke();
+      // 绘制光晕
+      const glowGradient = ctx.createRadialGradient(
+        nodeX, nodeY, 0,
+        nodeX, nodeY, NODE_RADIUS * 3
+      );
+      glowGradient.addColorStop(0, `${node.color}44`);
+      glowGradient.addColorStop(0.5, `${node.color}11`);
+      glowGradient.addColorStop(1, 'transparent');
+      ctx.fillStyle = glowGradient;
+      ctx.beginPath();
+      ctx.arc(nodeX, nodeY, NODE_RADIUS * 3, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 绘制节点主体（带渐变）
+      const nodeGradient = ctx.createRadialGradient(
+        nodeX - NODE_RADIUS * 0.3,
+        nodeY - NODE_RADIUS * 0.3,
+        0,
+        nodeX,
+        nodeY,
+        NODE_RADIUS
+      );
+
+      if (node.isMainBranch) {
+        nodeGradient.addColorStop(0, '#f57a8e');
+        nodeGradient.addColorStop(0.5, '#e05673');
+        nodeGradient.addColorStop(1, '#c7435b');
+      } else {
+        const lighterColor = lightenColor(node.color, 20);
+        const darkerColor = darkenColor(node.color, 20);
+        nodeGradient.addColorStop(0, lighterColor);
+        nodeGradient.addColorStop(0.5, node.color);
+        nodeGradient.addColorStop(1, darkerColor);
       }
-    });
-  }, [virtualData, selectedCommit, scrollTop, containerHeight, graphNodes]);
 
-  // 处理滚动
-  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
-    setScrollTop((e.target as HTMLDivElement).scrollTop);
-  }, []);
+      ctx.fillStyle = nodeGradient;
+      ctx.beginPath();
+      ctx.arc(nodeX, nodeY, NODE_RADIUS, 0, Math.PI * 2);
+      ctx.fill();
 
-  // 右键菜单
-  const { showContextMenu, ContextMenuWrapper } = useContextMenu(() => {
+      // 绘制高光
+      const highlightGradient = ctx.createRadialGradient(
+        nodeX - NODE_RADIUS * 0.4,
+        nodeY - NODE_RADIUS * 0.4,
+        0,
+        nodeX,
+        nodeY,
+        NODE_RADIUS
+      );
+      highlightGradient.addColorStop(0, 'rgba(255, 255, 255, 0.9)');
+      highlightGradient.addColorStop(0.2, 'rgba(255, 255, 255, 0.5)');
+      highlightGradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.2)');
+      highlightGradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+      ctx.fillStyle = highlightGradient;
+      ctx.beginPath();
+      ctx.arc(nodeX, nodeY, NODE_RADIUS, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 绘制中心白点
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(nodeX - 1, nodeY - 1, 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }, [graphNodes, totalHeight]);
+
+  function drawConnectingLine(
+    ctx: CanvasRenderingContext2D,
+    x1: number,
+    y1: number,
+    x2: number,
+    y2: number
+  ) {
+    if (Math.abs(x1 - x2) < 8) {
+      // 同列：直线
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+    } else {
+      // 不同列：平滑的贝塞尔曲线
+      const controlOffset = Math.min(Math.abs(y2 - y1) * 0.4, 20);
+      
+      ctx.moveTo(x1, y1);
+      ctx.bezierCurveTo(
+        x1, y1 + controlOffset,
+        x2, y2 - controlOffset,
+        x2, y2
+      );
+    }
+  }
+
+  function lightenColor(color: string, percent: number): string {
+    const num = parseInt(color.replace('#', ''), 16);
+    const amt = Math.round(2.55 * percent);
+    const R = Math.min(255, (num >> 16) + amt);
+    const G = Math.min(255, ((num >> 8) & 0x00ff) + amt);
+    const B = Math.min(255, (num & 0x0000ff) + amt);
+    return `#${((1 << 24) + (R << 16) + (G << 8) + B).toString(16).slice(1)}`;
+  }
+
+  function darkenColor(color: string, percent: number): string {
+    const num = parseInt(color.replace('#', ''), 16);
+    const amt = Math.round(2.55 * percent);
+    const R = Math.max(0, (num >> 16) - amt);
+    const G = Math.max(0, ((num >> 8) & 0x00ff) - amt);
+    const B = Math.max(0, (num & 0x0000ff) - amt);
+    return `#${((1 << 24) + (R << 16) + (G << 8) + B).toString(16).slice(1)}`;
+  }
+
+  const { showContextMenu, ContextMenuWrapper } = useContextMenu((e, target) => {
+    const targetEl = target as HTMLElement;
+    const oid = targetEl.getAttribute('data-oid');
+    if (!oid) return [];
+
     const items: MenuItem[] = [
-      {
-        id: 'create-branch',
-        label: t('contextMenu.createBranch') + ' (Ctrl+Shift+B)',
-        onClick: () => selectedCommit && onCreateBranch?.(selectedCommit),
-      },
-      {
-        id: 'create-tag',
-        label: t('contextMenu.createTag') + ' (Ctrl+Shift+T)',
-        onClick: () => selectedCommit && onCreateTag?.(selectedCommit),
-      },
-      { id: 'divider1', label: '', divider: true },
-      {
-        id: 'interactive-rebase',
-        label: 'Interactive Rebase',
-        children: [
-          {
-            id: 'reword',
-            label: 'Reword',
-            onClick: () => selectedCommit && onInteractiveRebase?.(selectedCommit, 'reword'),
-          },
-          {
-            id: 'squash',
-            label: 'Squash',
-            onClick: () => selectedCommit && onInteractiveRebase?.(selectedCommit, 'squash'),
-          },
-          {
-            id: 'fixup',
-            label: 'Fixup',
-            onClick: () => selectedCommit && onInteractiveRebase?.(selectedCommit, 'fixup'),
-          },
-          { id: 'divider-rebase', label: '', divider: true },
-          {
-            id: 'drop',
-            label: 'Drop',
-            onClick: () => selectedCommit && onInteractiveRebase?.(selectedCommit, 'drop'),
-          },
-        ],
-      },
-      {
-        id: 'reset',
-        label: t('contextMenu.resetToHere'),
-        onClick: () => selectedCommit && onReset?.(selectedCommit),
-      },
-      { id: 'divider2', label: '', divider: true },
-      {
-        id: 'checkout',
-        label: t('contextMenu.checkoutCommit'),
-        onClick: () => selectedCommit && onCheckout?.(selectedCommit),
-      },
-      {
-        id: 'cherry-pick',
-        label: t('contextMenu.cherrypick'),
-        onClick: () => selectedCommit && onCherryPick?.(selectedCommit),
-      },
-      {
-        id: 'revert',
-        label: t('contextMenu.revert'),
-        onClick: () => selectedCommit && onRevert?.(selectedCommit),
-      },
-      { id: 'divider3', label: '', divider: true },
-      {
-        id: 'save-patch',
-        label: t('contextMenu.saveAsPatch'),
-        onClick: () => selectedCommit && onSavePatch?.(selectedCommit),
-      },
-      {
-        id: 'copy-sha',
-        label: t('contextMenu.copyCommitSHA') + ' (Ctrl+C)',
-        onClick: () => {
-          if (selectedCommit) {
-            navigator.clipboard.writeText(selectedCommit);
-          }
-        },
-      },
-      {
-        id: 'copy-info',
-        label: t('contextMenu.copyCommitInfo'),
-        onClick: () => {
-          if (selectedCommit) {
-            const commit = commits.find((c) => c.oid === selectedCommit);
-            if (commit) {
-              navigator.clipboard.writeText(
-                `${commit.oid}\n${commit.message}\n${commit.authorName} <${commit.authorEmail}>`
-              );
-            }
-          }
-        },
-      },
+      { id: 'checkout', label: '检出此提交', onClick: () => onCheckout?.(oid) },
+      { id: 'divider-1', label: '', divider: true },
+      { id: 'create-branch', label: '从这里创建分支...', onClick: () => onCreateBranch?.(oid) },
+      { id: 'create-tag', label: '从这里创建标签...', onClick: () => onCreateTag?.(oid) },
+      { id: 'divider-2', label: '', divider: true },
+      { id: 'reset', label: '重置到此处', onClick: () => onReset?.(oid) },
+      { id: 'divider-3', label: '', divider: true },
+      { id: 'cherry-pick', label: 'Cherry-pick', onClick: () => onCherryPick?.(oid) },
+      { id: 'revert', label: 'Revert', onClick: () => onRevert?.(oid) },
+      { id: 'divider-4', label: '', divider: true },
+      { id: 'save-patch', label: '保存为 Patch...', onClick: () => onSavePatch?.(oid) },
     ];
     return items;
   });
 
-  if (commits.length === 0) {
-    return (
-      <div className="h-full flex items-center justify-center text-gray-500">
-        <p className="text-sm">{t('commitGraph.noCommits')}</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="h-full flex overflow-hidden">
-      {/* 左侧图区域 */}
-      <div
-        className="relative flex-shrink-0 bg-[#1e1e1e] border-r border-[#3c3c3c] overflow-hidden"
-        style={{ width: GRAPH_WIDTH }}
-      >
-        <div
-          ref={containerRef}
-          className="absolute inset-0 overflow-hidden"
-          onScroll={handleScroll}
-        >
-          <canvas
-            ref={canvasRef}
-            className="absolute top-0 left-0"
-          />
-        </div>
+    <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="px-3 py-1.5 border-b border-panel-border bg-[#1e1e1e] flex items-center text-xs text-gray-400">
+        <span style={{ width: GRAPH_WIDTH }} className="flex-shrink-0"></span>
+        <span className="flex-1">提交</span>
+        <span className="w-24 flex-shrink-0 text-right">作者</span>
+        <span className="w-20 flex-shrink-0 text-right">日期</span>
       </div>
 
-      {/* 右侧提交信息区域 */}
       <div
+        ref={containerRef}
         className="flex-1 overflow-y-auto relative"
-        onScroll={handleScroll}
+        onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
       >
-        <div
-          className="relative"
-          style={{ height: virtualData.totalHeight }}
-        >
-          {virtualData.visibleNodes.map((node, index) => {
-            const actualIndex = virtualData.startRow + index;
+        <div style={{ height: `${totalHeight}px`, position: 'relative' }}>
+          {/* 左侧分支图 Canvas - sticky定位 */}
+          <div
+            className="sticky left-0 top-0 z-10"
+            style={{
+              width: GRAPH_WIDTH,
+              height: totalHeight,
+              backgroundColor: '#1e1e1e',
+              borderRight: '1px solid #3c3c3c',
+            }}
+          >
+            <canvas
+              ref={canvasRef}
+              style={{ display: 'block' }}
+            />
+          </div>
+
+          {/* 提交记录列表 */}
+          {graphNodes.map((node) => {
             const isSelected = selectedCommit === node.commit.oid;
-            const nodeX = node.column * COLUMN_WIDTH + COLUMN_WIDTH;
 
             return (
               <div
                 key={node.commit.oid}
-                data-index={actualIndex}
+                data-oid={node.commit.oid}
                 onClick={() => onCommitSelect?.(node.commit.oid)}
-                onContextMenu={showContextMenu}
-                className={`
-                  absolute left-0 right-0 flex items-center cursor-pointer
-                  transition-colors border-b border-[#2a2a2a]
-                  ${isSelected ? 'bg-[#094771]' : 'hover:bg-[#2a2d2e]'}
-                `}
+                onContextMenu={(e) => showContextMenu(e, e.currentTarget)}
+                className={`absolute left-0 right-0 flex items-center px-3 cursor-pointer transition-colors ${
+                  isSelected ? 'bg-[#2d2d30]' : 'hover:bg-[#2a2d2e]'
+                }`}
                 style={{
-                  top: actualIndex * ROW_HEIGHT,
+                  top: node.row * ROW_HEIGHT,
                   height: ROW_HEIGHT,
                   paddingLeft: GRAPH_WIDTH + 12,
                   paddingRight: 12,
                 }}
               >
-                {/* SHA */}
-                <span 
-                  className="font-mono text-xs text-[#5799da] flex-shrink-0 mr-3"
-                  style={{ minWidth: 60 }}
+                <span
+                  className="font-mono text-xs text-[#61afef] flex-shrink-0 mr-3"
+                  style={{ minWidth: 55 }}
                 >
                   {node.commit.shortOid}
                 </span>
 
-                {/* 提交消息 */}
                 <span className="flex-1 text-sm text-gray-200 truncate mr-3">
                   {node.commit.message}
                 </span>
 
-                {/* Refs 标签 */}
-                {node.refs.length > 0 && (
-                  <div className="flex items-center gap-1 mr-3 flex-shrink-0">
-                    {node.refs.map((ref) => {
-                      const isBranch = branches.some((b) => b.name === ref);
-                      const isCurrent = ref === currentBranch;
-                      const colorIndex = node.column % BRANCH_COLORS.length;
-                      const color = BRANCH_COLORS[colorIndex];
-                      
-                      return (
-                        <span
-                          key={ref}
-                          className={`
-                            px-1.5 py-0.5 rounded text-xs font-medium
-                            ${isCurrent ? 'font-bold' : ''}
-                          `}
-                          style={{
-                            backgroundColor: isCurrent ? color : `${color}33`,
-                            color: isCurrent ? '#fff' : color,
-                          }}
-                        >
-                          {ref}
-                        </span>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {/* 作者头像 */}
                 <div
-                  className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium flex-shrink-0 mr-2"
+                  className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-medium flex-shrink-0 mr-2"
                   style={{
                     backgroundColor: getAvatarColor(node.commit.authorEmail),
+                    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.3)',
                   }}
                 >
                   {node.commit.authorName.charAt(0).toUpperCase()}
                 </div>
 
-                {/* 作者名 */}
-                <span className="text-xs text-gray-400 truncate flex-shrink-0 mr-3" style={{ maxWidth: 100 }}>
+                <span className="text-xs text-gray-400 truncate flex-shrink-0 mr-3" style={{ maxWidth: 90 }}>
                   {node.commit.authorName}
                 </span>
 
-                {/* 时间 */}
                 <span className="text-xs text-gray-500 flex-shrink-0">
                   {formatRelativeTime(node.commit.authorTimestamp)}
                 </span>
@@ -613,21 +484,6 @@ function CommitGraph({
       {ContextMenuWrapper}
     </div>
   );
-}
-
-/**
- * 获取头像背景色
- */
-function getAvatarColor(email: string): string {
-  const colors = [
-    '#5799da', '#7dce82', '#e2a855', '#b47ccf',
-    '#52c4e8', '#e85d75', '#72d6c9', '#f0c674',
-  ];
-  let hash = 0;
-  for (let i = 0; i < email.length; i++) {
-    hash = email.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return colors[Math.abs(hash) % colors.length];
 }
 
 export default CommitGraph;

@@ -63,7 +63,9 @@ function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
   // 点击外部关闭菜单
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
+      console.log('[ContextMenu] handleClickOutside 触发');
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        console.log('[ContextMenu] 点击了外部，关闭菜单');
         onClose();
       }
     };
@@ -74,11 +76,20 @@ function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
+    // 使用 setTimeout 确保不会立即关闭，给菜单项点击一点时间
+    const handleMouseDown = (e: MouseEvent) => {
+      setTimeout(() => {
+        if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+          onClose();
+        }
+      }, 0);
+    };
+
+    document.addEventListener('mousedown', handleMouseDown);
     document.addEventListener('keydown', handleEscape);
 
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('mousedown', handleMouseDown);
       document.removeEventListener('keydown', handleEscape);
     };
   }, [onClose]);
@@ -105,11 +116,27 @@ function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
         onMouseLeave={() => hasChildren && setActiveSubmenu(null)}
       >
         <div
-          onClick={() => {
+          onClick={(e) => {
+            console.log('[ContextMenu] 点击了菜单项:', item.id);
+            e.preventDefault();
+            e.stopPropagation();
+            
             if (!item.disabled && !hasChildren) {
-              item.onClick?.();
-              onClose();
+              console.log('[ContextMenu] 执行 onClick');
+              // 先执行 onClick，再关闭菜单
+              if (item.onClick) {
+                try {
+                  item.onClick();
+                } catch (err) {
+                  console.error('[ContextMenu] 执行 onClick 出错:', err);
+                }
+              }
+              // 延迟关闭，确保 onClick 有时间执行
+              setTimeout(() => onClose(), 0);
             }
+          }}
+          onMouseDown={(e) => {
+            e.stopPropagation();
           }}
           className={`
             flex items-center gap-2 px-3 py-1.5 cursor-pointer select-none

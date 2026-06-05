@@ -230,10 +230,37 @@ function RepoSection() {
 
 // 分支列表组件
 function BranchSection() {
-  const { branches } = useRepoStore();
+  const { branches, refresh } = useRepoStore();
 
   const localBranches = branches.filter((b) => !b.remote);
   const remoteBranches = branches.filter((b) => b.remote);
+
+  // 切换本地分支
+  const checkoutLocalBranch = async (branchName: string) => {
+    console.log('[Sidebar] 切换到本地分支:', branchName);
+    try {
+      await window.electronAPI.git.checkout(branchName);
+      await refresh();
+    } catch (err) {
+      console.error('[Sidebar] 切换分支失败:', err);
+    }
+  };
+
+  // 从远程分支创建本地分支并切换
+  const checkoutRemoteBranch = async (branchName: string) => {
+    console.log('[Sidebar] 切换到远程分支:', branchName);
+    try {
+      // 从远程分支名提取本地分支名（去掉 origin/ 前缀）
+      const localName = branchName.replace(/^origin\//, '');
+      console.log('[Sidebar] 本地分支名:', localName);
+      
+      // 创建本地分支并切换（基于远程分支）
+      await window.electronAPI.git.createBranch(localName, branchName);
+      await refresh();
+    } catch (err) {
+      console.error('[Sidebar] 从远程分支创建本地分支失败:', err);
+    }
+  };
 
   const { showContextMenu, ContextMenuWrapper } = useContextMenu(() => {
     const items: MenuItem[] = [
@@ -242,12 +269,20 @@ function BranchSection() {
         label: '新建分支',
         shortcut: 'Ctrl+B',
         onClick: async () => {
-          const name = await window.electronAPI.fs.showInputBox({
-            title: '新建分支',
-            prompt: '请输入分支名称',
-          });
-          if (name) {
-            await window.electronAPI.git.createBranch(name);
+          console.log('[Sidebar] 点击了“新建分支”');
+          try {
+            const name = await window.electronAPI.fs.showInputBox({
+              title: '新建分支',
+              prompt: '请输入分支名称',
+            });
+            console.log('[Sidebar] 输入的分支名称:', name);
+            if (name) {
+              await window.electronAPI.git.createBranch(name);
+              await refresh();
+              console.log('[Sidebar] 分支创建成功');
+            }
+          } catch (err) {
+            console.error('[Sidebar] 新建分支失败:', err);
           }
         },
       },
@@ -255,7 +290,7 @@ function BranchSection() {
         id: 'checkout',
         label: '切换到此分支',
         onClick: () => {
-          // TODO: 实现切换分支
+          // TODO: 实现切换分支（需要获取右键点击的分支名）
         },
       },
       { id: 'divider-1', label: '', divider: true },
@@ -299,7 +334,7 @@ function BranchSection() {
         <div
           key={branch.name}
           onContextMenu={showContextMenu}
-          onClick={() => window.electronAPI.git.checkout(branch.name)}
+          onDoubleClick={() => checkoutLocalBranch(branch.name)}
           className={`
             flex items-center gap-2 px-3 py-1.5 cursor-pointer transition-colors
             ${branch.current ? 'text-primary-400' : 'hover:bg-sidebar-hover'}
@@ -325,7 +360,7 @@ function BranchSection() {
             <div
               key={branch.name}
               onContextMenu={showContextMenu}
-              onClick={() => window.electronAPI.git.checkout(branch.name)}
+              onDoubleClick={() => checkoutRemoteBranch(branch.name)}
               className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-sidebar-hover transition-colors"
             >
               <svg className="w-4 h-4 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">

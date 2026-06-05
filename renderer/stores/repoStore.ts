@@ -77,6 +77,10 @@ interface RepoState {
   selectedCommitDetail: CommitDetail | null;
   /** 是否显示提交详情面板 */
   showCommitDetail: boolean;
+  /** 本地领先远程的提交数 */
+  ahead: number;
+  /** 远程领先本地的提交数 */
+  behind: number;
 
   // 多仓库 Tab Actions
   /** 设置活动仓库 */
@@ -184,6 +188,8 @@ const initialState = {
   authorStats: [],
   selectedCommitDetail: null,
   showCommitDetail: false,
+  ahead: 0,
+  behind: 0,
 };
 
 /**
@@ -338,6 +344,11 @@ export const useRepoStore = create<RepoState>((set, get) => ({
   setShowCommitDetail: (show) => set({ showCommitDetail: show }),
 
   /**
+   * 设置 ahead/behind 数量
+   */
+  setAheadBehind: ({ ahead, behind }: { ahead: number; behind: number }) => set({ ahead, behind }),
+
+  /**
    * 筛选提交
    */
   filterCommits: () => {
@@ -443,11 +454,12 @@ export const useRepoStore = create<RepoState>((set, get) => ({
    */
   loadRepoData: async (path: string) => {
     try {
-      const [branches, commits, status, tags] = await Promise.all([
+      const [branches, commits, status, tags, aheadBehind] = await Promise.all([
         window.electronAPI.git.getBranches(),
         window.electronAPI.git.getLog({ depth: 100 }),
         window.electronAPI.git.getStatus(),
         window.electronAPI.git.getTags().catch(() => []),
+        window.electronAPI.git.getAheadBehind().catch(() => ({ ahead: 0, behind: 0 })),
       ]);
 
       // 获取 stash 列表
@@ -465,6 +477,8 @@ export const useRepoStore = create<RepoState>((set, get) => ({
         stashes,
         authorStats,
         currentBranch: branches.find((b) => b.current) || null,
+        ahead: aheadBehind.ahead,
+        behind: aheadBehind.behind,
       });
     } catch (error) {
       console.error('加载仓库数据失败:', error);
