@@ -17,3 +17,38 @@
 .rm-stat-item span:first-child { color: #888; font-size: 11px; }
 .rm-stat-item span:last-child { color: #e0e0e0; font-size: 18px; font-weight: 600; }
 .rm-empty { text-align: center; color: #666; padding: 60px 0; }
+
+/* 增强 RepoManager 样式 */
+.rm-repo-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 12px; border-radius: 4px; cursor: pointer;
+  border-left: 3px solid transparent; font-size: 13px;
+  transition: background 0.15s;
+}
+.rm-repo-item:hover { background: #2a2a3a; }
+.rm-repo-item.active { background: #2a2a4a; border-left-color: #4a6fff; }
+.rm-repo-name { color: #e0e0e0; flex: 1; overflow: hidden; text-overflow: ellipsis; }
+.rm-repo-branch { color: #4CAF50; font-size: 11px; font-family: monospace; }
+.rm-star-btn {
+  background: none; border: none; cursor: pointer; font-size: 12px;
+  padding: 2px 4px; opacity: 0.6;
+}
+.rm-star-btn:hover { opacity: 1; }
+.rm-group-header {
+  color: #888; font-size: 12px; padding: 8px 12px 4px;
+  font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px;
+}
+.rm-stats {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 12px; padding: 16px; border-bottom: 1px solid #282838;
+}
+.rm-stat-item {
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 12px; background: #252535; border-radius: 8px;
+}
+.rm-stat-item span:first-child { color: #888; font-size: 11px; }
+.rm-stat-item span:last-child { color: #e0e0e0; font-size: 18px; font-weight: 600; }
+.btn-stats {
+  background: #2a2a3a; border: 1px solid #444; color: #aaa;
+  padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 12px;
+}
