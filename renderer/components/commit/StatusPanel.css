@@ -1,0 +1,23 @@
+/* StatusPanel 增强样式 */
+.sp-toolbar {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
+.sp-view-toggle {
+  display: flex; border-radius: 4px; overflow: hidden;
+}
+.sp-view-btn {
+  width: 28px; height: 24px; border: none; background: #1e1e1e;
+  color: #888; font-size: 12px; cursor: pointer; transition: all 0.1s;
+}
+.sp-view-btn:hover { color: #ccc; }
+.sp-view-btn.active { background: #094771; color: #fff; }
+.sp-filter-input {
+  outline: none;
+}
+.sp-filter-input:focus { border-color: #094771; }
+.sp-file {
+  padding: 2px 8px; min-height: 28px;
+}
+.sp-dir {
+  padding: 2px 8px; min-height: 24px;
+}
