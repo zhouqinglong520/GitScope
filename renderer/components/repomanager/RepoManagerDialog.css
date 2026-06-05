@@ -52,3 +52,33 @@
   background: #2a2a3a; border: 1px solid #444; color: #aaa;
   padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 12px;
 }
+
+/* Clone form */
+.rm-clone-btn { background: #4CAF50; border: none; color: #fff; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; white-space: nowrap; }
+.rm-clone-btn:hover { background: #45a049; }
+.rm-clone-form { padding: 16px 20px; border-bottom: 1px solid #333; background: #252535; }
+.rm-clone-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.rm-clone-row label { color: #888; font-size: 13px; min-width: 90px; }
+.rm-clone-row input { flex: 1; background: #1e1e2e; border: 1px solid #444; color: #fff; padding: 6px 10px; border-radius: 4px; font-size: 13px; }
+.rm-clone-row input:focus { outline: none; border-color: #4CAF50; }
+.rm-clone-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+.rm-clone-actions button { padding: 6px 16px; border-radius: 6px; border: none; cursor: pointer; font-size: 13px; }
+.rm-clone-actions button:first-child { background: #2a2a3a; color: #aaa; }
+.rm-clone-start { background: #4CAF50; color: #fff; }
+.rm-clone-start:disabled { opacity: 0.5; }
+.rm-clone-start:hover:not(:disabled) { background: #45a049; }
+
+/* Rename */
+.rm-rename-input { background: #1e1e2e; border: 1px solid #4CAF50; color: #fff; padding: 2px 6px; border-radius: 3px; font-size: 13px; flex: 1; }
+
+/* Context menu */
+.rm-context-menu { position: absolute; right: 0; top: 100%; background: #252535; border: 1px solid #444; border-radius: 8px; padding: 8px; z-index: 100; min-width: 160px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+.rm-context-menu button { display: block; width: 100%; text-align: left; background: none; border: none; color: #e0e0e0; padding: 6px 8px; border-radius: 4px; cursor: pointer; font-size: 13px; }
+.rm-context-menu button:hover { background: #353545; }
+.rm-color-row { display: flex; gap: 4px; padding: 6px 0; flex-wrap: wrap; }
+.rm-color-dot { width: 16px; height: 16px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: border-color 0.2s; }
+.rm-color-dot:hover { border-color: #fff; }
+.rm-color-clear { background: #444 !important; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #888; }
+.rm-group-input { background: #1e1e2e; border: 1px solid #444; color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 12px; width: 100%; margin-top: 4px; }
+.rm-group-input:focus { outline: none; border-color: #4CAF50; }
+.rm-repo-item { position: relative; }
