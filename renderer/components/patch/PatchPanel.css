@@ -1,15 +1,126 @@
-.patch-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; align-items: center; justify-content: center; }
-.patch-dialog { background: #1e1e2e; border-radius: 12px; width: 520px; max-height: 65vh; display: flex; flex-direction: column; }
-.patch-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid #333; }
-.patch-header h3 { margin: 0; color: #e0e0e0; }
-.patch-header .btn-close { background: none; border: none; color: #888; cursor: pointer; font-size: 18px; }
-.patch-create { display: flex; gap: 8px; padding: 12px 20px; border-bottom: 1px solid #282838; }
-.patch-create input { flex: 1; background: #252535; border: 1px solid #444; color: #fff; padding: 6px 10px; border-radius: 6px; }
-.patch-create button { background: #4CAF50; border: none; color: #fff; padding: 6px 14px; border-radius: 6px; cursor: pointer; }
-.patch-list { flex: 1; overflow-y: auto; padding: 12px 20px; }
-.patch-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; background: #252535; border-radius: 4px; margin-bottom: 4px; }
-.pi-info { flex: 1; display: flex; justify-content: space-between; }
-.pi-name { color: #e0e0e0; font-size: 13px; }
-.pi-meta { color: #888; font-size: 12px; }
-.patch-item button { background: #2a2a3a; border: 1px solid #444; color: #aaa; padding: 4px 10px; border-radius: 4px; font-size: 12px; cursor: pointer; }
-.empty { text-align: center; color: #666; padding: 40px; }
+.patch-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+  display: flex; align-items: center; justify-content: center; z-index: 100;
+}
+.patch-dialog-enhanced {
+  background: #252526; border: 1px solid #3c3c3c; border-radius: 8px;
+  width: 620px; max-height: 80vh; display: flex; flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+}
+.patch-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 16px; border-bottom: 1px solid #3c3c3c;
+}
+.patch-header h3 { margin: 0; font-size: 14px; color: #e0e0e0; }
+.patch-header-actions { display: flex; align-items: center; gap: 8px; }
+.patch-create {
+  display: flex; gap: 8px; padding: 12px 16px;
+  border-bottom: 1px solid #333;
+}
+.patch-input {
+  flex: 1; padding: 6px 10px; background: #1e1e1e; border: 1px solid #3c3c3c;
+  border-radius: 4px; color: #e0e0e0; font-size: 13px; outline: none;
+}
+.patch-input:focus { border-color: #094771; }
+.btn-primary {
+  padding: 6px 14px; background: #094771; color: #fff; border: none;
+  border-radius: 4px; font-size: 13px; cursor: pointer; white-space: nowrap;
+}
+.btn-primary:hover { background: #0b5394; }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-sm {
+  padding: 4px 10px; background: #3c3c3c; color: #ccc; border: none;
+  border-radius: 4px; font-size: 12px; cursor: pointer;
+}
+.btn-sm:hover { background: #4f4f4f; }
+.btn-close {
+  width: 24px; height: 24px; border: none; background: none;
+  color: #888; font-size: 16px; cursor: pointer; border-radius: 4px;
+  display: flex; align-items: center; justify-content: center;
+}
+.btn-close:hover { background: #3c3c3c; color: #fff; }
+.patch-toolbar {
+  display: flex; align-items: center; gap: 8px; padding: 8px 16px;
+  border-bottom: 1px solid #333;
+}
+.patch-search {
+  flex: 1; padding: 4px 8px; background: #1e1e1e; border: 1px solid #3c3c3c;
+  border-radius: 4px; color: #ccc; font-size: 12px; outline: none;
+}
+.patch-search:focus { border-color: #094771; }
+.patch-sort {
+  padding: 4px 8px; background: #1e1e1e; border: 1px solid #3c3c3c;
+  border-radius: 4px; color: #ccc; font-size: 12px; outline: none;
+}
+.patch-count { font-size: 11px; color: #666; white-space: nowrap; }
+
+/* 检查结果面板 */
+.patch-check-result {
+  margin: 8px 16px; padding: 10px 12px; border-radius: 6px; font-size: 13px;
+}
+.check-ok { background: #1a3a2a; border: 1px solid #2d5a3d; color: #7dce82; }
+.check-conflict { background: #3a2a1a; border: 1px solid #5a3d2d; color: #f0c674; }
+.check-header {
+  display: flex; align-items: center; justify-content: space-between;
+}
+.check-conflicts {
+  margin-top: 8px; max-height: 120px; overflow-y: auto;
+}
+.conflict-file {
+  padding: 3px 0; font-size: 12px; font-family: monospace; color: #e85d75;
+}
+.btn-apply-after-check { margin-top: 8px; }
+
+/* Patch 列表 */
+.patch-list {
+  flex: 1; overflow-y: auto; padding: 8px;
+}
+.patch-loading, .empty {
+  text-align: center; padding: 24px; color: #666; font-size: 13px;
+}
+.patch-item {
+  padding: 10px 12px; border-radius: 6px; cursor: pointer;
+  border: 1px solid transparent; margin-bottom: 4px;
+  transition: all 0.15s;
+}
+.patch-item:hover { background: #2a2d2e; }
+.patch-item.selected { background: #094771; border-color: #0b5394; }
+.pi-main { display: flex; align-items: center; justify-content: space-between; }
+.pi-info { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
+.pi-name { font-size: 13px; color: #e0e0e0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pi-meta { display: flex; align-items: center; gap: 6px; font-size: 12px; flex-shrink: 0; }
+.pi-additions { color: #7dce82; }
+.pi-deletions { color: #e85d75; }
+.pi-files { color: #888; }
+.pi-time { font-size: 11px; color: #666; flex-shrink: 0; }
+.pi-detail {
+  margin-top: 8px; padding-top: 8px; border-top: 1px solid #333;
+  font-size: 12px; color: #888;
+}
+.pi-filename, .pi-path { padding: 2px 0; }
+.pi-actions {
+  display: flex; gap: 4px; margin-top: 8px; opacity: 0;
+  transition: opacity 0.15s;
+}
+.patch-item:hover .pi-actions, .patch-item.selected .pi-actions { opacity: 1; }
+.btn-check {
+  padding: 3px 8px; background: #2d5a3d; color: #7dce82; border: none;
+  border-radius: 4px; font-size: 11px; cursor: pointer;
+}
+.btn-check:hover { background: #3a7a4d; }
+.btn-apply {
+  padding: 3px 8px; background: #094771; color: #fff; border: none;
+  border-radius: 4px; font-size: 11px; cursor: pointer;
+}
+.btn-apply:hover { background: #0b5394; }
+.btn-danger {
+  padding: 3px 8px; background: #5a2d2d; color: #e85d75; border: none;
+  border-radius: 4px; font-size: 11px; cursor: pointer;
+}
+.btn-danger:hover { background: #7a3d3d; }
+.patch-drop-zone {
+  position: absolute; inset: 0; background: rgba(9,71,113,0.3);
+  border: 2px dashed #094771; border-radius: 8px; display: flex;
+  align-items: center; justify-content: center; font-size: 16px;
+  color: #5799da; z-index: 10; pointer-events: none;
+}
