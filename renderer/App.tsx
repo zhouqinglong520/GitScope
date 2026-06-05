@@ -11,7 +11,7 @@ import QuickLaunch, { type QuickLaunchCommand } from './components/quicklaunch/Q
 import StashDialog from './components/stash/StashDialog';
 import { useRepoStore } from './stores/repoStore';
 import { useMenuEvents } from './hooks/useMenuEvents';
-import { zhCN } from './i18n/zh-CN';
+import { useI18, setLocale, getLocale } from './i18n';
 import { ImageDiffView } from './components/imagediff/ImageDiffView';
 import { FileHistoryPanel } from './components/filehistory/FileHistoryPanel';
 import { InteractiveRebaseDialog } from './components/rebase/InteractiveRebaseDialog';
@@ -26,13 +26,15 @@ import BisectPanel from './components/bisect/BisectPanel';
 import PatchPanel from './components/patch/PatchPanel';
 import RepoManagerDialog from './components/repomanager/RepoManagerDialog';
 
-// 简单的 i18n hook
+// i18n hook with locale switching support
 function useI18n() {
-  return zhCN;
+  const { messages } = useI18();
+  return messages;
 }
 
 function App() {
   const i18n = useI18n();
+  const [locale, setLocaleState] = useState(getLocale());
 
   // 监听主进程菜单事件
   useMenuEvents();
