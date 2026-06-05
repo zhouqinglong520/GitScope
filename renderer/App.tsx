@@ -14,6 +14,17 @@ import { useMenuEvents } from './hooks/useMenuEvents';
 import { zhCN } from './i18n/zh-CN';
 import { ImageDiffView } from './components/imagediff/ImageDiffView';
 import { FileHistoryPanel } from './components/filehistory/FileHistoryPanel';
+import { InteractiveRebaseDialog } from './components/rebase/InteractiveRebaseDialog';
+import SubmodulePanel from './components/submodule/SubmodulePanel';
+import WorktreePanel from './components/worktree/WorktreePanel';
+import LfsPanel from './components/lfs/LfsPanel';
+import SettingsDialog from './components/settings/SettingsDialog';
+import CustomActionsPanel from './components/customactions/CustomActionsPanel';
+import ReflogPanel from './components/reflog/ReflogPanel';
+import { NotificationToast } from './components/notification/NotificationToast';
+import BisectPanel from './components/bisect/BisectPanel';
+import PatchPanel from './components/patch/PatchPanel';
+import RepoManagerDialog from './components/repomanager/RepoManagerDialog';
 
 // 简单的 i18n hook
 function useI18n() {
@@ -50,6 +61,17 @@ function App() {
   const [sidebarWidth] = useState(220);
   const [imageDiffInfo, setImageDiffInfo] = useState<any>(null);
   const [fileHistoryPath, setFileHistoryPath] = useState<string | null>(null);
+  const [showRebaseDialog, setShowRebaseDialog] = useState(false);
+  const [rebaseUpstream, setRebaseUpstream] = useState('');
+  const [showSubmodulePanel, setShowSubmodulePanel] = useState(false);
+  const [showWorktreePanel, setShowWorktreePanel] = useState(false);
+  const [showLfsPanel, setShowLfsPanel] = useState(false);
+  const [showSettingsDialog, setShowSettingsDialog] = useState(false);
+  const [showCustomActions, setShowCustomActions] = useState(false);
+  const [showReflog, setShowReflog] = useState(false);
+  const [showBisect, setShowBisect] = useState(false);
+  const [showPatchPanel, setShowPatchPanel] = useState(false);
+  const [showRepoManager, setShowRepoManager] = useState(false);
 
   // 获取当前分支的跟踪状态
   const currentBranchTracking = currentBranch ? branchTrackingStatus[currentBranch.name] : null;
@@ -296,6 +318,87 @@ function App() {
           await refresh();
         }
       },
+    },
+    // ========== P2 新增 Quick Launch 命令 ==========
+    {
+      id: 'interactive-rebase',
+      label: '交互式 Rebase',
+      description: '启动交互式 Rebase 编辑器',
+      category: '变基',
+      shortcut: 'Ctrl+Shift+R',
+      action: async () => {
+        if (currentRepo) {
+          const upstream = await window.electronAPI.fs.showInputBox({
+            title: '交互式 Rebase',
+            prompt: '输入上游分支（如 origin/main）',
+          });
+          if (upstream) { setRebaseUpstream(upstream); setShowRebaseDialog(true); }
+        }
+      },
+    },
+    {
+      id: 'submodules',
+      label: '子模块管理',
+      description: '管理 Git 子模块',
+      category: '仓库',
+      action: () => setShowSubmodulePanel(true),
+    },
+    {
+      id: 'worktrees',
+      label: 'Worktree 管理',
+      description: '管理 Git Worktree',
+      category: '仓库',
+      action: () => setShowWorktreePanel(true),
+    },
+    {
+      id: 'lfs',
+      label: 'Git LFS',
+      description: '管理 Git LFS',
+      category: '仓库',
+      action: () => setShowLfsPanel(true),
+    },
+    {
+      id: 'settings',
+      label: '偏好设置',
+      description: '应用偏好设置',
+      category: '工具',
+      shortcut: 'Ctrl+,',
+      action: () => setShowSettingsDialog(true),
+    },
+    {
+      id: 'custom-actions',
+      label: '自定义操作',
+      description: '管理自定义 Shell 命令',
+      category: '工具',
+      action: () => setShowCustomActions(true),
+    },
+    {
+      id: 'reflog',
+      label: 'Reflog',
+      description: '查看操作历史',
+      category: '工具',
+      action: () => setShowReflog(true),
+    },
+    {
+      id: 'bisect',
+      label: 'Bisect 二分查找',
+      description: '定位引入 Bug 的提交',
+      category: '调试',
+      action: () => setShowBisect(true),
+    },
+    {
+      id: 'patches',
+      label: 'Patch 管理',
+      description: '创建和应用 Patch',
+      category: '工具',
+      action: () => setShowPatchPanel(true),
+    },
+    {
+      id: 'repo-manager',
+      label: '仓库管理器',
+      description: '管理所有仓库',
+      category: '仓库',
+      action: () => setShowRepoManager(true),
     },
   ];
 
@@ -702,6 +805,77 @@ function App() {
             />
           </div>
         )}
+
+        {/* ========== P2 新增对话框 ========== */}
+
+        {/* 交互式 Rebase */}
+        <InteractiveRebaseDialog
+          visible={showRebaseDialog}
+          upstream={rebaseUpstream}
+          onClose={() => setShowRebaseDialog(false)}
+          onComplete={refresh}
+        />
+
+        {/* 子模块管理 */}
+        <SubmodulePanel
+          visible={showSubmodulePanel}
+          onClose={() => setShowSubmodulePanel(false)}
+          onRefresh={refresh}
+        />
+
+        {/* Worktree 管理 */}
+        <WorktreePanel
+          visible={showWorktreePanel}
+          onClose={() => setShowWorktreePanel(false)}
+        />
+
+        {/* Git LFS */}
+        <LfsPanel
+          visible={showLfsPanel}
+          onClose={() => setShowLfsPanel(false)}
+        />
+
+        {/* 偏好设置 */}
+        <SettingsDialog
+          visible={showSettingsDialog}
+          onClose={() => setShowSettingsDialog(false)}
+        />
+
+        {/* 自定义操作 */}
+        <CustomActionsPanel
+          visible={showCustomActions}
+          onClose={() => setShowCustomActions(false)}
+        />
+
+        {/* Reflog */}
+        <ReflogPanel
+          visible={showReflog}
+          onClose={() => setShowReflog(false)}
+        />
+
+        {/* Bisect 二分查找 */}
+        <BisectPanel
+          visible={showBisect}
+          onClose={() => setShowBisect(false)}
+          onRefresh={refresh}
+        />
+
+        {/* Patch 管理 */}
+        <PatchPanel
+          visible={showPatchPanel}
+          onClose={() => setShowPatchPanel(false)}
+          onRefresh={refresh}
+        />
+
+        {/* 仓库管理器 */}
+        <RepoManagerDialog
+          visible={showRepoManager}
+          onClose={() => setShowRepoManager(false)}
+          onSelectRepo={(id) => { setActiveRepo(id); setShowRepoManager(false); }}
+        />
+
+        {/* 通知 Toast */}
+        <NotificationToast />
 
 </div>
   );
