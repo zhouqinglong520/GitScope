@@ -1,4 +1,31 @@
 /**
+ * 获取提交消息前缀的颜色
+ */
+function getCommitPrefixStyle(message: string): { prefix: string; color: string } | null {
+  const match = message.match(/^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert|BREAKING)(\(.+?\))?:/i);
+  if (!match) return null;
+  const type = match[1].toLowerCase();
+  const colors: Record<string, string> = {
+    feat: '#7dce82', fix: '#e85d75', docs: '#5799da', style: '#f0c674',
+    refactor: '#b47ccf', perf: '#52c4e8', test: '#72d6c9', build: '#FF9800',
+    ci: '#9C27B0', chore: '#888', revert: '#FF5722', breaking: '#FF5252',
+  };
+  return { prefix: match[0], color: colors[type] || '#888' };
+}
+
+/**
+ * 渲染带前缀高亮的提交消息
+ */
+function renderHighlightedMessage(message: string): React.ReactNode {
+  const prefixStyle = getCommitPrefixStyle(message);
+  if (!prefixStyle) return <>{message}</>;
+  const rest = message.substring(prefixStyle.prefix.length);
+  return <>
+    <span style={{ color: prefixStyle.color, fontWeight: 600 }}>{prefixStyle.prefix}</span>{rest}
+  </>;
+}
+
+/**
  * 提交图组件 (Fork 风格)
  * 提交图和信息在同一行，左侧彩色分支线区域 + 右侧提交信息
  * 支持选中提交展开详情、右键菜单、refs 标签显示
@@ -9,6 +36,7 @@ import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react'
 import type { GitCommit, GitBranch, GraphNode } from '@shared/types/git';
 import { useContextMenu, type MenuItem } from '../contextmenu/ContextMenu';
 import { useI18 } from '../../i18n';
+import { getCustomActionMenuItems } from '../customactions/CustomActionsPanel';
 
 interface CommitGraphProps {
   /** 提交列表 */
@@ -854,6 +882,13 @@ function CommitGraph({
         },
       }
     );
+
+    // 追加自定义操作到右键菜单
+    if (customActionsCache.length > 0) {
+      items.push({ id: 'divider-custom', label: '', divider: true });
+      customActionsCache.forEach(ci => items.push(ci));
+    }
+
     return items;
   });
 
@@ -872,6 +907,13 @@ function CommitGraph({
     
     onCommitSelect?.(node.commit.oid);
   }, [collapsedMergeOids, toggleCollapse, onCommitSelect]);
+
+  // 自定义操作缓存（右键菜单用）
+  const [customActionsCache, setCustomActionsCache] = useState<Array<{ id: string; label: string; onClick: () => void }>>([]);
+
+  useEffect(() => {
+    getCustomActionMenuItems().then(items => setCustomActionsCache(items));
+  }, []);
 
   // 鼠标悬停提示
   const [tooltip, setTooltip] = useState<{ x: number; y: number; text: string } | null>(null);
@@ -999,7 +1041,7 @@ function CommitGraph({
                 <span className={`flex-1 text-sm truncate mr-3 ${
                   isCollapsed ? 'text-gray-400' : 'text-gray-200'
                 }`}>
-                  {node.commit.message}
+                  {renderHighlightedMessage(node.commit.message)}
                 </span>
 
                 {/* Refs 标签 */}
