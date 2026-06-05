@@ -19,6 +19,8 @@ import { zhCN } from '../../i18n/zh-CN';
 
 function MainLayout() {
   const i18n = zhCN;
+  const [graphSearch, setGraphSearch] = useState('');
+  const [graphDateFilter, setGraphDateFilter] = useState<'all' | 'today' | 'week' | 'month'>('all');
   const {
     commits,
     filteredCommits,
@@ -251,6 +253,29 @@ function MainLayout() {
                 </span>
               ))}
             </div>
+          </div>
+
+          {/* 提交图搜索/筛选栏 */}
+          <div className="h-9 bg-[#252526] flex items-center gap-2 px-3 border-b border-panel-border">
+            <input
+              className="bg-[#1e1e1e] border border-[#3c3c3c] rounded px-2 py-1 text-xs text-gray-300 w-40 focus:border-[#4CAF50] focus:outline-none"
+              placeholder={i18n.commitGraph.searchPlaceholder || '搜索提交...'}
+              value={graphSearch}
+              onChange={e => setGraphSearch(e.target.value)}
+            />
+            <div className="flex gap-1">
+              {(['all', 'today', 'week', 'month'] as const).map(d => {
+                const labels: Record<string, string> = { all: i18n.commitGraph.filterAll || '全部', today: i18n.commitGraph.today || '今天', week: i18n.commitGraph.thisWeek || '本周', month: i18n.commitGraph.thisMonth || '本月' };
+                return (
+                  <button
+                    key={d}
+                    className={`px-2 py-0.5 rounded text-xs ${graphDateFilter === d ? 'bg-[#094771] text-white' : 'text-gray-500 hover:text-gray-300'}`}
+                    onClick={() => setGraphDateFilter(d)}
+                  >{labels[d]}</button>
+                );
+              })}
+            </div>
+            <span className="text-xs text-gray-600 ml-auto">{filteredCommits.length} 提交</span>
           </div>
 
           {/* 提交图 */}
