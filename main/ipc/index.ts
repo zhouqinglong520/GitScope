@@ -411,6 +411,153 @@ export function registerIpcHandlers(): void {
     // File Content (base64)
     ipcMain.handle('git:getFileContent', async (_event, filePath: string, oid: string) => {
       return gitService.getFileContent(filePath, oid);
+
+
+    // ========== P2 新增 IPC Handlers ==========
+
+    ipcMain.handle('git:getRebaseActions', async (_e, upstream: string) => {
+      return gitService.getRebaseActions(upstream);
+    });
+
+    ipcMain.handle('git:executeRebasePlan', async (_e, plan: any) => {
+      return gitService.executeRebasePlan(plan);
+    });
+
+    ipcMain.handle('git:listSubmodulesEnhanced', async () => {
+      return gitService.listSubmodulesEnhanced();
+    });
+
+    ipcMain.handle('git:syncSubmodule', async (_e, path: string) => {
+      return gitService.syncSubmodule(path);
+    });
+
+    ipcMain.handle('git:listWorktrees', async () => {
+      return gitService.listWorktrees();
+    });
+
+    ipcMain.handle('git:createWorktree', async (_e, path: string, ref: string) => {
+      return gitService.createWorktree(path, ref);
+    });
+
+    ipcMain.handle('git:removeWorktree', async (_e, path: string, force?: boolean) => {
+      return gitService.removeWorktree(path, force);
+    });
+
+    ipcMain.handle('git:getLfsStatus', async () => {
+      return gitService.getLfsStatus();
+    });
+
+    ipcMain.handle('git:installLfs', async () => {
+      return gitService.installLfs();
+    });
+
+    ipcMain.handle('git:lfsTrack', async (_e, pattern: string) => {
+      return gitService.lfsTrack(pattern);
+    });
+
+    ipcMain.handle('git:lfsUntrack', async (_e, pattern: string) => {
+      return gitService.lfsUntrack(pattern);
+    });
+
+    ipcMain.handle('git:lfsLock', async (_e, path: string) => {
+      return gitService.lfsLock(path);
+    });
+
+    ipcMain.handle('git:lfsUnlock', async (_e, path: string, force?: boolean) => {
+      return gitService.lfsUnlock(path, force);
+    });
+
+    ipcMain.handle('git:lfsPull', async () => {
+      return gitService.lfsPull();
+    });
+
+    ipcMain.handle('git:lfsPush', async () => {
+      return gitService.lfsPush();
+    });
+
+    ipcMain.handle('git:lfsPrune', async () => {
+      return gitService.lfsPrune();
+    });
+
+    ipcMain.handle('git:getReflog', async () => {
+      return gitService.getReflog();
+    });
+
+    ipcMain.handle('git:getRepoStats', async () => {
+      return gitService.getRepoStats();
+    });
+
+    ipcMain.handle('git:listCustomActions', async () => {
+      return gitService.listCustomActions();
+    });
+
+    ipcMain.handle('git:saveCustomAction', async (_e, action: any) => {
+      return gitService.saveCustomAction(action);
+    });
+
+    ipcMain.handle('git:deleteCustomAction', async (_e, id: string) => {
+      return gitService.deleteCustomAction(id);
+    });
+
+    ipcMain.handle('git:executeCustomAction', async (_e, id: string, context?: any) => {
+      return gitService.executeCustomAction(id, context);
+    });
+
+    ipcMain.handle('git:getPreferences', async () => {
+      return gitService.getPreferences?.() || {};
+    });
+
+    ipcMain.handle('git:savePreferences', async (_e, prefs: any) => {
+      return gitService.savePreferences?.(prefs);
+    });
+
+    ipcMain.handle('git:bisectStart', async (_e, badRef: string, goodRef: string) => {
+      return gitService.bisectStart(badRef, goodRef);
+    });
+
+    ipcMain.handle('git:bisectMark', async (_e, ref: string, result: string) => {
+      return gitService.bisectMark(ref, result as any);
+    });
+
+    ipcMain.handle('git:bisectSkip', async () => {
+      return gitService.bisectSkip();
+    });
+
+    ipcMain.handle('git:bisectReset', async () => {
+      return gitService.bisectReset();
+    });
+
+    ipcMain.handle('git:getBisectState', async () => {
+      return gitService.getBisectState();
+    });
+
+    ipcMain.handle('git:createPatch', async (_e, refs: string[], outputPath?: string) => {
+      return gitService.createPatch(refs, outputPath);
+    });
+
+    ipcMain.handle('git:applyPatch', async (_e, patchPath: string, options?: any) => {
+      return gitService.applyPatch(patchPath, options);
+    });
+
+    ipcMain.handle('git:listPatches', async (_e, dir?: string) => {
+      return gitService.listPatches(dir);
+    });
+
+    ipcMain.handle('git:pushTag', async (_e, tagName: string, remote?: string) => {
+      return gitService.pushTag(tagName, remote);
+    });
+
+    ipcMain.handle('git:pushAllTags', async (_e, remote?: string) => {
+      return gitService.pushAllTags(remote);
+    });
+
+    ipcMain.handle('git:getPullRequests', async (_e, remote?: string) => {
+      return gitService.getPullRequests(remote);
+    });
+
+    ipcMain.handle('git:verifyCommitSignature', async (_e, oid: string) => {
+      return gitService.verifyCommitSignature(oid);
+    });
     });
 
     } catch (error) {
