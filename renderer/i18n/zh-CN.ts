@@ -53,6 +53,13 @@ export const zhCN = {
     message: '提交信息',
     parents: '父提交',
     children: '子提交',
+    searchPlaceholder: '搜索提交...',
+    filterAuthor: '按作者筛选',
+    filterDate: '按日期筛选',
+    filterAll: '全部',
+    today: '今天',
+    thisWeek: '本周',
+    thisMonth: '本月',
   },
 
   // 详情面板
