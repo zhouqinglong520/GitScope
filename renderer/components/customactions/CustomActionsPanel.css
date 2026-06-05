@@ -1,0 +1,22 @@
+.ca-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; align-items: center; justify-content: center; }
+.ca-dialog { background: #1e1e2e; border-radius: 12px; width: 600px; max-height: 70vh; display: flex; flex-direction: column; }
+.ca-header { display: flex; align-items: center; padding: 16px 20px; border-bottom: 1px solid #333; }
+.ca-header h3 { margin: 0; color: #e0e0e0; }
+.ca-header .btn-add { margin-left: auto; background: #4CAF50; border: none; color: #fff; padding: 6px 14px; border-radius: 6px; cursor: pointer; margin-right: 8px; }
+.ca-header .btn-close { background: none; border: none; color: #888; cursor: pointer; font-size: 18px; }
+.ca-editor { display: flex; flex-direction: column; gap: 8px; padding: 12px 20px; border-bottom: 1px solid #282838; background: #252535; }
+.ca-editor input { background: #1e1e2e; border: 1px solid #444; color: #fff; padding: 6px 10px; border-radius: 6px; }
+.ca-checkboxes { display: flex; gap: 16px; }
+.ca-checkboxes label { color: #aaa; font-size: 13px; display: flex; align-items: center; gap: 4px; }
+.ca-editor-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.ca-editor-actions button { background: #2a2a3a; border: 1px solid #444; color: #aaa; padding: 6px 14px; border-radius: 6px; cursor: pointer; }
+.ca-editor-actions .btn-primary { background: #4CAF50; border: none; color: #fff; }
+.ca-list { flex: 1; overflow-y: auto; padding: 12px 20px; }
+.ca-item { display: flex; align-items: center; gap: 10px; padding: 10px; background: #252535; border-radius: 6px; margin-bottom: 4px; }
+.ca-item-info { flex: 1; display: flex; flex-direction: column; }
+.ca-name { color: #e0e0e0; font-size: 14px; }
+.ca-command { color: #888; font-family: monospace; font-size: 12px; }
+.ca-shortcut { color: #FF9800; font-size: 11px; }
+.ca-item-actions { display: flex; gap: 6px; }
+.ca-item-actions button { background: #2a2a3a; border: 1px solid #444; color: #aaa; padding: 4px 10px; border-radius: 4px; font-size: 12px; cursor: pointer; }
+.ca-item-actions .btn-danger { color: #ff5252; border-color: #ff5252; }
