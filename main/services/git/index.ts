@@ -1906,4 +1906,406 @@ async getBranchTrackingStatus(): Promise<Record<string, { ahead: number; behind:
     }
   }
 
+
+  // ============= P2 新增方法 =============
+
+  /** 交互式 Rebase：获取待操作提交列表 */
+  async getRebaseActions(upstream: string): Promise<Array<{ oid: string; shortOid: string; message: string; author: string }>> {
+    try {
+      const result = await this.cliExec(['log', '--format=%H|%h|%s|%an', `${upstream}..HEAD`]);
+      return result.trim().split('\n').filter(Boolean).map(line => {
+        const [oid, shortOid, message, author] = line.split('|');
+        return { oid, shortOid, message, author };
+      });
+    } catch {
+      return [];
+    }
+  }
+
+  /** 交互式 Rebase：执行 Rebase 计划 */
+  async executeRebasePlan(plan: { upstream: string; actions: Array<{ action: string; oid: string }>; updateRefs?: boolean }): Promise<void> {
+    const todoContent = plan.actions.map(a => `${a.action} ${a.oid.substring(0, 7)}`).join('\n');
+    const tmpDir = await this.cliExec(['rev-parse', '--git-dir']);
+    const todoPath = tmpDir.trim() + '/rebase-merge/git-rebase-todo';
+
+    // Write the todo file via git sequence editor
+    const env = { ...process.env, GIT_SEQUENCE_EDITOR: `echo "${todoContent}" >` };
+    const args = ['rebase', '-i', plan.upstream];
+    if (plan.updateRefs) args.push('--update-refs');
+    await this.cliExec(args, undefined, env);
+  }
+
+  /** 子模块：列出子模块（增强版） */
+  async listSubmodulesEnhanced(): Promise<Array<{
+    name: string; path: string; url: string; currentOid?: string;
+    trackedOid?: string; status: string; branch?: string;
+  }>> {
+    try {
+      const result = await this.cliExec(['submodule', 'status', '--recursive']);
+      const lines = result.trim().split('\n').filter(Boolean);
+      return lines.map(line => {
+        const match = line.match(/^([+\-u ])?([0-9a-f]{40})\s+(\S+)\s+\(([^)]+)\)?/);
+        if (!match) return null;
+        const [, prefix, oid, path, desc] = match;
+        const status = prefix === '+' ? 'modified' : prefix === '-' ? 'out-of-date' : prefix === 'U' ? 'initialized' : 'unchanged';
+        return { name: path.split('/').pop() || path, path, url: '', currentOid: oid, status, branch: desc };
+      }).filter(Boolean) as Array<any>;
+    } catch {
+      return [];
+    }
+  }
+
+  /** 子模块：同步子模块 */
+  async syncSubmodule(path: string): Promise<void> {
+    await this.cliExec(['submodule', 'sync', '--recursive', path]);
+  }
+
+  /** Worktree：列出 Worktree */
+  async listWorktrees(): Promise<Array<{
+    path: string; head: string; isMainWorktree: boolean;
+    branch?: string; isClean: boolean; commitMessage?: string;
+  }>> {
+    try {
+      const result = await this.cliExec(['worktree', 'list', '--porcelain']);
+      const worktrees: Array<any> = [];
+      let current: any = null;
+
+      for (const line of result.split('\n')) {
+        if (line.startsWith('worktree ')) {
+          if (current) worktrees.push(current);
+          current = { path: line.substring(9), head: '', isMainWorktree: false, isClean: true };
+        } else if (line.startsWith('HEAD ')) {
+          current.head = line.substring(5);
+        } else if (line.startsWith('branch ')) {
+          current.branch = line.substring(7).replace('refs/heads/', '');
+        } else if (line === 'bare') {
+          current.isMainWorktree = false;
+        } else if (line === 'detached') {
+          current.branch = undefined;
+        }
+      }
+      if (current) worktrees.push(current);
+
+      // Mark main worktree
+      if (worktrees.length > 0) worktrees[0].isMainWorktree = true;
+
+      return worktrees;
+    } catch {
+      return [];
+    }
+  }
+
+  /** Worktree：创建 Worktree */
+  async createWorktree(path: string, ref: string): Promise<void> {
+    await this.cliExec(['worktree', 'add', path, ref]);
+  }
+
+  /** Worktree：删除 Worktree */
+  async removeWorktree(path: string, force?: boolean): Promise<void> {
+    const args = ['worktree', 'remove', path];
+    if (force) args.push('--force');
+    await this.cliExec(args);
+  }
+
+  /** LFS：获取 LFS 状态 */
+  async getLfsStatus(): Promise<{
+    isInstalled: boolean; version?: string; trackPatterns: Array<{ pattern: string; lockable: boolean }>;
+    locks: Array<{ path: string; owner: string; lockedAt: number; id: string }>;
+    stats: { totalSize: number; totalFiles: number; localSize: number; localFiles: number };
+  } | null> {
+    try {
+      const versionResult = await this.cliExec(['lfs', 'version']);
+      const isInstalled = !versionResult.includes('not a git command');
+      const version = isInstalled ? versionResult.trim() : undefined;
+
+      let trackPatterns: Array<any> = [];
+      try {
+        const trackResult = await this.cliExec(['lfs', 'track']);
+        trackPatterns = trackResult.trim().split('\n').filter(Boolean).map(line => ({
+          pattern: line.replace(/^Tracking /, '').trim(),
+          lockable: line.includes('(lockable)')
+        }));
+      } catch {}
+
+      let locks: Array<any> = [];
+      try {
+        const lockResult = await this.cliExec(['lfs', 'locks']);
+        locks = lockResult.trim().split('\n').filter(Boolean).map(line => {
+          const parts = line.split('\t');
+          return { path: parts[0]?.trim() || '', owner: parts[1]?.trim() || '', lockedAt: Date.now() / 1000, id: '' };
+        });
+      } catch {}
+
+      return { isInstalled, version, trackPatterns, locks, stats: { totalSize: 0, totalFiles: 0, localSize: 0, localFiles: 0 } };
+    } catch {
+      return null;
+    }
+  }
+
+  /** LFS：安装 */
+  async installLfs(): Promise<void> {
+    await this.cliExec(['lfs', 'install']);
+  }
+
+  /** LFS：追踪 */
+  async lfsTrack(pattern: string): Promise<void> {
+    await this.cliExec(['lfs', 'track', pattern]);
+  }
+
+  /** LFS：取消追踪 */
+  async lfsUntrack(pattern: string): Promise<void> {
+    await this.cliExec(['lfs', 'untrack', pattern]);
+  }
+
+  /** LFS：锁定 */
+  async lfsLock(path: string): Promise<void> {
+    await this.cliExec(['lfs', 'lock', path]);
+  }
+
+  /** LFS：解锁 */
+  async lfsUnlock(path: string, force?: boolean): Promise<void> {
+    const args = ['lfs', 'unlock', path];
+    if (force) args.push('--force');
+    await this.cliExec(args);
+  }
+
+  /** LFS：拉取 */
+  async lfsPull(): Promise<void> {
+    await this.cliExec(['lfs', 'pull']);
+  }
+
+  /** LFS：推送 */
+  async lfsPush(): Promise<void> {
+    await this.cliExec(['lfs', 'push', '--all', 'origin']);
+  }
+
+  /** LFS：修剪 */
+  async lfsPrune(): Promise<void> {
+    await this.cliExec(['lfs', 'prune']);
+  }
+
+  /** Reflog：获取完整 Reflog（增强版） */
+  async getReflog(): Promise<Array<{ oid: string; shortOid: string; action: string; ref: string; message: string; timestamp: number; author: string }>> {
+    try {
+      const result = await this.cliExec(['reflog', '--format=%H|%h|%gs|%gd|%gs|%ct|%an']);
+      return result.trim().split('\n').filter(Boolean).map(line => {
+        const [oid, shortOid, action, ref, message, ts, author] = line.split('|');
+        return { oid, shortOid, action, ref, message, timestamp: parseInt(ts) || 0, author };
+      });
+    } catch {
+      return [];
+    }
+  }
+
+  /** 仓库统计 */
+  async getRepoStats(): Promise<{
+    path: string; size: number; commitCount: number; branchCount: number;
+    tagCount: number; contributorCount: number; firstCommitDate: number;
+    lastCommitDate: number; lineStats: { total: number; added: number; deleted: number };
+  } | null> {
+    try {
+      const commitCount = parseInt(await this.cliExec(['rev-list', '--count', 'HEAD'])) || 0;
+      const branchCount = parseInt(await this.cliExec(['branch', '-a']).then(r => r.trim().split('\n').length)) || 0;
+      const tagCount = parseInt(await this.cliExec(['tag', '-l']).then(r => r.trim().split('\n').filter(Boolean).length.toString())) || 0;
+      const contributors = await this.cliExec(['shortlog', '-sn', 'HEAD']);
+      const contributorCount = contributors.trim().split('\n').filter(Boolean).length;
+
+      const firstDate = parseInt(await this.cliExec(['log', '--reverse', '--format=%ct', '--max-count=1'])) || 0;
+      const lastDate = parseInt(await this.cliExec(['log', '--format=%ct', '--max-count=1'])) || 0;
+
+      // Calculate repo size
+      let size = 0;
+      try {
+        const gitDir = (await this.cliExec(['rev-parse', '--git-dir'])).trim();
+        const { execSync } = require('child_process');
+        size = parseInt(execSync(`du -sb ${gitDir}`).toString().split('\t')[0]) || 0;
+      } catch {}
+
+      return {
+        path: this.repoPath || '',
+        size, commitCount, branchCount, tagCount, contributorCount,
+        firstCommitDate: firstDate, lastCommitDate: lastDate,
+        lineStats: { total: 0, added: 0, deleted: 0 }
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  /** 自定义操作：列出 */
+  async listCustomActions(): Promise<Array<{
+    id: string; name: string; command: string; workingDir?: string;
+    env?: Record<string, string>; icon?: string; shortcut?: string;
+    filePattern?: string; showInContextMenu: boolean; showInToolbar: boolean;
+  }>> {
+    // Read from app config directory
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      const configPath = path.join(this.repoPath || '', '.gitgui', 'custom-actions.json');
+      if (fs.existsSync(configPath)) {
+        return JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+      }
+    } catch {}
+    return [];
+  }
+
+  /** 自定义操作：保存 */
+  async saveCustomAction(action: any): Promise<void> {
+    const fs = require('fs');
+    const path = require('path');
+    const configDir = path.join(this.repoPath || '', '.gitgui');
+    if (!fs.existsSync(configDir)) fs.mkdirSync(configDir, { recursive: true });
+    const configPath = path.join(configDir, 'custom-actions.json');
+    let actions: any[] = [];
+    try { actions = JSON.parse(fs.readFileSync(configPath, 'utf-8')); } catch {}
+    const idx = actions.findIndex((a: any) => a.id === action.id);
+    if (idx >= 0) actions[idx] = action; else actions.push(action);
+    fs.writeFileSync(configPath, JSON.stringify(actions, null, 2));
+  }
+
+  /** 自定义操作：删除 */
+  async deleteCustomAction(id: string): Promise<void> {
+    const fs = require('fs');
+    const path = require('path');
+    const configPath = path.join(this.repoPath || '', '.gitgui', 'custom-actions.json');
+    try {
+      let actions: any[] = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+      actions = actions.filter((a: any) => a.id !== id);
+      fs.writeFileSync(configPath, JSON.stringify(actions, null, 2));
+    } catch {}
+  }
+
+  /** 自定义操作：执行 */
+  async executeCustomAction(id: string, context?: { filePath?: string; ref?: string }): Promise<{ exitCode: number; stdout: string; stderr: string }> {
+    const actions = await this.listCustomActions();
+    const action = actions.find(a => a.id === id);
+    if (!action) throw new Error(`Custom action ${id} not found`);
+
+    const { exec } = require('child_process');
+    const env = { ...process.env, ...action.env, FILE_PATH: context?.filePath || '', GIT_REF: context?.ref || '' };
+    return new Promise((resolve) => {
+      exec(action.command, { cwd: action.workingDir || this.repoPath, env }, (error: any, stdout: string, stderr: string) => {
+        resolve({ exitCode: error ? error.code || 1 : 0, stdout, stderr });
+      });
+    });
+  }
+
+  /** Bisect：开始 */
+  async bisectStart(badRef: string, goodRef: string): Promise<void> {
+    await this.cliExec(['bisect', 'start', badRef, goodRef]);
+  }
+
+  /** Bisect：标记 */
+  async bisectMark(ref: string, result: 'good' | 'bad' | 'skip'): Promise<any> {
+    await this.cliExec(['bisect', result, ref]);
+    return this.getBisectState();
+  }
+
+  /** Bisect：跳过 */
+  async bisectSkip(): Promise<any> {
+    await this.cliExec(['bisect', 'skip']);
+    return this.getBisectState();
+  }
+
+  /** Bisect：重置 */
+  async bisectReset(): Promise<void> {
+    await this.cliExec(['bisect', 'reset']);
+  }
+
+  /** Bisect：获取状态 */
+  async getBisectState(): Promise<{
+    isActive: boolean; goodRef?: string; badRef?: string;
+    currentRef?: string; stepsRemaining?: number;
+    markedCommits: Array<{ ref: string; result: string }>;
+  }> {
+    try {
+      const logResult = await this.cliExec(['bisect', 'log']);
+      const isActive = logResult.includes('bisect');
+      const lines = logResult.trim().split('\n');
+      const markedCommits: Array<{ ref: string; result: string }> = [];
+
+      let goodRef: string | undefined;
+      let badRef: string | undefined;
+      let currentRef: string | undefined;
+
+      for (const line of lines) {
+        const goodMatch = line.match(/bisect good:\s+\[([0-9a-f]+)\]/);
+        const badMatch = line.match(/bisect bad:\s+\[([0-9a-f]+)\]/);
+        const currentMatch = line.match(/we need to test.*\[([0-9a-f]+)\]/);
+        if (goodMatch) { goodRef = goodMatch[1]; markedCommits.push({ ref: goodMatch[1], result: 'good' }); }
+        if (badMatch) { badRef = badMatch[1]; markedCommits.push({ ref: badMatch[1], result: 'bad' }); }
+        if (currentMatch) currentRef = currentMatch[1];
+      }
+
+      return { isActive, goodRef, badRef, currentRef, stepsRemaining: undefined, markedCommits };
+    } catch {
+      return { isActive: false, markedCommits: [] };
+    }
+  }
+
+  /** Patch：创建 */
+  async createPatch(refs: string[], outputPath?: string): Promise<string> {
+    const args = ['format-patch', '-1'];
+    if (refs.length > 0) args.push(refs[0]);
+    if (outputPath) { args.push('-o', outputPath); }
+    const result = await this.cliExec(args);
+    return result.trim();
+  }
+
+  /** Patch：应用 */
+  async applyPatch(patchPath: string, options?: { check?: boolean; reject?: boolean }): Promise<void> {
+    const args = ['am', patchPath];
+    if (options?.check) args.splice(1, 0, '--check');
+    await this.cliExec(args);
+  }
+
+  /** Patch：列出 */
+  async listPatches(dir?: string): Promise<Array<{ filename: string; path: string; createdAt: number; filesChanged: number; additions: number; deletions: number; subject?: string }>> {
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      const patchDir = dir || path.join(this.repoPath || '', '.gitgui', 'patches');
+      if (!fs.existsSync(patchDir)) return [];
+      return fs.readdirSync(patchDir)
+        .filter((f: string) => f.endsWith('.patch'))
+        .map((f: string) => ({
+          filename: f,
+          path: path.join(patchDir, f),
+          createdAt: fs.statSync(path.join(patchDir, f)).mtimeMs / 1000,
+          filesChanged: 0, additions: 0, deletions: 0, subject: f.replace('.patch', '')
+        }));
+    } catch { return []; }
+  }
+
+  /** 推送标签 */
+  async pushTag(tagName: string, remote?: string): Promise<void> {
+    await this.cliExec(['push', remote || 'origin', tagName]);
+  }
+
+  /** 推送所有标签 */
+  async pushAllTags(remote?: string): Promise<void> {
+    await this.cliExec(['push', remote || 'origin', '--tags']);
+  }
+
+  /** 获取合并请求列表 */
+  async getPullRequests(remote?: string): Promise<Array<{ id: number; title: string; state: string; url: string; author: string }>> {
+    // Stub - requires OAuth integration with GitHub/Gitee
+    return [];
+  }
+
+  /** GPG 签名验证 */
+  async verifyCommitSignature(oid: string): Promise<{ valid: boolean; key: string; signer: string } | null> {
+    try {
+      const result = await this.cliExec(['verify-commit', oid, '--raw']);
+      const valid = result.includes('GOODSIG') || result.includes('VALIDSIG');
+      const signerMatch = result.match(/VALIDSIG.*?\s+(\S+@\S+)/);
+      const keyMatch = result.match(/SIG_ID\s+(\S+)/);
+      return { valid, key: keyMatch?.[1] || '', signer: signerMatch?.[1] || '' };
+    } catch {
+      return null;
+    }
+  }
+
+
 }
