@@ -21,7 +21,7 @@ import LfsPanel from './components/lfs/LfsPanel';
 import SettingsDialog from './components/settings/SettingsDialog';
 import CustomActionsPanel from './components/customactions/CustomActionsPanel';
 import ReflogPanel from './components/reflog/ReflogPanel';
-import { NotificationToast } from './components/notification/NotificationToast';
+import { NotificationToast, notify } from './components/notification/NotificationToast';
 import BisectPanel from './components/bisect/BisectPanel';
 import PatchPanel from './components/patch/PatchPanel';
 import RepoManagerDialog from './components/repomanager/RepoManagerDialog';
@@ -81,6 +81,7 @@ function App() {
     const path = await window.electronAPI.fs.selectFolder();
     if (path) {
       await openRepo(path);
+      notify('打开仓库', path, 'info');
     }
   };
 
@@ -96,8 +97,10 @@ function App() {
       try {
         await window.electronAPI.git.pull({ rebase: options?.rebase });
         await refresh();
+        notify('Pull 成功', '已拉取远程更新', 'success');
       } catch (error) {
         console.error('Pull failed:', error);
+        notify('Pull 失败', String(error), 'error');
       }
     }
   };
@@ -113,6 +116,7 @@ function App() {
     if (currentRepo) {
       try {
         await window.electronAPI.git.push(options);
+        notify('Push 成功', '已推送到远程仓库', 'success');
         await refresh();
         await checkUpstream();
       } catch (error) {
@@ -130,6 +134,7 @@ function App() {
       } else {
         try {
           await window.electronAPI.git.push();
+        notify('Push 成功', '已推送到远程仓库', 'success');
           await refresh();
         } catch (error) {
           console.error('Push failed:', error);
@@ -162,8 +167,10 @@ function App() {
       try {
         if (options?.fetchAll) {
           await window.electronAPI.git.fetchAll({ prune: options.prune });
+        notify('Fetch 成功', '已获取远程更新', 'success');
         } else {
           await window.electronAPI.git.fetch({ prune: options.prune });
+        notify('Fetch 成功', '已获取远程更新', 'success');
         }
         await refresh();
       } catch (error) {
@@ -209,6 +216,7 @@ function App() {
         });
         if (name) {
           await window.electronAPI.git.createBranch(name);
+        notify('分支创建', `已创建分支 ${name}`, 'success');
         }
       },
     },
@@ -275,6 +283,7 @@ function App() {
       action: async () => {
         if (currentRepo) {
           await window.electronAPI.git.stashPop();
+        notify('Stash Pop', '已恢复暂存的更改', 'success');
         }
       },
     },
@@ -871,7 +880,9 @@ function App() {
         <RepoManagerDialog
           visible={showRepoManager}
           onClose={() => setShowRepoManager(false)}
-          onSelectRepo={(id) => { setActiveRepo(id); setShowRepoManager(false); }}
+          onSelectRepo={(path) => { openRepo(path); setShowRepoManager(false); }}
+          repos={repos.map(r => ({ id: r.id, name: r.name, path: r.path, branch: r.currentBranch }))}
+          activeRepoId={activeRepoId || undefined}
         />
 
         {/* 通知 Toast */}
