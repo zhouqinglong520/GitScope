@@ -1,0 +1,20 @@
+.settings-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; align-items: center; justify-content: center; }
+.settings-dialog { background: #1e1e2e; border-radius: 12px; width: 720px; max-height: 80vh; display: flex; flex-direction: column; }
+.settings-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid #333; }
+.settings-header h3 { margin: 0; color: #e0e0e0; }
+.settings-header .btn-close { background: none; border: none; color: #888; cursor: pointer; font-size: 18px; }
+.settings-body { display: flex; flex: 1; overflow: hidden; }
+.settings-sidebar { width: 140px; border-right: 1px solid #282838; padding: 12px 0; }
+.settings-sidebar button { display: block; width: 100%; background: none; border: none; color: #888; padding: 10px 16px; text-align: left; cursor: pointer; }
+.settings-sidebar button.active { color: #e0e0e0; background: #252535; border-left: 3px solid #4CAF50; }
+.settings-content { flex: 1; padding: 20px; overflow-y: auto; }
+.settings-section { display: flex; flex-direction: column; gap: 14px; }
+.settings-section label { display: flex; align-items: center; gap: 10px; color: #ccc; font-size: 13px; flex-wrap: wrap; }
+.settings-section input[type="text"], .settings-section input[type="number"], .settings-section select {
+  background: #252535; border: 1px solid #444; color: #fff; padding: 6px 10px; border-radius: 6px; min-width: 120px;
+}
+.settings-section input[type="checkbox"] { accent-color: #4CAF50; }
+.settings-footer { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 20px; border-top: 1px solid #333; }
+.btn-cancel { background: #2a2a3a; border: 1px solid #444; color: #aaa; padding: 8px 16px; border-radius: 6px; cursor: pointer; }
+.btn-save { background: #4CAF50; border: none; color: #fff; padding: 8px 20px; border-radius: 6px; cursor: pointer; font-weight: 500; }
+.btn-save:disabled { background: #333; color: #666; }
