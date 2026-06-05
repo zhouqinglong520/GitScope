@@ -14,13 +14,18 @@ import CommitBar from '../commitbar/CommitBar';
 import CommitFilterBar from '../filter/CommitFilterBar';
 import CommitDetailPanel from '../commitdetail/CommitDetailPanel';
 import FileHistory from '../filehistory/FileHistory';
+import CherryPickDialog from '../operations/CherryPickDialog';
+import TagPanel from '../branch/TagPanel';
 import { useRepoStore } from '../../stores/repoStore';
-import { zhCN } from '../../i18n/zh-CN';
+import { useI18 } from '../../i18n';
 
 function MainLayout() {
-  const i18n = zhCN;
+  const { t } = useI18();
   const [graphSearch, setGraphSearch] = useState('');
   const [graphDateFilter, setGraphDateFilter] = useState<'all' | 'today' | 'week' | 'month'>('all');
+  const [showCherryPick, setShowCherryPick] = useState(false);
+  const [cherryPickOid, setCherryPickOid] = useState<string | undefined>();
+  const [showTagPanel, setShowTagPanel] = useState(false);
   const {
     commits,
     filteredCommits,
@@ -193,9 +198,10 @@ function MainLayout() {
   }, [refresh]);
 
   // 右键菜单回调 - Cherry-pick
-  const handleCherryPick = useCallback(async (oid: string) => {
-    await handleCheckout(oid);
-  }, [handleCheckout]);
+  const handleCherryPick = useCallback((oid: string) => {
+    setCherryPickOid(oid);
+    setShowCherryPick(true);
+  }, []);
 
   // 右键菜单回调 - Revert
   const handleRevert = useCallback(async (oid: string) => {
@@ -205,8 +211,10 @@ function MainLayout() {
 
   // 右键菜单回调 - 保存为 Patch
   const handleSavePatch = useCallback(async (oid: string) => {
-    // 简化实现
-    console.log('Save patch for:', oid);
+    try {
+      await window.electronAPI.git.createPatch([oid]);
+      alert('Patch 已创建');
+    } catch (e: any) { alert('创建 Patch 失败: ' + e.message); }
   }, []);
 
   // 右键菜单回调 - Interactive Rebase
@@ -259,18 +267,18 @@ function MainLayout() {
           <div className="h-9 bg-[#252526] flex items-center gap-2 px-3 border-b border-panel-border">
             <input
               className="bg-[#1e1e1e] border border-[#3c3c3c] rounded px-2 py-1 text-xs text-gray-300 w-40 focus:border-[#4CAF50] focus:outline-none"
-              placeholder={i18n.commitGraph.searchPlaceholder || '搜索提交...'}
+              placeholder={t('commitGraph.searchPlaceholder') || '搜索提交...'}
               value={graphSearch}
-              onChange={e => setGraphSearch(e.target.value)}
+              onChange={e => { setGraphSearch(e.target.value); updateCommitFilter({ search: e.target.value }); }}
             />
             <div className="flex gap-1">
               {(['all', 'today', 'week', 'month'] as const).map(d => {
-                const labels: Record<string, string> = { all: i18n.commitGraph.filterAll || '全部', today: i18n.commitGraph.today || '今天', week: i18n.commitGraph.thisWeek || '本周', month: i18n.commitGraph.thisMonth || '本月' };
+                const labels: Record<string, string> = { all: t('commitGraph.filterAll') || '全部', today: t('commitGraph.today') || '今天', week: t('commitGraph.thisWeek') || '本周', month: t('commitGraph.thisMonth') || '本月' };
                 return (
                   <button
                     key={d}
                     className={`px-2 py-0.5 rounded text-xs ${graphDateFilter === d ? 'bg-[#094771] text-white' : 'text-gray-500 hover:text-gray-300'}`}
-                    onClick={() => setGraphDateFilter(d)}
+                    onClick={() => { setGraphDateFilter(d); const now = Date.now() / 1000; if (d === 'all') updateCommitFilter({ startDate: undefined, endDate: undefined }); else if (d === 'today') updateCommitFilter({ startDate: now - 86400 }); else if (d === 'week') updateCommitFilter({ startDate: now - 604800 }); else if (d === 'month') updateCommitFilter({ startDate: now - 2592000 }); }}
                   >{labels[d]}</button>
                 );
               })}
@@ -324,7 +332,7 @@ function MainLayout() {
             <div className="w-[300px] flex-shrink-0 border-r border-panel-border flex flex-col overflow-hidden">
               <div className="flex-shrink-0 px-3 py-2 bg-panel-bg border-b border-panel-border">
                 <div className="text-xs font-semibold text-gray-400">
-                  {i18n.detail.fileChanges}
+                  {t('detail.fileChanges')}
                 </div>
               </div>
               <div className="flex-1 overflow-hidden">
@@ -340,6 +348,7 @@ function MainLayout() {
                   onStageAll={handleStageAll}
                   onUnstageAll={handleUnstageAll}
                   onViewHistory={handleViewFileHistory}
+                  onRefresh={refresh}
                 />
               </div>
             </div>
@@ -348,7 +357,7 @@ function MainLayout() {
             <div className="flex-1 flex flex-col overflow-hidden">
               <div className="flex-shrink-0 px-3 py-2 bg-panel-bg border-b border-panel-border">
                 <div className="text-xs font-semibold text-gray-400">
-                  {i18n.detail.diff}
+                  {t('detail.diff')}
                 </div>
               </div>
               <div className="flex-1 overflow-hidden">
@@ -392,6 +401,21 @@ function MainLayout() {
           onViewDiff={handleViewFileDiff}
         />
       )}
+
+      {/* Cherry-pick 对话框 */}
+      <CherryPickDialog
+        visible={showCherryPick}
+        initialOid={cherryPickOid}
+        onClose={() => { setShowCherryPick(false); setCherryPickOid(undefined); }}
+        onRefresh={refresh}
+      />
+
+      {/* 标签管理面板 */}
+      <TagPanel
+        visible={showTagPanel}
+        onClose={() => setShowTagPanel(false)}
+        onRefresh={refresh}
+      />
     </div>
   );
 }
