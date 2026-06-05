@@ -2308,4 +2308,42 @@ async getBranchTrackingStatus(): Promise<Record<string, { ahead: number; behind:
   }
 
 
+  // ===== 偏好设置持久化 =====
+  private prefsPath: string | null = null;
+
+  private getPrefsPath(): string {
+    if (!this.prefsPath) {
+      const home = process.env.HOME || process.env.USERPROFILE || '';
+      const configDir = path.join(home, '.gitscope');
+      this.prefsPath = path.join(configDir, 'preferences.json');
+    }
+    return this.prefsPath;
+  }
+
+  async getPreferences(): Promise<Record<string, any>> {
+    try {
+      const data = await fs.readFile(this.getPrefsPath(), 'utf-8');
+      return JSON.parse(data);
+    } catch {
+      return {};
+    }
+  }
+
+  async savePreferences(prefs: Record<string, any>): Promise<void> {
+    const prefsPath = this.getPrefsPath();
+    const configDir = path.dirname(prefsPath);
+    await fs.mkdir(configDir, { recursive: true });
+    
+    // 读取现有配置并合并
+    let existing: Record<string, any> = {};
+    try {
+      const data = await fs.readFile(prefsPath, 'utf-8');
+      existing = JSON.parse(data);
+    } catch {}
+    
+    const merged = { ...existing, ...prefs };
+    await fs.writeFile(prefsPath, JSON.stringify(merged, null, 2), 'utf-8');
+  }
+
+
 }
