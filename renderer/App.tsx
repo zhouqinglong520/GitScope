@@ -850,6 +850,7 @@ function App() {
         <SettingsDialog
           visible={showSettingsDialog}
           onClose={() => setShowSettingsDialog(false)}
+          onLocaleChange={(loc) => setLocaleState(loc)}
         />
 
         {/* 自定义操作 */}
