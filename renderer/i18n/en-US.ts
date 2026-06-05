@@ -108,6 +108,16 @@ export const enUS: I18nKeys = {
     drop: 'Drop',
     clear: 'Clear',
     noStashes: 'No stashes',
+    includeUntracked: 'Include Untracked',
+    keepIndex: 'Keep Index',
+    createBranch: 'Create Branch from Stash',
+    branchName: 'Branch Name',
+    branchNamePlaceholder: 'Enter new branch name',
+    filesChanged: 'files changed',
+    confirmDrop: 'Are you sure you want to drop this stash? This action cannot be undone.',
+    confirmDropTitle: 'Confirm Drop Stash',
+    expand: 'Expand Details',
+    collapse: 'Collapse Details',
   },
 
   // 状态
@@ -121,6 +131,37 @@ export const enUS: I18nKeys = {
     renamed: 'Renamed',
   },
 
+  fileActions: {
+    discardChanges: 'Discard Changes',
+    discardConfirm: 'Are you sure you want to discard changes? This cannot be undone.',
+    discardAllConfirm: 'Are you sure you want to discard all changes? This cannot be undone.',
+    deleteFile: 'Delete File',
+    deleteConfirm: 'Are you sure you want to delete this untracked file?',
+    stageByExtension: 'Stage by Extension',
+    discardChangesAll: 'Discard All Changes',
+  },
+
+  conflictResolve: {
+    title: 'Conflict Resolution',
+    conflictedFiles: 'Conflicted Files',
+    conflictsRemaining: 'conflicts remaining',
+    useMine: 'Use Mine',
+    useTheirs: 'Use Theirs',
+    useMineAll: 'Use Mine for All',
+    useTheirsAll: 'Use Theirs for All',
+    useMineAllConfirm: 'Use your version for all conflict files?',
+    useTheirsAllConfirm: 'Use their version for all conflict files?',
+    continueMerge: 'Continue Merge',
+    continueRebase: 'Continue Rebase',
+    continueCherryPick: 'Continue Cherry-pick',
+    abortMerge: 'Abort Merge',
+    abortRebase: 'Abort Rebase',
+    abortCherryPick: 'Abort Cherry-pick',
+    abortConfirm: 'Abort this operation? All changes will be lost.',
+    allResolved: 'All conflicts resolved',
+    conflictCount: '{count} conflicts',
+  },
+
   // 提交对话框
   commitDialog: {
     title: 'Commit Changes',
@@ -129,6 +170,15 @@ export const enUS: I18nKeys = {
     commit: 'Commit',
     cancel: 'Cancel',
     amend: 'Amend last commit',
+    amendConfirm: 'Amend will modify the last commit. Continue?',
+    sign: 'Sign commit (GPG/SSH)',
+    signTooltip: 'Use -S flag for signed commit',
+    coAuthor: 'Add Co-author',
+    coAuthorPlaceholder: 'Name <email>',
+    coAuthorRemove: 'Remove',
+    template: 'Commit Template',
+    loadTemplate: 'Load Template',
+    subjectLength: '{current}/{max}',
   },
 
   // 差异显示
@@ -142,6 +192,19 @@ export const enUS: I18nKeys = {
     deletions: 'Deletions',
     selectFile: 'Select a file to view diff',
     selectCommit: 'Select a commit to view changes',
+    viewMode: 'View Mode',
+    unified: 'Unified',
+    sideBySide: 'Side-by-Side',
+    viewModeShortcut: 'Shortcut',
+    searchPlaceholder: 'Search...',
+    searchNoResults: 'No matches',
+    prevHunk: 'Previous Change',
+    nextHunk: 'Next Change',
+    showWhitespace: 'Show Whitespace',
+    ignoreWhitespace: 'Ignore Whitespace',
+    openInExternalTool: 'External Tool',
+    diffToolNotConfigured: 'Please configure git difftool first',
+    syntaxHighlight: 'Syntax Highlight',
   },
 
   // Quick Launch
@@ -251,7 +314,35 @@ export const enUS: I18nKeys = {
     upToDate: 'Up to date',
   },
 
-  // ========== New Translations ==========
+  // Blame
+  blame: {
+    title: 'Blame View',
+    author: 'Author',
+    date: 'Date',
+    commit: 'Commit',
+    message: 'Commit Message',
+    copySHA: 'Copy SHA',
+    copied: 'Copied',
+    filterByAuthor: 'Filter by Author',
+    filterByDate: 'Filter by Date',
+    clearFilters: 'Clear Filters',
+    noResults: 'No matching results',
+    legend: {
+      title: 'Heatmap Color Legend',
+      recent: 'Recently Modified',
+      old: 'Older Modifications',
+      cold: 'Older',
+      warm: 'Newer',
+    },
+    hoverDetail: {
+      commit: 'Commit',
+      author: 'Author',
+      date: 'Date',
+      message: 'Message',
+    },
+    showAllLines: 'Show All Lines',
+    highlightFiltered: 'Highlight Filtered Lines',
+  },
 
   // 提交详情面板
   commitDetail: {
@@ -278,6 +369,11 @@ export const enUS: I18nKeys = {
     diff: 'Diff',
     viewOnGitee: 'View on Gitee',
     viewDiff: 'View diff for this commit',
+    filterPlaceholder: 'Filter commits...',
+    loading: 'Loading...',
+    noHistory: 'No history found',
+    today: 'Today',
+    yesterday: 'Yesterday',
   },
 
   // 作者筛选
@@ -308,5 +404,136 @@ export const enUS: I18nKeys = {
     customRange: 'Custom Range',
     clear: 'Clear Filter',
     showing: 'Showing',
+  },
+
+  // Collapse merge commits
+  collapse: {
+    collapseBranch: 'Collapse Branch',
+    expandBranch: 'Expand Branch',
+    collapseAll: 'Collapse All Merges',
+    expandAll: 'Expand All Merges',
+    commitsCollapsed: 'commits collapsed, click to expand',
+  },
+
+  // 冲突预判
+  conflict: {
+    warningTitle: '⚠️ Conflict Check',
+    warningMessage: 'This operation may cause conflicts in {count} file(s). Continue?',
+    conflictingFiles: 'Conflicting Files',
+    continue: 'Continue',
+    cancel: 'Cancel',
+    mergeConflict: 'Merge Conflict',
+    rebaseConflict: 'Rebase Conflict',
+    cherryPickConflict: 'Cherry-pick Conflict',
+    noConflict: 'No Conflict',
+    conflictDetected: 'Conflict Detected',
+    manualMerge: 'Please resolve conflicts manually and continue',
+  },
+
+  // Branch Management
+  branchManage: {
+    upstreamStatus: {
+      upToDate: 'Up to date',
+      ahead: 'Ahead',
+      behind: 'Behind',
+      aheadBehind: 'Ahead/Behind',
+      diverged: 'Diverged',
+      noUpstream: 'No upstream',
+      noUpstreamTooltip: 'This branch has no upstream configured',
+      aheadTooltip: '{count} commit(s) ahead of upstream',
+      behindTooltip: '{count} commit(s) behind upstream',
+      aheadBehindTooltip: '{ahead} ahead, {behind} behind',
+    },
+    filter: {
+      placeholder: 'Search branches...',
+      noMatch: 'No matching branches',
+      hint: 'Press / to focus search',
+    },
+    pinned: {
+      title: 'Pinned',
+      pinBranch: 'Pin branch',
+      unpinBranch: 'Unpin branch',
+      empty: 'No pinned branches',
+    },
+    group: {
+      local: 'Local',
+      remote: 'Remote',
+      feature: 'Feature',
+      bugfix: 'Bugfix',
+      release: 'Release',
+    },
+    toolbarBadge: {
+      pullBehind: '↓{count}',
+      pushAhead: '↑{count}',
+    },
+  },
+
+  // Remote repository management
+  remote: {
+    title: 'Remotes',
+    add: 'Add Remote',
+    edit: 'Edit Remote',
+    delete: 'Delete Remote',
+    name: 'Name',
+    url: 'URL',
+    namePlaceholder: 'e.g., origin',
+    urlPlaceholder: 'e.g., https://github.com/user/repo.git',
+    invalidUrl: 'Invalid URL format',
+    confirmDelete: 'Are you sure you want to delete remote "{name}"?',
+    deleteWarning: 'This will remove the remote reference from your local machine. The remote repository will not be affected.',
+    setUpstream: 'Set Upstream',
+    setUpstreamPrompt: 'Current branch has no upstream. Set it now?',
+    noUpstream: 'No Upstream',
+    noUpstreamDesc: 'Push and set upstream first',
+  },
+
+  // Fetch/Pull/Push preferences
+  fetchPreferences: {
+    prune: 'Prune remote-tracking branches',
+    pruneDesc: 'Remove local references to deleted remote branches',
+  },
+
+  pullPreferences: {
+    rebase: 'Use rebase mode',
+    rebaseDesc: 'Use git pull --rebase instead of git pull --merge',
+  },
+
+  pushPreferences: {
+    force: 'Force push',
+    forceDesc: 'Overwrite remote history (dangerous)',
+    forceWithLease: 'Force with lease',
+    forceWithLeaseDesc: 'Only force push if remote has not changed since last fetch',
+    setUpstream: 'Set upstream',
+    setUpstreamDesc: 'Automatically set upstream when pushing',
+  },
+
+  // Confirmation dialogs
+  confirm: {
+    forcePush: 'Force Push Confirmation',
+    forcePushMessage: 'Force push will overwrite remote history and may cause other collaborators to lose work.\n\nAre you sure you want to force push?',
+    forceWithLease: 'Force with Lease Confirmation',
+    forceWithLeaseMessage: 'Force with lease will check if remote has changed since your last fetch.\n\nAre you sure you want to force push with lease?',
+    useForceAnyway: 'Force Push Anyway',
+    useForceWithLeaseAnyway: 'Force with Lease Anyway',
+    cancel: 'Cancel',
+  },
+
+  // Fetch dropdown menu
+  fetchMenu: {
+    fetchOrigin: 'Fetch origin',
+    fetchAll: 'Fetch All',
+    fetchPrune: 'Fetch + Prune',
+    fetchAllPrune: 'Fetch All + Prune',
+  },
+
+
+  imageDiff: {
+    sideBySide: 'Side by Side',
+    slider: 'Slider',
+    onionSkin: 'Onion Skin',
+    noOldVersion: 'No old version',
+    newFile: 'New file (no previous version)',
+    deleted: 'Deleted',
+    title: 'Image Diff',
   },
 };

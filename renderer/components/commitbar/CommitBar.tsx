@@ -1,16 +1,21 @@
 /**
  * 底部常驻提交栏组件
- * 提交消息输入 + Commit 按钮 + Amend 复选框
+ * 提交消息输入 + Commit 按钮 + Amend/Sign/Co-author
  */
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { zhCN } from '../../i18n/zh-CN';
+
+interface CoAuthor {
+  name: string;
+  email: string;
+}
 
 interface CommitBarProps {
   /** 是否有暂存的更改 */
   hasStaged: boolean;
   /** 提交回调 */
-  onCommit: (message: string, amend: boolean) => Promise<void>;
+  onCommit: (message: string, options?: { amend?: boolean; sign?: boolean }) => Promise<void>;
   /** 是否正在提交 */
   isCommitting?: boolean;
   /** 暂存的更改数量 */
@@ -21,6 +26,11 @@ function CommitBar({ hasStaged, onCommit, isCommitting = false, stagedCount = 0 
   const i18n = zhCN;
   const [message, setMessage] = useState('');
   const [amend, setAmend] = useState(false);
+  const [sign, setSign] = useState(false);
+  const [coAuthors, setCoAuthors] = useState<CoAuthor[]>([]);
+  const [coAuthorInput, setCoAuthorInput] = useState('');
+  const [showCoAuthorInput, setShowCoAuthorInput] = useState(false);
+  const [subjectLength] = useState(72);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // 自动调整文本框高度
@@ -32,14 +42,53 @@ function CommitBar({ hasStaged, onCommit, isCommitting = false, stagedCount = 0 
     }
   }, [message]);
 
+  // 加载提交模板
+  useEffect(() => {
+    if (hasStaged && !message) {
+      window.electronAPI.git.getCommitTemplate().then((template) => {
+        if (template) {
+          setMessage(template);
+        }
+      }).catch(() => {});
+    }
+  }, [hasStaged]);
+
+  // Amend 时加载上次提交消息
+  useEffect(() => {
+    if (amend) {
+      const confirmed = window.confirm(i18n.commitDialog.amendConfirm);
+      if (!confirmed) {
+        setAmend(false);
+      }
+    }
+  }, [amend]);
+
+  // 获取主题行长度
+  const subjectLine = message.split('\n')[0] || '';
+  const subjectLen = subjectLine.length;
+
+  // 构建完整提交消息（含 co-authors）
+  const buildFullMessage = (): string => {
+    let fullMsg = message.trim();
+    if (coAuthors.length > 0) {
+      const coAuthorLines = coAuthors
+        .map(a => `Co-authored-by: ${a.name} <${a.email}>`)
+        .join('\n');
+      fullMsg += '\n\n' + coAuthorLines;
+    }
+    return fullMsg;
+  };
+
   // 处理提交
   const handleCommit = async () => {
-    if (!message.trim() || !hasStaged) return;
+    const fullMsg = buildFullMessage();
+    if (!fullMsg || !hasStaged) return;
 
     try {
-      await onCommit(message.trim(), amend);
+      await onCommit(fullMsg, { amend, sign });
       setMessage('');
       setAmend(false);
+      setCoAuthors([]);
     } catch (error) {
       console.error('提交失败:', error);
     }
@@ -47,13 +96,11 @@ function CommitBar({ hasStaged, onCommit, isCommitting = false, stagedCount = 0 
 
   // 处理键盘快捷键
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    // Ctrl+Enter 提交
     if (e.ctrlKey && e.key === 'Enter') {
       e.preventDefault();
       handleCommit();
     }
 
-    // Shift+Enter 换行（阻止默认行为）
     if (e.shiftKey && e.key === 'Enter') {
       e.preventDefault();
       const textarea = textareaRef.current;
@@ -69,7 +116,32 @@ function CommitBar({ hasStaged, onCommit, isCommitting = false, stagedCount = 0 
     }
   };
 
+  // 添加共提交者
+  const addCoAuthor = useCallback(() => {
+    const input = coAuthorInput.trim();
+    if (!input) return;
+
+    // 解析 "Name <email>" 格式
+    const match = input.match(/^(.+?)\s*<(.+?)>$/);
+    if (match) {
+      setCoAuthors(prev => [...prev, { name: match[1].trim(), email: match[2].trim() }]);
+    } else {
+      // 简单格式，只填了名字
+      setCoAuthors(prev => [...prev, { name: input, email: '' }]);
+    }
+    setCoAuthorInput('');
+    setShowCoAuthorInput(false);
+  }, [coAuthorInput]);
+
+  // 移除共提交者
+  const removeCoAuthor = useCallback((index: number) => {
+    setCoAuthors(prev => prev.filter((_, i) => i !== index));
+  }, []);
+
   const canCommit = message.trim().length > 0 && hasStaged && !isCommitting;
+
+  // 主题长度颜色
+  const subjectColor = subjectLen > 72 ? 'text-red-500 font-bold' : subjectLen > 50 ? 'text-orange-400 font-medium' : 'text-gray-500';
 
   return (
     <div className="bg-[#252526] border-t border-[#3c3c3c]">
@@ -105,21 +177,71 @@ function CommitBar({ hasStaged, onCommit, isCommitting = false, stagedCount = 0 
             rows={2}
             style={{ minHeight: '60px', maxHeight: '120px' }}
           />
+
+          {/* 主题长度计数器 */}
+          <div className="flex items-center justify-between mt-1">
+            <span className={`text-xs ${subjectColor}`}>
+              {subjectLen}/{subjectLength}
+            </span>
+            {/* Co-author 列表 */}
+            {coAuthors.length > 0 && (
+              <div className="flex items-center gap-1 flex-wrap">
+                {coAuthors.map((author, i) => (
+                  <span key={i} className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-[#3c3c3c] rounded text-xs text-gray-300">
+                    {author.name}{author.email ? ` <${author.email}>` : ''}
+                    <button
+                      onClick={() => removeCoAuthor(i)}
+                      className="text-gray-500 hover:text-red-400"
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* 右侧操作区 */}
-        <div className="flex flex-col items-end justify-between p-3 border-l border-[#3c3c3c]">
-          {/* Amend 复选框 */}
-          <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer hover:text-white">
-            <input
-              type="checkbox"
-              checked={amend}
-              onChange={(e) => setAmend(e.target.checked)}
+        <div className="flex flex-col items-end justify-between p-3 border-l border-[#3c3c3c] min-w-[140px]">
+          {/* 复选框选项 */}
+          <div className="flex flex-col gap-1.5">
+            {/* Amend */}
+            <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer hover:text-white">
+              <input
+                type="checkbox"
+                checked={amend}
+                onChange={(e) => setAmend(e.target.checked)}
+                disabled={!hasStaged}
+                className="w-3.5 h-3.5 rounded border-[#3c3c3c] bg-[#3c3c3c] text-primary-500 focus:ring-primary-500 focus:ring-offset-0 disabled:opacity-50"
+              />
+              <span>{i18n.commitDialog.amend}</span>
+            </label>
+
+            {/* Sign */}
+            <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer hover:text-white" title={i18n.commitDialog.signTooltip}>
+              <input
+                type="checkbox"
+                checked={sign}
+                onChange={(e) => setSign(e.target.checked)}
+                disabled={!hasStaged}
+                className="w-3.5 h-3.5 rounded border-[#3c3c3c] bg-[#3c3c3c] text-primary-500 focus:ring-primary-500 focus:ring-offset-0 disabled:opacity-50"
+              />
+              <span>{i18n.commitDialog.sign}</span>
+            </label>
+
+            {/* Co-author */}
+            <button
+              onClick={() => setShowCoAuthorInput(!showCoAuthorInput)}
+              className="flex items-center gap-1 text-xs text-gray-400 hover:text-white"
               disabled={!hasStaged}
-              className="w-3.5 h-3.5 rounded border-[#3c3c3c] bg-[#3c3c3c] text-primary-500 focus:ring-primary-500 focus:ring-offset-0 disabled:opacity-50"
-            />
-            <span>{i18n.commitDialog.amend}</span>
-          </label>
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+              </svg>
+              {i18n.commitDialog.coAuthor}
+            </button>
+          </div>
 
           {/* 提交按钮 */}
           <button
@@ -152,6 +274,30 @@ function CommitBar({ hasStaged, onCommit, isCommitting = false, stagedCount = 0 
           </button>
         </div>
       </div>
+
+      {/* Co-author 输入区 */}
+      {showCoAuthorInput && (
+        <div className="flex items-center gap-2 px-4 py-2 border-t border-[#3c3c3c]">
+          <input
+            value={coAuthorInput}
+            onChange={(e) => setCoAuthorInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                addCoAuthor();
+              }
+            }}
+            placeholder={i18n.commitDialog.coAuthorPlaceholder}
+            className="flex-1 bg-[#1e1e1e] border border-[#3c3c3c] rounded px-3 py-1 text-xs text-white placeholder:text-gray-500 outline-none focus:border-primary-500"
+          />
+          <button
+            onClick={addCoAuthor}
+            className="px-2 py-1 text-xs bg-primary-600 text-white rounded hover:bg-primary-700"
+          >
+            {i18n.common.ok}
+          </button>
+        </div>
+      )}
 
       {/* 快捷键提示 */}
       <div className="px-4 py-1.5 text-xs text-gray-500 border-t border-[#3c3c3c]">

@@ -106,6 +106,16 @@ export const zhCN = {
     drop: '删除',
     clear: '清空',
     noStashes: '暂无暂存',
+    includeUntracked: '包含未跟踪文件',
+    keepIndex: '保持暂存区',
+    createBranch: '从 Stash 创建分支',
+    branchName: '分支名称',
+    branchNamePlaceholder: '输入新分支名称',
+    filesChanged: '个文件变更',
+    confirmDrop: '确定要删除这个 Stash 吗？此操作不可撤销。',
+    confirmDropTitle: '确认删除 Stash',
+    expand: '展开详情',
+    collapse: '收起详情',
   },
 
   // 状态
@@ -119,6 +129,39 @@ export const zhCN = {
     renamed: '已重命名',
   },
 
+  // 文件操作
+  fileActions: {
+    discardChanges: '放弃更改',
+    discardConfirm: '确定要放弃此文件的更改吗？此操作不可撤销。',
+    discardAllConfirm: '确定要放弃所有更改吗？此操作不可撤销。',
+    deleteFile: '删除文件',
+    deleteConfirm: '确定要删除此未跟踪文件吗？',
+    stageByExtension: '按扩展名暂存',
+    discardChangesAll: '放弃所有更改',
+  },
+
+  // 冲突解决
+  conflictResolve: {
+    title: '冲突解决',
+    conflictedFiles: '冲突文件',
+    conflictsRemaining: '个冲突待解决',
+    useMine: '使用我的版本',
+    useTheirs: '使用他们的版本',
+    useMineAll: '全部使用我的版本',
+    useTheirsAll: '全部使用他们的版本',
+    useMineAllConfirm: '确定对所有冲突文件使用你的版本吗？',
+    useTheirsAllConfirm: '确定对所有冲突文件使用他们的版本吗？',
+    continueMerge: '继续合并',
+    continueRebase: '继续变基',
+    continueCherryPick: '继续 Cherry-pick',
+    abortMerge: '中止合并',
+    abortRebase: '中止变基',
+    abortCherryPick: '中止 Cherry-pick',
+    abortConfirm: '确定要中止此操作吗？所有更改将丢失。',
+    allResolved: '所有冲突已解决',
+    conflictCount: '{count} 处冲突',
+  },
+
   // 提交对话框
   commitDialog: {
     title: '提交更改',
@@ -127,6 +170,15 @@ export const zhCN = {
     commit: '提交',
     cancel: '取消',
     amend: '修改上一次提交',
+    amendConfirm: 'Amend 会修改上次提交，确认？',
+    sign: '签名提交 (GPG/SSH)',
+    signTooltip: '使用 -S 参数签名提交',
+    coAuthor: '添加共提交者',
+    coAuthorPlaceholder: '姓名 <email>',
+    coAuthorRemove: '移除',
+    template: '提交模板',
+    loadTemplate: '加载模板',
+    subjectLength: '{current}/{max}',
   },
 
   // 差异显示
@@ -140,6 +192,19 @@ export const zhCN = {
     deletions: '删除',
     selectFile: '选择一个文件查看差异',
     selectCommit: '选择一个提交查看变更',
+    viewMode: '视图模式',
+    unified: 'Unified',
+    sideBySide: 'Side-by-Side',
+    viewModeShortcut: '快捷键',
+    searchPlaceholder: '搜索...',
+    searchNoResults: '无匹配结果',
+    prevHunk: '上一个变更',
+    nextHunk: '下一个变更',
+    showWhitespace: '显示空白',
+    ignoreWhitespace: '忽略空白',
+    openInExternalTool: '外部工具',
+    diffToolNotConfigured: '请先配置 git difftool',
+    syntaxHighlight: '语法高亮',
   },
 
   // Quick Launch
@@ -249,8 +314,36 @@ export const zhCN = {
     upToDate: '已是最新',
   },
 
-  // ========== 新增翻译 ==========
-  
+  // Blame
+  blame: {
+    title: 'Blame 视图',
+    author: '作者',
+    date: '日期',
+    commit: '提交',
+    message: '提交消息',
+    copySHA: '复制 SHA',
+    copied: '已复制',
+    filterByAuthor: '按作者过滤',
+    filterByDate: '按日期过滤',
+    clearFilters: '清除过滤',
+    noResults: '无匹配结果',
+    legend: {
+      title: '热力图颜色图例',
+      recent: '最近修改',
+      old: '较早修改',
+      cold: '较旧',
+      warm: '较新',
+    },
+    hoverDetail: {
+      commit: '提交',
+      author: '作者',
+      date: '日期',
+      message: '消息',
+    },
+    showAllLines: '显示所有行',
+    highlightFiltered: '高亮过滤行',
+  },
+
   // 提交详情面板
   commitDetail: {
     title: '提交详情',
@@ -276,6 +369,11 @@ export const zhCN = {
     diff: '差异',
     viewOnGitee: '在 Gitee 中查看',
     viewDiff: '查看该提交中的文件差异',
+    filterPlaceholder: '搜索提交...',
+    loading: '加载中...',
+    noHistory: '暂无历史记录',
+    today: '今天',
+    yesterday: '昨天',
   },
 
   // 作者筛选
@@ -306,6 +404,136 @@ export const zhCN = {
     customRange: '自定义范围',
     clear: '清除筛选',
     showing: '显示',
+  },
+
+  // 折叠合并提交
+  collapse: {
+    collapseBranch: '折叠分支',
+    expandBranch: '展开分支',
+    collapseAll: '折叠所有合并',
+    expandAll: '展开所有合并',
+    commitsCollapsed: '个提交已折叠，点击展开',
+  },
+
+  // 冲突预判
+  conflict: {
+    warningTitle: '⚠️ 冲突预检',
+    warningMessage: '此操作可能产生 {count} 个文件冲突，是否继续？',
+    conflictingFiles: '冲突文件',
+    continue: '继续',
+    cancel: '取消',
+    mergeConflict: '合并冲突',
+    rebaseConflict: '变基冲突',
+    cherryPickConflict: 'Cherry-pick 冲突',
+    noConflict: '无冲突',
+    conflictDetected: '检测到冲突',
+    manualMerge: '请手动解决冲突后继续操作',
+  },
+
+  // 分支管理
+  branchManage: {
+    upstreamStatus: {
+      upToDate: '已同步',
+      ahead: '领先',
+      behind: '落后',
+      aheadBehind: '领先落后',
+      diverged: '分叉',
+      noUpstream: '仅本地',
+      noUpstreamTooltip: '该分支没有配置上游分支',
+      aheadTooltip: '领先上游 {count} 个提交',
+      behindTooltip: '落后上游 {count} 个提交',
+      aheadBehindTooltip: '领先 {ahead} 个，落后 {behind} 个提交',
+    },
+    filter: {
+      placeholder: '搜索分支...',
+      noMatch: '无匹配分支',
+      hint: '按 / 聚焦搜索框',
+    },
+    pinned: {
+      title: '已收藏',
+      pinBranch: '收藏分支',
+      unpinBranch: '取消收藏',
+      empty: '暂无收藏分支',
+    },
+    group: {
+      local: '本地',
+      remote: '远程',
+      feature: '功能',
+      bugfix: '修复',
+      release: '发布',
+    },
+    toolbarBadge: {
+      pullBehind: '↓{count}',
+      pushAhead: '↑{count}',
+    },
+  },
+
+  // 远程仓库管理
+  remote: {
+    title: '远程仓库',
+    add: '添加远程',
+    edit: '编辑远程',
+    delete: '删除远程',
+    name: '名称',
+    url: 'URL',
+    namePlaceholder: '例如: origin',
+    urlPlaceholder: '例如: https://github.com/user/repo.git',
+    invalidUrl: '无效的 URL 格式',
+    confirmDelete: '确定要删除远程仓库 "{name}" 吗？',
+    deleteWarning: '此操作将从本地删除远程引用，不会影响远程仓库。',
+    setUpstream: '设置上游',
+    setUpstreamPrompt: '当前分支没有上游，是否设置？',
+    noUpstream: '无上游分支',
+    noUpstreamDesc: '请先推送并设置上游分支',
+  },
+
+  // Fetch/Pull/Push 偏好设置
+  fetchPreferences: {
+    prune: '清理已删除的远程分支',
+    pruneDesc: 'Fetch 时移除本地对远程已删除分支的引用',
+  },
+
+  pullPreferences: {
+    rebase: '使用变基模式',
+    rebaseDesc: '使用 git pull --rebase 而非 git pull --merge',
+  },
+
+  pushPreferences: {
+    force: '强制推送',
+    forceDesc: '覆盖远程历史（危险）',
+    forceWithLease: '安全强制推送',
+    forceWithLeaseDesc: '仅当远程未变化时才允许强制推送',
+    setUpstream: '设置上游',
+    setUpstreamDesc: '推送时自动设置上游分支',
+  },
+
+  // 确认对话框
+  confirm: {
+    forcePush: '强制推送确认',
+    forcePushMessage: 'Force push 会覆盖远程历史，可能导致其他协作者的工作丢失。\n\n确定要强制推送吗？',
+    forceWithLease: '安全强制推送确认',
+    forceWithLeaseMessage: 'Force with lease 会检查远程在你上次 fetch 后是否有变化。\n\n确定要安全强制推送吗？',
+    useForceAnyway: '仍然强制推送',
+    useForceWithLeaseAnyway: '仍然安全强制推送',
+    cancel: '取消',
+  },
+
+  // Fetch 下拉菜单
+  fetchMenu: {
+    fetchOrigin: 'Fetch origin',
+    fetchAll: 'Fetch All',
+    fetchPrune: 'Fetch + Prune',
+    fetchAllPrune: 'Fetch All + Prune',
+  },
+
+  imageDiff: {
+    sideBySide: '并排对比',
+    slider: '滑块对比',
+    onionSkin: '洋葱皮叠加',
+    noOldVersion: '无旧版本',
+    newFile: '新文件（无上一版本）',
+    deleted: '已删除',
+    title: '图片差异',
   },
 };
 

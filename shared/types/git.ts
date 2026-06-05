@@ -300,4 +300,189 @@ export interface GraphNode {
   branchName?: string;
   /** 该提交的 refs 标签 */
   refs: string[];
+  /** 是否属于折叠的分支 */
+  isCollapsed?: boolean;
+}
+
+// ============= 新增：分支跟踪状态 =============
+
+/**
+ * 分支跟踪状态
+ * 表示本地分支与上游分支的同步状态
+ */
+export interface BranchTrackingStatus {
+  /** 分支名称（本地分支名，不含 remote 前缀） */
+  branch: string;
+  /** 上游分支名称（不含 refs/remotes/ 前缀），如 "origin/main" */
+  upstream: string | null;
+  /** 状态类型 */
+  state: 'up-to-date' | 'ahead' | 'behind' | 'ahead-behind' | 'diverged' | 'no-upstream';
+  /** 领先远程的提交数 */
+  ahead: number;
+  /** 落后远程的提交数 */
+  behind: number;
+}
+
+/**
+ * 所有分支的跟踪状态映射
+ * key: 本地分支名（不含 origin/ 前缀）
+ * value: 跟踪状态
+ */
+export type BranchTrackingMap = Record<string, BranchTrackingStatus>;
+
+
+
+// ============= Stash 相关类型 =============
+
+/**
+ * Stash 条目信息
+ */
+export interface GitStashEntry {
+  /** Stash 索引（如 stash@{0}） */
+  index: number;
+  /** Stash 引用（如 stash@{0}） */
+  ref: string;
+  /** Stash 消息 */
+  message: string;
+  /** 创建日期时间戳（秒） */
+  date: number;
+  /** 创建日期格式化字符串 */
+  dateStr: string;
+  /** 包含的文件列表 */
+  files: StashFileChange[];
+  /** 变更统计 */
+  stats: {
+    additions: number;
+    deletions: number;
+    filesChanged: number;
+  };
+}
+
+/**
+ * Stash 中的文件变更
+ */
+export interface StashFileChange {
+  /** 文件路径 */
+  path: string;
+  /** 变更类型：added, modified, deleted */
+  type: 'added' | 'modified' | 'deleted';
+  /** 新增行数 */
+  additions: number;
+  /** 删除行数 */
+  deletions: number;
+}
+
+/**
+ * Stash 选项
+ */
+export interface StashOptions {
+  /** Stash 消息 */
+  message?: string;
+  /** 是否包含未跟踪文件 */
+  includeUntracked?: boolean;
+  /** 是否保持暂存区状态 */
+  keepIndex?: boolean;
+}
+
+// ============= Blame 相关类型 =============
+
+/**
+ * Blame 行信息
+ */
+export interface BlameLine {
+  /** 行号 */
+  lineNumber: number;
+  /** 行内容 */
+  content: string;
+  /** 提交 SHA */
+  commit: string;
+  /** 短 SHA（7位） */
+  shortCommit: string;
+  /** 作者 */
+  author: string;
+  /** 作者邮箱 */
+  authorEmail: string;
+  /** 提交日期时间戳（秒） */
+  date: number;
+  /** 完整提交消息 */
+  commitMessage: string;
+  /** 行在提交中的原始行号 */
+  originalLineNumber?: number;
+  /** 是否为多人编辑（同一行被多人修改过） */
+  isCoAuthored?: boolean;
+}
+
+/**
+ * Blame 结果
+ */
+export interface BlameResult {
+  /** 文件路径 */
+  filePath: string;
+  /** Blame 行列表 */
+  lines: BlameLine[];
+  /** 涉及的作者列表 */
+  authors: string[];
+  /** 日期范围 */
+  dateRange: {
+    oldest: number;
+    newest: number;
+  };
+}
+
+/**
+ * Blame 过滤选项
+ */
+export interface BlameFilter {
+  /** 按作者过滤 */
+  authors?: string[];
+  /** 开始日期（时间戳，秒） */
+  startDate?: number;
+  /** 结束日期（时间戳，秒） */
+  endDate?: number;
+}
+
+/**
+ * 热力图颜色配置
+ */
+export interface HeatmapColorConfig {
+  /** 颜色值（如 rgba(255,0,0,0.3)） */
+  color: string;
+  /** 渐变起始值 */
+  value: number;
+}
+
+
+/** 图片Diff模式 */
+export type ImageDiffMode = 'side-by-side' | 'slider' | 'onion-skin';
+
+/** 图片Diff信息 */
+export interface ImageDiffInfo {
+  /** 旧图片路径（空表示新增） */
+  oldPath: string | null;
+  /** 新图片路径（空表示删除） */
+  newPath: string | null;
+  /** 旧图片base64 */
+  oldImage?: string;
+  /** 新图片base64 */
+  newImage?: string;
+  /** 图片宽度 */
+  width?: number;
+  /** 图片高度 */
+  height?: number;
+  /** 是否为二进制文件 */
+  isBinary: boolean;
+}
+
+/** 文件历史条目 */
+export interface FileHistoryEntry {
+  /** 提交SHA */
+  oid: string;
+  /** 提交消息 */
+  message: string;
+  /** 作者 */
+  author: string;
+  /** 日期 */
+  date: string;
+  /** 文件变更状态(M/A/D/R) */
+  status: string;
 }

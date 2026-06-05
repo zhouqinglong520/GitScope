@@ -25,6 +25,8 @@ interface StatusPanelProps {
   onUnstageAll?: () => void;
   /** 查看文件历史回调 */
   onViewHistory?: (filePath: string) => void;
+  /** 刷新回调 */
+  onRefresh?: () => void;
 }
 
 function StatusPanel({
@@ -36,6 +38,7 @@ function StatusPanel({
   onStageAll,
   onUnstageAll,
   onViewHistory,
+  onRefresh,
 }: StatusPanelProps) {
   const i18n = zhCN;
   const [expandedFiles, setExpandedFiles] = useState<Set<string>>(new Set());
@@ -156,6 +159,10 @@ function StatusPanel({
         {/* 文件图标 */}
         {getFileIcon(file.path, expandedFiles.has(file.path))}
 
+        {/* 状态字母 */}
+        <span className={`text-xs font-mono font-bold ${statusStyle.text} w-4 text-center`}>
+          {file.status === 'modified' ? 'M' : file.status === 'added' ? 'A' : file.status === 'deleted' ? 'D' : file.status === 'renamed' ? 'R' : '?'}
+        </span>
         {/* 文件路径 */}
         <span className="flex-1 text-sm truncate py-1.5">
           <span className={statusStyle.text}>{file.path}</span>
@@ -375,6 +382,50 @@ function StatusPanel({
             </svg>
             {i18n.contextMenu.copyPath}
           </div>
+          {/* Discard / Delete options */}
+          <div className="h-px bg-[#3c3c3c] my-1" />
+          {contextMenu.section === 'unstaged' && (
+            <div
+              className="px-3 py-2 text-sm text-red-400 hover:bg-[#094771] cursor-pointer flex items-center gap-2"
+              onClick={async () => {
+                if (window.confirm(i18n.fileActions.discardConfirm)) {
+                  try {
+                    await window.electronAPI.git.discardChanges([contextMenu.file.path]);
+                    onRefresh?.();
+                  } catch (e) {
+                    console.error('丢弃更改失败:', e);
+                  }
+                }
+                closeContextMenu();
+              }}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              {i18n.fileActions.discardChanges}
+            </div>
+          )}
+          {contextMenu.section === 'untracked' && (
+            <div
+              className="px-3 py-2 text-sm text-red-400 hover:bg-[#094771] cursor-pointer flex items-center gap-2"
+              onClick={async () => {
+                if (window.confirm(i18n.fileActions.deleteConfirm)) {
+                  try {
+                    await window.electronAPI.git.deleteUntrackedFile(contextMenu.file.path);
+                    onRefresh?.();
+                  } catch (e) {
+                    console.error('删除文件失败:', e);
+                  }
+                }
+                closeContextMenu();
+              }}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              {i18n.fileActions.deleteFile}
+            </div>
+          )}
         </div>
       )}
     </div>

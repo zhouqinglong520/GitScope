@@ -25,3 +25,5 @@ export default defineConfig({
     port: 5173,
   },
 });
+
+// 允许 CSS 导入

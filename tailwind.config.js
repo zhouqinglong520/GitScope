@@ -20,7 +20,7 @@ export default {
           900: '#1e3a8a',
         },
         sidebar: {
-          bg: '#1e1e1e',
+          bg: '#1a1a2e',
           hover: '#2d2d2d',
           active: '#37373d',
         },
