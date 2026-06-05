@@ -1,8 +1,10 @@
 /**
  * 偏好设置对话框
  * 通用/外观/Git/通知四大分类设置
+ * 保存时触发语言切换
  */
 import React, { useState, useEffect } from 'react';
+import { setLocale } from '../../i18n';
 import './SettingsDialog.css';
 
 interface AppPreferences {
@@ -27,9 +29,9 @@ const defaultPrefs: AppPreferences = {
   notifications: { showOnComplete: true, showOnConflict: true, soundEnabled: false },
 };
 
-interface Props { visible: boolean; onClose: () => void; }
+interface Props { visible: boolean; onClose: () => void; onLocaleChange?: (locale: string) => void; }
 
-export const SettingsDialog: React.FC<Props> = ({ visible, onClose }) => {
+export const SettingsDialog: React.FC<Props> = ({ visible, onClose, onLocaleChange }) => {
   const [prefs, setPrefs] = useState<AppPreferences>(defaultPrefs);
   const [tab, setTab] = useState<TabKey>('general');
   const [saving, setSaving] = useState(false);
@@ -53,6 +55,11 @@ export const SettingsDialog: React.FC<Props> = ({ visible, onClose }) => {
     setSaving(true);
     try {
       await window.electronAPI.git.savePreferences(prefs as any);
+      // 触发语言切换
+      if (prefs.general.language) {
+        setLocale(prefs.general.language);
+        onLocaleChange?.(prefs.general.language);
+      }
       onClose();
     } catch (e: any) { alert(e.message); }
     finally { setSaving(false); }
