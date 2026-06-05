@@ -1,10 +1,9 @@
-import type { ImageDiffInfo, FileHistoryEntry } from '@shared/types/git';
 /**
  * Electron IPC 类型定义
  * 定义主进程和渲染进程之间的通信协议
  */
 
-import type { GitCommit, GitBranch, GitStatus, GitDiff, RepositoryInfo, GitTag, CommitDetail, AuthorStats, FileCommitHistory, BranchTrackingStatus, GitStashEntry, BlameResult, StashOptions } from './git.js';
+import type { GitCommit, GitBranch, GitStatus, GitDiff, RepositoryInfo, GitTag, CommitDetail, AuthorStats, FileCommitHistory, BranchTrackingStatus, GitStashEntry, BlameResult, StashOptions, ImageDiffInfo, FileHistoryEntry } from './git.js';
 
 /** 冲突检测结果 */
 export interface ConflictCheckResult {
