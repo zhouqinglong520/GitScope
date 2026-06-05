@@ -87,3 +87,38 @@
   padding: 8px 20px; border-radius: 6px; cursor: pointer; font-weight: 500;
 }
 .btn-execute:disabled { background: #333; color: #666; cursor: not-allowed; }
+
+/* 多选样式 */
+.rebase-item.selected {
+  background: #2a2a4a;
+  border-color: #4a6fff;
+}
+.rebase-item-select input[type="checkbox"] {
+  accent-color: #4a6fff;
+  width: 14px; height: 14px;
+  cursor: pointer;
+}
+.toolbar-selected-count {
+  color: #4a6fff;
+  font-size: 12px;
+  font-weight: 500;
+}
+.toolbar-separator {
+  color: #444;
+  font-size: 14px;
+}
+
+/* 冲突预判提示 */
+.rebase-conflict-warning {
+  padding: 8px 20px;
+  background: #3a2a10;
+  color: #FF9800;
+  font-size: 13px;
+  border-bottom: 1px solid #4a3a20;
+}
+
+/* Rebase 底部摘要增强 */
+.rebase-summary .rebase-summary-detail {
+  color: #666;
+  margin-left: 8px;
+}
