@@ -55,6 +55,13 @@ export const enUS= {
     message: 'Message',
     parents: 'Parents',
     children: 'Children',
+    searchPlaceholder: 'Search commits...',
+    filterAuthor: 'Filter by author',
+    filterDate: 'Filter by date',
+    filterAll: 'All',
+    today: 'Today',
+    thisWeek: 'This week',
+    thisMonth: 'This month',
   },
 
   // 详情面板
