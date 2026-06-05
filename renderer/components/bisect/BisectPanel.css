@@ -1,0 +1,21 @@
+.bisect-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; align-items: center; justify-content: center; }
+.bisect-dialog { background: #1e1e2e; border-radius: 12px; width: 480px; display: flex; flex-direction: column; }
+.bisect-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid #333; }
+.bisect-header h3 { margin: 0; color: #e0e0e0; }
+.bisect-header .btn-close { background: none; border: none; color: #888; cursor: pointer; font-size: 18px; }
+.bisect-content { padding: 20px; }
+.bisect-start { display: flex; flex-direction: column; gap: 10px; }
+.bisect-start input { background: #252535; border: 1px solid #444; color: #fff; padding: 8px 12px; border-radius: 6px; }
+.bisect-start p { color: #888; font-size: 13px; margin: 0; }
+.btn-primary { background: #4CAF50; border: none; color: #fff; padding: 8px 16px; border-radius: 6px; cursor: pointer; }
+.btn-primary:disabled { background: #333; color: #666; }
+.bisect-status { display: flex; justify-content: space-between; margin-bottom: 16px; color: #ccc; }
+.bisect-mark { display: flex; gap: 10px; margin-bottom: 16px; }
+.btn-good { flex: 1; background: #2e7d32; border: none; color: #fff; padding: 10px; border-radius: 6px; cursor: pointer; font-size: 14px; }
+.btn-bad { flex: 1; background: #c62828; border: none; color: #fff; padding: 10px; border-radius: 6px; cursor: pointer; font-size: 14px; }
+.btn-skip { flex: 1; background: #2a2a3a; border: 1px solid #444; color: #aaa; padding: 10px; border-radius: 6px; cursor: pointer; }
+.bisect-history { margin-bottom: 12px; }
+.bisect-entry { padding: 6px 10px; background: #252535; border-radius: 4px; margin-bottom: 4px; font-size: 13px; }
+.bisect-entry.good { border-left: 3px solid #4CAF50; }
+.bisect-entry.bad { border-left: 3px solid #ff5252; }
+.btn-reset { background: none; border: 1px solid #ff5252; color: #ff5252; padding: 6px 14px; border-radius: 6px; cursor: pointer; }
