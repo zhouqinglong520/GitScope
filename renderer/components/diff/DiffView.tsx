@@ -95,7 +95,7 @@ interface SearchMatch {
 
 /** 根据文件扩展名获取语言 */
 function getLanguageFromPath(filePath: string | undefined): string {
-  if (!filePath) return 'plaintext';
+  if (!filePath) return '';
   
   const ext = filePath.split('.').pop()?.toLowerCase() || '';
   const langMap: Record<string, string> = {
@@ -110,31 +110,39 @@ function getLanguageFromPath(filePath: string | undefined): string {
     less: 'less',
     html: 'html',
     htm: 'html',
-    vue: 'vue',
     md: 'markdown',
+    yaml: 'yaml',
+    yml: 'yaml',
+    toml: 'toml',
+    go: 'go',
+    rust: 'rust',
+    rs: 'rust',
+    java: 'java',
+    kotlin: 'kotlin',
+    kt: 'kotlin',
+    swift: 'swift',
+    cpp: 'cpp',
+    c: 'c',
+    h: 'cpp',
+    hpp: 'cpp',
+    cs: 'csharp',
+    php: 'php',
+    ruby: 'ruby',
+    rb: 'ruby',
     sh: 'bash',
     bash: 'bash',
     zsh: 'bash',
-    yaml: 'yaml',
-    yml: 'yaml',
+    fish: 'bash',
+    dockerfile: 'dockerfile',
+    docker: 'dockerfile',
     sql: 'sql',
-    java: 'java',
-    c: 'c',
-    h: 'c',
-    cpp: 'cpp',
-    cc: 'cpp',
-    cxx: 'cpp',
-    go: 'go',
-    rs: 'rust',
-    php: 'php',
-    rb: 'ruby',
-    swift: 'swift',
-    kt: 'kotlin',
-    kts: 'kotlin',
-    dart: 'dart',
+    xml: 'xml',
+    svg: 'xml',
+    txt: '',
+    text: '',
   };
   
-  return langMap[ext] || 'plaintext';
+  return langMap[ext] || '';
 }
 
 // ========== 主组件 ==========
@@ -387,8 +395,10 @@ function DiffView({ commitOid, filePath }: DiffViewProps) {
 
       setLoading(true);
       try {
-        const options = ignoreWhitespace ? { ignoreWhitespace: true } : undefined;
-        const result = await window.electronAPI.git.getDiff(filePath || undefined, options);
+        const result = await window.electronAPI.git.getDiff(
+          filePath || undefined, 
+          commitOid || undefined
+        );
         setDiff(result);
       } catch (error) {
         console.error('加载差异失败:', error);
@@ -567,7 +577,7 @@ function DiffView({ commitOid, filePath }: DiffViewProps) {
 
                         {/* 内容 */}
                         <span className="flex-1 px-2">
-                          {syntaxHighlight && line.type === 'context' ? (
+                          {syntaxHighlight && fileLanguage && line.type === 'context' ? (
                             <code 
                               className={`hljs language-${fileLanguage}`}
                               dangerouslySetInnerHTML={{
@@ -1062,7 +1072,7 @@ function SideBySideHunk({
               line.type === 'add' ? 'text-green-400' : 
               line.type === 'delete' ? 'text-red-400' : 'text-gray-300'
             }`}>
-              {syntaxHighlight && line.type === 'context' ? (
+              {syntaxHighlight && fileLanguage && line.type === 'context' ? (
                 <code 
                   className={`hljs language-${fileLanguage}`}
                   dangerouslySetInnerHTML={{

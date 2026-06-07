@@ -14,9 +14,9 @@ const BRANCH_COLORS = [
 ];
 
 const ROW_HEIGHT = 36;
-const COLUMN_WIDTH = 36;
-const NODE_RADIUS = 5.5;
-const GRAPH_WIDTH = 220;
+const COLUMN_WIDTH = 20; // 更窄的列宽
+const NODE_RADIUS = 3.5; // 稍微减小节点
+const GRAPH_WIDTH = 140; // 相应减小画布宽度
 
 interface GraphNode {
   commit: GitCommit;
@@ -24,6 +24,7 @@ interface GraphNode {
   color: string;
   row: number;
   isMainBranch: boolean;
+  branchNames: string[]; // 添加分支名称
 }
 
 interface Slot {
@@ -38,6 +39,17 @@ function buildGraphNodes(
   if (commits.length === 0) return [];
 
   const nodes: GraphNode[] = [];
+  
+  // 创建分支到提交的映射
+  const branchMap = new Map<string, string[]>();
+  for (const branch of branches) {
+    if (branch.oid) {
+      if (!branchMap.has(branch.oid)) {
+        branchMap.set(branch.oid, []);
+      }
+      branchMap.get(branch.oid)!.push(branch.name);
+    }
+  }
   
   // 活跃插槽：每个插槽代表一个垂直列
   const activeSlots: Map<string, Slot> = new Map();
@@ -124,6 +136,7 @@ function buildGraphNodes(
       color,
       row,
       isMainBranch,
+      branchNames: branchMap.get(commit.oid) || [],
     };
 
     nodes.push(node);
@@ -170,6 +183,10 @@ function CommitGraph({
   onCherryPick,
   onRevert,
   onSavePatch,
+  onInteractiveRebase,
+  commits: externalCommits,
+  branches: externalBranches,
+  currentBranch: externalCurrentBranch,
 }: {
   selectedCommit?: string | null;
   onCommitSelect?: (oid: string | null) => void;
@@ -180,8 +197,14 @@ function CommitGraph({
   onCherryPick?: (oid: string) => void;
   onRevert?: (oid: string) => void;
   onSavePatch?: (oid: string) => void;
+  onInteractiveRebase?: (oid: string, action: 'squash' | 'fixup' | 'reword' | 'drop') => void;
+  commits?: GitCommit[];
+  branches?: GitBranch[];
+  currentBranch?: string;
 }) {
-  const { commits, branches, currentBranch } = useRepoStore();
+  const store = useRepoStore();
+  const commits = externalCommits || store.commits;
+  const branches = externalBranches || store.branches;
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
@@ -225,111 +248,37 @@ function CommitGraph({
         const parentY = parentNode.row * ROW_HEIGHT + ROW_HEIGHT / 2;
 
         const isMainBranch = node.isMainBranch || parentNode.isMainBranch;
-        const lineWidth = isMainBranch ? 4 : 2.5;
+        const lineWidth = isMainBranch ? 2.2 : 1.4;
 
-        // 绘制阴影线
-        ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
-        ctx.lineWidth = lineWidth + 2;
+        // Fork风格：更细的线条
+        ctx.strokeStyle = node.color;
+        ctx.lineWidth = lineWidth;
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
         ctx.beginPath();
-
-        drawConnectingLine(ctx, nodeX + 1.5, nodeY + 1.5, parentX + 1.5, parentY + 1.5);
-        ctx.stroke();
-
-        // 绘制主线
-        ctx.strokeStyle = node.color;
-        ctx.lineWidth = lineWidth;
-        ctx.beginPath();
         drawConnectingLine(ctx, nodeX, nodeY, parentX, parentY);
         ctx.stroke();
-
-        // 主分支绘制高光
-        if (isMainBranch) {
-          ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-          ctx.lineWidth = lineWidth * 0.4;
-          ctx.beginPath();
-          drawConnectingLine(ctx, nodeX, nodeY - 0.5, parentX, parentY - 0.5);
-          ctx.stroke();
-        }
       }
     }
 
-    // 再绘制所有节点
+    // 绘制所有节点
     for (let i = 0; i < graphNodes.length; i++) {
       const node = graphNodes[i];
       const nodeX = node.column * COLUMN_WIDTH + COLUMN_WIDTH / 2;
       const nodeY = node.row * ROW_HEIGHT + ROW_HEIGHT / 2;
 
-      // 绘制节点阴影
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
-      ctx.beginPath();
-      ctx.arc(nodeX + 2, nodeY + 2, NODE_RADIUS + 1, 0, Math.PI * 2);
-      ctx.fill();
-
-      // 绘制光晕
-      const glowGradient = ctx.createRadialGradient(
-        nodeX, nodeY, 0,
-        nodeX, nodeY, NODE_RADIUS * 3
-      );
-      glowGradient.addColorStop(0, `${node.color}44`);
-      glowGradient.addColorStop(0.5, `${node.color}11`);
-      glowGradient.addColorStop(1, 'transparent');
-      ctx.fillStyle = glowGradient;
-      ctx.beginPath();
-      ctx.arc(nodeX, nodeY, NODE_RADIUS * 3, 0, Math.PI * 2);
-      ctx.fill();
-
-      // 绘制节点主体（带渐变）
-      const nodeGradient = ctx.createRadialGradient(
-        nodeX - NODE_RADIUS * 0.3,
-        nodeY - NODE_RADIUS * 0.3,
-        0,
-        nodeX,
-        nodeY,
-        NODE_RADIUS
-      );
-
-      if (node.isMainBranch) {
-        nodeGradient.addColorStop(0, '#f57a8e');
-        nodeGradient.addColorStop(0.5, '#e05673');
-        nodeGradient.addColorStop(1, '#c7435b');
-      } else {
-        const lighterColor = lightenColor(node.color, 20);
-        const darkerColor = darkenColor(node.color, 20);
-        nodeGradient.addColorStop(0, lighterColor);
-        nodeGradient.addColorStop(0.5, node.color);
-        nodeGradient.addColorStop(1, darkerColor);
-      }
-
-      ctx.fillStyle = nodeGradient;
+      // Fork风格：更小更精致的节点
+      ctx.fillStyle = node.color;
       ctx.beginPath();
       ctx.arc(nodeX, nodeY, NODE_RADIUS, 0, Math.PI * 2);
       ctx.fill();
-
-      // 绘制高光
-      const highlightGradient = ctx.createRadialGradient(
-        nodeX - NODE_RADIUS * 0.4,
-        nodeY - NODE_RADIUS * 0.4,
-        0,
-        nodeX,
-        nodeY,
-        NODE_RADIUS
-      );
-      highlightGradient.addColorStop(0, 'rgba(255, 255, 255, 0.9)');
-      highlightGradient.addColorStop(0.2, 'rgba(255, 255, 255, 0.5)');
-      highlightGradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.2)');
-      highlightGradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
-      ctx.fillStyle = highlightGradient;
+      
+      // Fork风格：细白色边框
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+      ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.arc(nodeX, nodeY, NODE_RADIUS, 0, Math.PI * 2);
-      ctx.fill();
-
-      // 绘制中心白点
-      ctx.fillStyle = '#ffffff';
-      ctx.beginPath();
-      ctx.arc(nodeX - 1, nodeY - 1, 2, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.arc(nodeX, nodeY, NODE_RADIUS - 0.5, 0, Math.PI * 2);
+      ctx.stroke();
     }
   }, [graphNodes, totalHeight]);
 
@@ -345,13 +294,18 @@ function CommitGraph({
       ctx.moveTo(x1, y1);
       ctx.lineTo(x2, y2);
     } else {
-      // 不同列：平滑的贝塞尔曲线
-      const controlOffset = Math.min(Math.abs(y2 - y1) * 0.4, 20);
+      // Fork风格：平滑的曲线
+      const dx = Math.abs(x2 - x1);
+      const dy = y2 - y1;
+      
+      // Fork风格的平滑曲线 - 更自然的弯曲
+      const startControlOffset = Math.min(Math.abs(dy) * 0.35, 14);
+      const endControlOffset = Math.min(Math.abs(dy) * 0.35, 14);
       
       ctx.moveTo(x1, y1);
       ctx.bezierCurveTo(
-        x1, y1 + controlOffset,
-        x2, y2 - controlOffset,
+        x1, y1 + startControlOffset,
+        x2, y2 - endControlOffset,
         x2, y2
       );
     }
@@ -375,12 +329,18 @@ function CommitGraph({
     return `#${((1 << 24) + (R << 16) + (G << 8) + B).toString(16).slice(1)}`;
   }
 
-  const { showContextMenu, ContextMenuWrapper } = useContextMenu((e, target) => {
-    const targetEl = target as HTMLElement;
-    const oid = targetEl.getAttribute('data-oid');
-    if (!oid) return [];
+  const [contextMenuItems, setContextMenuItems] = useState<MenuItem[]>([]);
+  const [contextMenuOid, setContextMenuOid] = useState<string | null>(null);
 
-    const items: MenuItem[] = [
+  const { showContextMenu, ContextMenuWrapper } = useContextMenu(() => {
+    if (!contextMenuOid) return [];
+    return contextMenuItems;
+  });
+
+  const handleContextMenu = (e: React.MouseEvent, oid: string) => {
+    e.preventDefault();
+    setContextMenuOid(oid);
+    setContextMenuItems([
       { id: 'checkout', label: '检出此提交', onClick: () => onCheckout?.(oid) },
       { id: 'divider-1', label: '', divider: true },
       { id: 'create-branch', label: '从这里创建分支...', onClick: () => onCreateBranch?.(oid) },
@@ -392,13 +352,13 @@ function CommitGraph({
       { id: 'revert', label: 'Revert', onClick: () => onRevert?.(oid) },
       { id: 'divider-4', label: '', divider: true },
       { id: 'save-patch', label: '保存为 Patch...', onClick: () => onSavePatch?.(oid) },
-    ];
-    return items;
-  });
+    ]);
+    showContextMenu(e);
+  };
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden">
-      <div className="px-3 py-1.5 border-b border-panel-border bg-[#1e1e1e] flex items-center text-xs text-gray-400">
+    <div className="h-full flex flex-col">
+      <div className="px-3 py-1.5 border-b border-panel-border bg-[#1e1e1e] flex items-center text-xs text-gray-400 flex-shrink-0">
         <span style={{ width: GRAPH_WIDTH }} className="flex-shrink-0"></span>
         <span className="flex-1">提交</span>
         <span className="w-24 flex-shrink-0 text-right">作者</span>
@@ -407,7 +367,7 @@ function CommitGraph({
 
       <div
         ref={containerRef}
-        className="flex-1 overflow-y-auto relative"
+        className="flex-1 overflow-y-auto bg-[#1e1e1e]"
         onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
       >
         <div style={{ height: `${totalHeight}px`, position: 'relative' }}>
@@ -434,9 +394,8 @@ function CommitGraph({
             return (
               <div
                 key={node.commit.oid}
-                data-oid={node.commit.oid}
                 onClick={() => onCommitSelect?.(node.commit.oid)}
-                onContextMenu={(e) => showContextMenu(e, e.currentTarget)}
+                onContextMenu={(e) => handleContextMenu(e, node.commit.oid)}
                 className={`absolute left-0 right-0 flex items-center px-3 cursor-pointer transition-colors ${
                   isSelected ? 'bg-[#2d2d30]' : 'hover:bg-[#2a2d2e]'
                 }`}
@@ -453,6 +412,25 @@ function CommitGraph({
                 >
                   {node.commit.shortOid}
                 </span>
+
+                {/* 分支名称标签 */}
+                {node.branchNames.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mr-2">
+                    {node.branchNames.map((branchName) => (
+                      <span
+                        key={branchName}
+                        className="text-xs px-2 py-0.5 rounded-full flex-shrink-0"
+                        style={{
+                          backgroundColor: `${node.color}33`,
+                          color: node.color,
+                          border: `1px solid ${node.color}66`,
+                        }}
+                      >
+                        {branchName}
+                      </span>
+                    ))}
+                  </div>
+                )}
 
                 <span className="flex-1 text-sm text-gray-200 truncate mr-3">
                   {node.commit.message}

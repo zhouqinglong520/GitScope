@@ -162,7 +162,7 @@ export function useMenuEvents() {
       },
 
       'menu:renameBranch': async () => {
-        if (!currentRepo) return;
+        if (!currentRepo || !currentRepo.currentBranch) return;
         const newName = await window.electronAPI.fs.showInputBox({
           title: '重命名分支',
           prompt: `重命名 ${currentRepo.currentBranch} 为`,

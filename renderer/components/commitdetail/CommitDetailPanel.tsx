@@ -119,9 +119,9 @@ function CommitDetailPanel({
                 <h4 className="text-xs font-medium text-gray-500 mb-2">
                   {t('commitDetail.fileChanges')} ({files.length})
                 </h4>
-                <div className="bg-[#1e1e1e] rounded overflow-hidden">
+                <div className="bg-[#1e1e1e] rounded max-h-[200px] overflow-y-auto">
                   <table className="w-full text-sm">
-                    <thead>
+                    <thead className="sticky top-0 bg-[#1e1e1e]">
                       <tr className="text-xs text-gray-500 border-b border-[#3c3c3c]">
                         <th className="text-left px-3 py-2 w-8">{t('commitDetail.status')}</th>
                         <th className="text-left px-3 py-2">{t('commitDetail.path')}</th>
@@ -133,7 +133,8 @@ function CommitDetailPanel({
                       {files.map((file, index) => (
                         <tr
                           key={`${file.path}-${index}`}
-                          className="border-b border-[#2a2a2a] last:border-b-0 hover:bg-[#2a2d2e] transition-colors"
+                          className="border-b border-[#2a2a2a] last:border-b-0 hover:bg-[#2a2d2e] transition-colors cursor-pointer"
+                          onClick={() => onViewFileDiff?.(commit.oid, file.path)}
                         >
                           <td className="px-3 py-2">
                             <span
@@ -162,7 +163,10 @@ function CommitDetailPanel({
                           <td className="px-3 py-2">
                             <div className="flex items-center justify-end gap-1">
                               <button
-                                onClick={() => onViewFileDiff?.(commit.oid, file.path)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onViewFileDiff?.(commit.oid, file.path);
+                                }}
                                 className="p-1 text-gray-500 hover:text-gray-300 hover:bg-[#3c3c3c] rounded transition-colors"
                                 title={t('commitDetail.viewDiff')}
                               >
@@ -171,7 +175,10 @@ function CommitDetailPanel({
                                 </svg>
                               </button>
                               <button
-                                onClick={() => onViewFileHistory?.(file.path)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onViewFileHistory?.(file.path);
+                                }}
                                 className="p-1 text-gray-500 hover:text-gray-300 hover:bg-[#3c3c3c] rounded transition-colors"
                                 title={t('commitDetail.viewHistory')}
                               >

@@ -14,15 +14,19 @@ import type {
   FileCommitHistory,
   AuthorStats,
   CommitFilter,
-  CommitDetail
+  CommitDetail,
+  GitStashEntry
 } from '../../shared/types/git';
+
+// 导出类型供其他组件使用
+export type { GitCommit, GitBranch };
 
 // 仓库信息扩展（包含 ID）
 export interface RepoTab {
   id: string;
   path: string;
   name: string;
-  currentBranch: string;
+  currentBranch: string | null;
   isActive: boolean;
 }
 
@@ -463,12 +467,19 @@ export const useRepoStore = create<RepoState>((set, get) => ({
       ]);
 
       // 获取 stash 列表
-      const stashes = await window.electronAPI.git.getStashes().catch(() => []);
+      const stashEntries: GitStashEntry[] = await window.electronAPI.git.getStashes().catch(() => []);
+      const stashes = stashEntries.map((s) => ({
+        id: s.ref,
+        message: s.message,
+        date: s.dateStr,
+      }));
 
       // 获取作者统计
       const authorStats = await window.electronAPI.git.getAuthorStats().catch(() => []);
 
-      set({
+      const newCurrentBranch = branches.find((b) => b.current) || null;
+
+      set((state) => ({
         branches,
         commits,
         filteredCommits: commits,
@@ -476,10 +487,13 @@ export const useRepoStore = create<RepoState>((set, get) => ({
         tags,
         stashes,
         authorStats,
-        currentBranch: branches.find((b) => b.current) || null,
+        currentBranch: newCurrentBranch,
         ahead: aheadBehind.ahead,
         behind: aheadBehind.behind,
-      });
+        repos: state.repos.map((repo) =>
+          repo.path === path ? { ...repo, currentBranch: newCurrentBranch?.name || null } : repo
+        ),
+      }));
     } catch (error) {
       console.error('加载仓库数据失败:', error);
       set({ error: `加载失败: ${error}` });
@@ -556,7 +570,7 @@ export const useRepoStore = create<RepoState>((set, get) => ({
    */
   stageFile: async (path: string) => {
     try {
-      await window.electronAPI.git.add([path]);
+      await window.electronAPI.git.stage([path]);
       await get().refresh();
     } catch (error) {
       console.error('暂存文件失败:', error);
@@ -568,7 +582,7 @@ export const useRepoStore = create<RepoState>((set, get) => ({
    */
   unstageFile: async (path: string) => {
     try {
-      await window.electronAPI.git.reset([path]);
+      await window.electronAPI.git.unstage([path]);
       await get().refresh();
     } catch (error) {
       console.error('取消暂存失败:', error);
@@ -580,7 +594,7 @@ export const useRepoStore = create<RepoState>((set, get) => ({
    */
   stageAll: async () => {
     try {
-      await window.electronAPI.git.addAll();
+      await window.electronAPI.git.stageAll();
       await get().refresh();
     } catch (error) {
       console.error('暂存所有文件失败:', error);
@@ -592,7 +606,7 @@ export const useRepoStore = create<RepoState>((set, get) => ({
    */
   unstageAll: async () => {
     try {
-      await window.electronAPI.git.reset([]); // 空数组表示取消暂存所有
+      await window.electronAPI.git.unstageAll();
       await get().refresh();
     } catch (error) {
       console.error('取消暂存所有文件失败:', error);

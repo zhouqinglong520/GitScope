@@ -213,7 +213,7 @@ export interface RepositoryInfo {
   /** 仓库名称（目录名） */
   name: string;
   /** 当前分支 */
-  currentBranch: string;
+  currentBranch: string | null;
   /** 是否为 git 仓库 */
   isGitRepo: boolean;
   /** 远程仓库列表 */
@@ -485,4 +485,285 @@ export interface FileHistoryEntry {
   date: string;
   /** 文件变更状态(M/A/D/R) */
   status: string;
+}
+
+// ============= P2 新增类型定义 =============
+
+/** 交互式 Rebase 操作项 */
+export interface RebaseAction {
+  /** 提交 SHA */
+  oid: string;
+  /** 操作类型：pick/squash/fixup/reword/edit/drop */
+  action: 'pick' | 'squash' | 'fixup' | 'reword' | 'edit' | 'drop';
+  /** 提交消息 */
+  message: string;
+  /** 作者 */
+  author: string;
+  /** 短SHA */
+  shortOid: string;
+  /** 排序索引 */
+  order: number;
+}
+
+/** Rebase 执行计划 */
+export interface RebasePlan {
+  /** 目标上游 */
+  upstream: string;
+  /** 操作列表（按顺序） */
+  actions: RebaseAction[];
+  /** 是否包含 --update-refs */
+  updateRefs?: boolean;
+}
+
+/** 子模块信息（增强版） */
+export interface SubmoduleInfo {
+  /** 子模块名称 */
+  name: string;
+  /** 子模块路径 */
+  path: string;
+  /** 子模块 URL */
+  url: string;
+  /** 当前提交 SHA */
+  currentOid?: string;
+  /** 跟踪的提交 SHA */
+  trackedOid?: string;
+  /** 状态：unchanged/modified/out-of-date/initialized/uninitialized */
+  status: 'unchanged' | 'modified' | 'out-of-date' | 'initialized' | 'uninitialized';
+  /** 分支名 */
+  branch?: string;
+}
+
+/** Worktree 信息 */
+export interface WorktreeInfo {
+  /** 工作目录路径 */
+  path: string;
+  /** 关联的分支或提交 */
+  head: string;
+  /** 是否为主工作区 */
+  isMainWorktree: boolean;
+  /** 检出的分支名 */
+  branch?: string;
+  /** 是否为干净状态 */
+  isClean: boolean;
+  /** 提交消息 */
+  commitMessage?: string;
+}
+
+/** Git LFS 锁定信息 */
+export interface LfsLock {
+  /** 文件路径 */
+  path: string;
+  /** 锁定者 */
+  owner: string;
+  /** 锁定时间 */
+  lockedAt: number;
+  /** 锁定ID */
+  id: string;
+}
+
+/** Git LFS 追踪模式 */
+export interface LfsTrackPattern {
+  /** 追踪模式（如 *.psd） */
+  pattern: string;
+  /** 锁定属性 */
+  lockable: boolean;
+}
+
+/** Git LFS 状态 */
+export interface LfsStatus {
+  /** 是否安装了 LFS */
+  isInstalled: boolean;
+  /** LFS 版本 */
+  version?: string;
+  /** 追踪模式列表 */
+  trackPatterns: LfsTrackPattern[];
+  /** 锁定文件列表 */
+  locks: LfsLock[];
+  /** LFS 对象统计 */
+  stats: {
+    totalSize: number;
+    totalFiles: number;
+    localSize: number;
+    localFiles: number;
+  };
+}
+
+/** Reflog 条目 */
+export interface ReflogEntry {
+  /** 提交 SHA */
+  oid: string;
+  /** 短 SHA */
+  shortOid: string;
+  /** 操作描述 */
+  action: string;
+  /** 引用名 */
+  ref: string;
+  /** 消息 */
+  message: string;
+  /** 时间戳 */
+  timestamp: number;
+  /** 作者 */
+  author: string;
+}
+
+/** 仓库统计 */
+export interface RepoStats {
+  /** 仓库路径 */
+  path: string;
+  /** 仓库大小（字节） */
+  size: number;
+  /** 提交数量 */
+  commitCount: number;
+  /** 分支数量 */
+  branchCount: number;
+  /** 标签数量 */
+  tagCount: number;
+  /** 贡献者数量 */
+  contributorCount: number;
+  /** 首次提交时间 */
+  firstCommitDate: number;
+  /** 最近提交时间 */
+  lastCommitDate: number;
+  /** 行数统计 */
+  lineStats: {
+    total: number;
+    added: number;
+    deleted: number;
+  };
+}
+
+/** 自定义操作 */
+export interface CustomAction {
+  /** 操作ID */
+  id: string;
+  /** 显示名称 */
+  name: string;
+  /** 执行命令 */
+  command: string;
+  /** 工作目录（空=仓库根目录） */
+  workingDir?: string;
+  /** 环境变量 */
+  env?: Record<string, string>;
+  /** 图标 */
+  icon?: string;
+  /** 快捷键 */
+  shortcut?: string;
+  /** 适用的文件模式（如 *.js, *） */
+  filePattern?: string;
+  /** 是否显示在上下文菜单 */
+  showInContextMenu: boolean;
+  /** 是否显示在工具栏 */
+  showInToolbar: boolean;
+}
+
+/** 偏好设置 */
+export interface AppPreferences {
+  /** 通用 */
+  general: {
+    /** 默认克隆目录 */
+    defaultCloneDir: string;
+    /** 语言 */
+    language: 'zh-CN' | 'en-US';
+    /** 启动时检查更新 */
+    checkUpdateOnStart: boolean;
+    /** 最小化到托盘 */
+    minimizeToTray: boolean;
+    /** 自动 Fetch 间隔（分钟，0=禁用） */
+    autoFetchInterval: number;
+  };
+  /** 外观 */
+  appearance: {
+    /** 主题 */
+    theme: 'dark' | 'light' | 'system';
+    /** 字体大小 */
+    fontSize: number;
+    /** Tab 宽度 */
+    tabWidth: number;
+    /** 显示空白字符 */
+    showWhitespace: boolean;
+    /** 色盲模式 */
+    colorBlindMode: boolean;
+    /** 提交图样式 */
+    commitGraphStyle: 'curved' | 'straight';
+  };
+  /** Git */
+  git: {
+    /** 默认合并策略 */
+    mergeStrategy: 'merge' | 'rebase' | 'squash';
+    /** Pull 默认 Rebase */
+    pullRebase: boolean;
+    /** 推送时自动设置上游 */
+    pushAutoSetUpstream: boolean;
+    /** 提交后自动推送 */
+    autoPushAfterCommit: boolean;
+    /** GPG 签名 */
+    gpgSign: boolean;
+    /** 提交模板路径 */
+    commitTemplatePath: string;
+    /** 外部 Diff 工具 */
+    externalDiffTool: string;
+    /** 外部合并工具 */
+    externalMergeTool: string;
+  };
+  /** 通知 */
+  notifications: {
+    /** 操作完成通知 */
+    showOnComplete: boolean;
+    /** 冲突通知 */
+    showOnConflict: boolean;
+    /** 通知声音 */
+    soundEnabled: boolean;
+  };
+}
+
+/** 通知项 */
+export interface AppNotification {
+  /** 通知ID */
+  id: string;
+  /** 通知类型 */
+  type: 'success' | 'error' | 'warning' | 'info';
+  /** 标题 */
+  title: string;
+  /** 消息 */
+  message: string;
+  /** 时间戳 */
+  timestamp: number;
+  /** 是否已读 */
+  read: boolean;
+  /** 关联的操作ID（可选） */
+  actionId?: string;
+}
+
+/** Bisect 状态 */
+export interface BisectState {
+  /** 是否正在 Bisect */
+  isActive: boolean;
+  /** 好的提交 */
+  goodRef?: string;
+  /** 坏的提交 */
+  badRef?: string;
+  /** 当前测试提交 */
+  currentRef?: string;
+  /** 剩余步骤 */
+  stepsRemaining?: number;
+  /** 已标记的提交列表 */
+  markedCommits: Array<{ ref: string; result: 'good' | 'bad' | 'skip' }>;
+}
+
+/** Patch 信息 */
+export interface PatchInfo {
+  /** Patch 文件名 */
+  filename: string;
+  /** Patch 路径 */
+  path: string;
+  /** 创建时间 */
+  createdAt: number;
+  /** 修改的文件数 */
+  filesChanged: number;
+  /** 新增行数 */
+  additions: number;
+  /** 删除行数 */
+  deletions: number;
+  /** 描述 */
+  subject?: string;
 }

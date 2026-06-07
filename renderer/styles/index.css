@@ -1,6 +1,7 @@
 /**
  * GitGUI 主样式文件
  * 使用 Tailwind CSS 进行样式定义
+ * 参考 Fork 的设计风格
  */
 
 @tailwind base;
@@ -24,12 +25,14 @@
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    font-size: 13px;
+    line-height: 1.5;
   }
 
-  /* 自定义滚动条 */
+  /* 自定义滚动条 - Fork 风格 */
   ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 10px;
+    height: 10px;
   }
 
   ::-webkit-scrollbar-track {
@@ -38,11 +41,12 @@
 
   ::-webkit-scrollbar-thumb {
     background: #424242;
-    border-radius: 4px;
+    border-radius: 5px;
+    border: 2px solid #1e1e1e;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: #4f4f4f;
+    background: #5a5a5a;
   }
 
   /* Firefox 滚动条 */
@@ -54,9 +58,9 @@
 
 /* 自定义组件样式 */
 @layer components {
-  /* 按钮样式 */
+  /* 按钮样式 - Fork 风格 */
   .btn {
-    @apply px-4 py-1.5 rounded text-sm font-medium transition-all duration-200;
+    @apply px-3 py-1.5 rounded text-sm font-medium transition-all duration-200;
   }
 
   .btn-primary {
@@ -94,7 +98,7 @@
 
   /* 列表项样式 */
   .list-item {
-    @apply px-3 py-2 cursor-pointer transition-colors duration-100;
+    @apply px-3 py-1.5 cursor-pointer transition-colors duration-100;
     @apply hover:bg-sidebar-hover;
   }
 
@@ -154,13 +158,15 @@
     @apply h-px bg-[#3c3c3c] my-2;
   }
 
-  /* 分支颜色 */
+  /* 分支颜色 - Fork 风格 */
   .branch-blue { color: #5799da; }
   .branch-green { color: #7dce82; }
   .branch-orange { color: #e2a855; }
   .branch-purple { color: #b47ccf; }
   .branch-cyan { color: #52c4e8; }
   .branch-red { color: #e85d75; }
+  .branch-yellow { color: #f5d76e; }
+  .branch-pink { color: #f06292; }
 }
 
 /* 工具类 */
@@ -254,11 +260,110 @@
   @apply ring-2 ring-white ring-offset-1 ring-offset-[#1e1e1e];
 }
 
-/* 拖拽条 */
+/* 拖拽条 - Fork 风格 */
 .resize-handle {
   @apply h-1 bg-[#3c3c3c] hover:bg-primary-500 cursor-row-resize transition-colors;
 }
 
 .resize-handle-vertical {
   @apply w-1 bg-[#3c3c3c] hover:bg-primary-500 cursor-col-resize transition-colors;
+}
+
+/* Fork 风格的侧边栏 */
+.sidebar-section {
+  @apply border-b border-[#3c3c3c];
+}
+
+.sidebar-section-header {
+  @apply flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-[#2a2d2e] transition-colors;
+}
+
+.sidebar-section-title {
+  @apply text-xs font-medium text-gray-300;
+}
+
+.sidebar-item {
+  @apply flex items-center gap-2 px-3 py-1.5 cursor-pointer transition-colors;
+  @apply hover:bg-[#2a2d2e];
+}
+
+.sidebar-item-active {
+  @apply bg-[#094771] text-white;
+}
+
+/* Fork 风格的提交列表 */
+.commit-item {
+  @apply flex items-center px-3 py-2 cursor-pointer transition-colors;
+  @apply hover:bg-[#2a2d2e];
+}
+
+.commit-item-selected {
+  @apply bg-[#094771];
+}
+
+.commit-hash {
+  @apply font-mono text-xs text-[#61afef] w-14 flex-shrink-0;
+}
+
+.commit-message {
+  @apply text-sm text-gray-200 flex-1 truncate mr-2;
+}
+
+.commit-author {
+  @apply text-xs text-gray-400 w-16 flex-shrink-0 text-right;
+}
+
+.commit-date {
+  @apply text-xs text-gray-500 w-20 flex-shrink-0 text-right;
+}
+
+/* Fork 风格的文件列表 */
+.file-item {
+  @apply flex items-center px-3 py-1.5 cursor-pointer transition-colors;
+  @apply hover:bg-[#2a2d2e];
+}
+
+.file-item-selected {
+  @apply bg-[#094771];
+}
+
+.file-status-added {
+  @apply text-green-400;
+}
+
+.file-status-modified {
+  @apply text-yellow-400;
+}
+
+.file-status-deleted {
+  @apply text-red-400;
+}
+
+.file-status-renamed {
+  @apply text-blue-400;
+}
+
+/* Fork 风格的 Diff 视图 */
+.diff-line {
+  @apply flex text-sm font-mono;
+}
+
+.diff-line-number {
+  @apply w-12 text-right pr-2 text-gray-600 select-none;
+}
+
+.diff-line-content {
+  @apply flex-1 whitespace-pre;
+}
+
+.diff-line-add {
+  @apply bg-green-900/20;
+}
+
+.diff-line-delete {
+  @apply bg-red-900/20;
+}
+
+.diff-line-context {
+  @apply text-gray-300;
 }

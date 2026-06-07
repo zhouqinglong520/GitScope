@@ -31,7 +31,58 @@
             { name: 'release/v0.3', current: false, oid: 'def4567890abc1234567890abcdef1234567890' },
           ],
           getStatus: async () => ({ current: 'main', staged: [{ path: 'src/rebase/InteractiveRebase.tsx', status: 'M', shortStatus: 'M', oldPath: '' }, { path: 'src/components/ConflictResolver.tsx', status: 'A', shortStatus: 'A', oldPath: '' }], unstaged: [{ path: 'src/App.tsx', status: 'M', shortStatus: 'M', oldPath: '' }, { path: 'package.json', status: 'M', shortStatus: 'M', oldPath: '' }], untracked: [{ path: 'src/new-feature.ts', status: '?', shortStatus: '??', oldPath: '' }, { path: 'docs/api.md', status: '?', shortStatus: '??', oldPath: '' }] }),
-          getDiff: async () => [{ path: 'src/App.tsx', status: 'M', additions: 12, deletions: 5, hunks: [{ header: '@@ -10,7 +10,14 @@', lines: ['-import React', '+import React, { useState }', ' from', '-const App', '+const App = () => {', '+  const [count, setCount] = useState(0);', '+  return ('] }] }],
+          getDiff: async (filePath, commitOid) => {
+            if (commitOid) {
+              // 返回提交的差异
+              return [{ 
+                oldPath: 'src/App.tsx', 
+                newPath: 'src/App.tsx', 
+                path: 'src/App.tsx',
+                type: 'modified',
+                status: 'M',
+                additions: 12, 
+                deletions: 5, 
+                hunks: [{ 
+                  oldStart: 10, oldLines: 7, newStart: 10, newLines: 14,
+                  header: '@@ -10,7 +10,14 @@',
+                  lines: [
+                    { type: 'context', content: 'import React', oldLineNumber: 10, newLineNumber: 10 },
+                    { type: 'delete', content: 'import React', oldLineNumber: 11, newLineNumber: null },
+                    { type: 'add', content: 'import React, { useState }', oldLineNumber: null, newLineNumber: 11 },
+                    { type: 'context', content: ' from', oldLineNumber: 12, newLineNumber: 12 },
+                    { type: 'delete', content: 'const App', oldLineNumber: 13, newLineNumber: null },
+                    { type: 'add', content: 'const App = () => {', oldLineNumber: null, newLineNumber: 13 },
+                    { type: 'add', content: '  const [count, setCount] = useState(0);', oldLineNumber: null, newLineNumber: 14 },
+                    { type: 'add', content: '  return (', oldLineNumber: null, newLineNumber: 15 },
+                  ]
+                }]
+              }];
+            }
+            // 返回工作目录的差异
+            return [{ 
+              oldPath: 'src/App.tsx', 
+              newPath: 'src/App.tsx', 
+              path: 'src/App.tsx',
+              type: 'modified',
+              status: 'M',
+              additions: 12, 
+              deletions: 5, 
+              hunks: [{ 
+                oldStart: 10, oldLines: 7, newStart: 10, newLines: 14,
+                header: '@@ -10,7 +10,14 @@',
+                lines: [
+                  { type: 'context', content: 'import React', oldLineNumber: 10, newLineNumber: 10 },
+                  { type: 'delete', content: 'import React', oldLineNumber: 11, newLineNumber: null },
+                  { type: 'add', content: 'import React, { useState }', oldLineNumber: null, newLineNumber: 11 },
+                  { type: 'context', content: ' from', oldLineNumber: 12, newLineNumber: 12 },
+                  { type: 'delete', content: 'const App', oldLineNumber: 13, newLineNumber: null },
+                  { type: 'add', content: 'const App = () => {', oldLineNumber: null, newLineNumber: 13 },
+                  { type: 'add', content: '  const [count, setCount] = useState(0);', oldLineNumber: null, newLineNumber: 14 },
+                  { type: 'add', content: '  return (', oldLineNumber: null, newLineNumber: 15 },
+                ]
+              }]
+            }];
+          },
           getStagedDiff: async () => [{ path: 'src/rebase/InteractiveRebase.tsx', status: 'M', additions: 25, deletions: 3, hunks: [{ header: '@@ -1,5 +1,27 @@', lines: ['-export function InteractiveRebase() {', '+export function InteractiveRebase({ commits, onRebase }) {', '+  const [draggedItem, setDraggedItem] = useState(null);', '+  const handleDragStart = (commit) => {', '+    setDraggedItem(commit);'] }] }],
           add: async () => {},
           stage: async () => {},
@@ -74,7 +125,26 @@
           getStashes: async () => [{ id: 'stash@{0}', message: 'WIP on main: feat work in progress', date: '2024-06-04' }],
           refresh: async () => {},
           getFileLog: async () => [],
-          getCommitDetail: async () => ({ oid: 'abc1234567890def1234567890abc1234567890', message: 'feat: add interactive rebase UI', fullMessage: 'feat: add interactive rebase UI\n\nImplement drag-and-drop rebase with conflict detection', authorName: 'Zhang San', authorEmail: 'zhangsan@ex.com', authorTimestamp: 1717500000, files: [{ path: 'src/rebase/InteractiveRebase.tsx', status: 'M', additions: 120, deletions: 15 }, { path: 'src/components/DragList.tsx', status: 'A', additions: 85, deletions: 0 }] }),
+          getCommitDetail: async () => ({ 
+            oid: 'abc1234567890def1234567890abc1234567890', 
+            message: 'feat: add interactive rebase UI', 
+            fullMessage: 'feat: add interactive rebase UI\n\nImplement drag-and-drop rebase with conflict detection', 
+            authorName: 'Zhang San', 
+            authorEmail: 'zhangsan@ex.com', 
+            authorTimestamp: 1717500000, 
+            files: [
+              { path: 'src/rebase/InteractiveRebase.tsx', status: 'modified', shortStatus: 'M', additions: 120, deletions: 15 }, 
+              { path: 'src/components/DragList.tsx', status: 'added', shortStatus: 'A', additions: 85, deletions: 0 },
+              { path: 'src/components/ConflictResolver.tsx', status: 'modified', shortStatus: 'M', additions: 45, deletions: 20 },
+              { path: 'src/components/CommitGraph.tsx', status: 'modified', shortStatus: 'M', additions: 67, deletions: 34 },
+              { path: 'src/components/FileList.tsx', status: 'added', shortStatus: 'A', additions: 156, deletions: 0 },
+              { path: 'src/stores/repoStore.ts', status: 'modified', shortStatus: 'M', additions: 89, deletions: 45 },
+              { path: 'src/utils/gitUtils.ts', status: 'modified', shortStatus: 'M', additions: 23, deletions: 12 },
+              { path: 'src/hooks/useGit.ts', status: 'added', shortStatus: 'A', additions: 67, deletions: 0 },
+              { path: 'src/types/git.ts', status: 'modified', shortStatus: 'M', additions: 15, deletions: 8 },
+              { path: 'README.md', status: 'modified', shortStatus: 'M', additions: 3, deletions: 1 },
+            ]
+          }),
           getAuthorStats: async () => [{ name: 'Zhang San', email: 'zhangsan@ex.com', commits: 5, insertions: 340, deletions: 45 }, { name: 'Li Si', email: 'lisi@ex.com', commits: 3, insertions: 180, deletions: 60 }, { name: 'Wang Wu', email: 'wangwu@ex.com', commits: 2, insertions: 95, deletions: 20 }],
           getFileDiff: async () => [],
           getFileHistory: async () => [],

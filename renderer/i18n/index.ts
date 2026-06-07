@@ -97,13 +97,23 @@ export function formatRelativeTime(timestamp: number): string {
   const date = new Date(timestamp * 1000);
   const now = new Date();
   const diff = now.getTime() - date.getTime();
+  const isEn = currentLocale === 'en-US';
 
-  if (diff < 60000) return '刚刚';
-  if (diff < 3600000) return `${Math.floor(diff / 60000)} 分钟前`;
-  if (diff < 86400000) return `${Math.floor(diff / 3600000)} 小时前`;
-  if (diff < 604800000) return `${Math.floor(diff / 86400000)} 天前`;
+  if (diff < 60000) return isEn ? 'just now' : '刚刚';
+  if (diff < 3600000) {
+    const mins = Math.floor(diff / 60000);
+    return isEn ? `${mins} min${mins > 1 ? 's' : ''} ago` : `${mins} 分钟前`;
+  }
+  if (diff < 86400000) {
+    const hours = Math.floor(diff / 3600000);
+    return isEn ? `${hours} hour${hours > 1 ? 's' : ''} ago` : `${hours} 小时前`;
+  }
+  if (diff < 604800000) {
+    const days = Math.floor(diff / 86400000);
+    return isEn ? `${days} day${days > 1 ? 's' : ''} ago` : `${days} 天前`;
+  }
 
-  return date.toLocaleDateString('zh-CN', {
+  return date.toLocaleDateString(isEn ? 'en-US' : 'zh-CN', {
     month: 'short',
     day: 'numeric',
   });

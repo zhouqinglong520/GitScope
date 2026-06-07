@@ -1,0 +1,49 @@
+.notification-container { position: fixed; bottom: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; }
+.notification-toast {
+  display: flex; align-items: center; gap: 10px; padding: 12px 16px;
+  background: #1e1e2e; border-radius: 8px; border-left: 4px solid;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3); min-width: 280px; max-width: 400px;
+  animation: slideIn 0.3s ease;
+}
+@keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+.nt-icon { font-size: 18px; }
+.nt-content { flex: 1; }
+.nt-title { color: #e0e0e0; font-size: 13px; font-weight: 500; }
+.nt-message { color: #aaa; font-size: 12px; margin-top: 2px; }
+.nt-close { background: none; border: none; color: #666; cursor: pointer; font-size: 14px; }
+
+/* 增强通知样式 */
+.notification-toast {
+  cursor: pointer;
+  transition: all 0.3s ease;
+  opacity: 1;
+}
+.notification-toast:hover {
+  transform: translateX(-4px);
+  opacity: 0.95;
+}
+.notification-toast.notification-error {
+  background: #2a1515;
+}
+.notification-toast.notification-warning {
+  background: #2a2510;
+}
+.notification-toast.notification-success {
+  background: #152a15;
+}
+.notification-toast.notification-info {
+  background: #15202a;
+}
+.nt-action {
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.2);
+  color: #e0e0e0;
+  padding: 2px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: pointer;
+  margin-top: 4px;
+}
+.nt-action:hover {
+  background: rgba(255,255,255,0.2);
+}

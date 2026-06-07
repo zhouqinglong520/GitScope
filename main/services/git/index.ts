@@ -257,8 +257,21 @@ class GitService {
 
       if (commitOid) {
         // 查看某个提交的 diff
-        args = ['diff', commitOid + '^', commitOid];
-        if (filePath) args.push('--', filePath);
+        // 需要先获取提交的父提交信息
+        try {
+          const commitObj = await git.readCommit({ fs: isoFs, dir: this.dir, oid: commitOid });
+          if (commitObj.commit.parent.length === 0) {
+            // 初始提交，使用 --root 参数
+            args = ['diff', '--root', '--', ...(filePath ? [filePath] : [])];
+          } else {
+            // 有父提交的情况
+            const parentOid = commitObj.commit.parent[0];
+            args = ['diff', parentOid, commitOid, ...(filePath ? ['--', filePath] : [])];
+          }
+        } catch {
+          // 读取提交信息失败，使用传统方式
+          args = ['diff', commitOid + '^', commitOid, ...(filePath ? ['--', filePath] : [])];
+        }
       } else if (filePath) {
         // 查看某个文件的 diff
         args = ['diff', '--', filePath];
@@ -344,6 +357,41 @@ class GitService {
       }
     } catch {
       await this.gitCliExec(['reset', 'HEAD', '--', ...files]);
+    }
+  }
+
+  /**
+   * 暂存文件（stage）- 别名方法
+   */
+  async stage(files: string[]): Promise<void> {
+    await this.add(files);
+  }
+
+  /**
+   * 暂存所有文件（stageAll）- 别名方法
+   */
+  async stageAll(): Promise<void> {
+    await this.addAll();
+  }
+
+  /**
+   * 取消暂存（unstage）
+   */
+  async unstage(files: string[]): Promise<void> {
+    await this.reset(files);
+  }
+
+  /**
+   * 取消暂存所有（unstageAll）
+   */
+  async unstageAll(): Promise<void> {
+    if (!this.dir) throw new Error('仓库未打开');
+
+    try {
+      await this.gitCliExec(['reset', 'HEAD']);
+    } catch (error) {
+      console.error('[GitService] unstageAll 失败:', error);
+      throw error;
     }
   }
 
@@ -617,6 +665,92 @@ class GitService {
   }
 
   /**
+   * 删除标签
+   */
+  async deleteTag(name: string): Promise<void> {
+    if (!this.dir) throw new Error('仓库未打开');
+
+    try {
+      await this.gitCliExec(['tag', '-d', name]);
+    } catch (error) {
+      console.error('[GitService] 删除标签失败:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 添加远程仓库
+   */
+  async addRemote(name: string, url: string): Promise<void> {
+    if (!this.dir) throw new Error('仓库未打开');
+
+    try {
+      await this.gitCliExec(['remote', 'add', name, url]);
+    } catch (error) {
+      console.error('[GitService] 添加远程仓库失败:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 删除远程仓库
+   */
+  async removeRemote(name: string): Promise<void> {
+    if (!this.dir) throw new Error('仓库未打开');
+
+    try {
+      await this.gitCliExec(['remote', 'remove', name]);
+    } catch (error) {
+      console.error('[GitService] 删除远程仓库失败:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 修改远程仓库 URL
+   */
+  async setRemoteUrl(name: string, url: string): Promise<void> {
+    if (!this.dir) throw new Error('仓库未打开');
+
+    try {
+      await this.gitCliExec(['remote', 'set-url', name, url]);
+    } catch (error) {
+      console.error('[GitService] 修改远程仓库 URL 失败:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 获取 reflog
+   */
+  async reflog(): Promise<Array<{ hash: string; action: string; ref: string; message: string; date: string }>> {
+    if (!this.dir) return [];
+
+    try {
+      const { stdout } = await execFileAsync('git', ['reflog', '--format=%H|%gd|%gs|%gD'], { cwd: this.dir });
+      const lines = stdout.trim().split('\n').filter(Boolean);
+      const entries: Array<{ hash: string; action: string; ref: string; message: string; date: string }> = [];
+
+      for (const line of lines) {
+        const parts = line.split('|');
+        if (parts.length >= 4) {
+          entries.push({
+            hash: parts[0],
+            ref: parts[1],
+            action: parts[1].includes('HEAD@{') ? 'HEAD' : parts[1],
+            message: parts[2],
+            date: parts[3],
+          });
+        }
+      }
+
+      return entries;
+    } catch {
+      return [];
+    }
+  }
+
+  /**
    * Stash 暂存
    */
   async stash(message?: string): Promise<void> {
@@ -630,10 +764,132 @@ class GitService {
   /**
    * Stash pop
    */
-  async stashPop(): Promise<void> {
+  async stashPop(index?: number): Promise<void> {
     if (!this.dir) throw new Error('仓库未打开');
 
-    await this.gitCliExec(['stash', 'pop']);
+    const args = ['stash', 'pop'];
+    if (index !== undefined) args.push(`stash@{${index}}`);
+    await this.gitCliExec(args);
+  }
+
+  /**
+   * Stash apply - 应用 stash 但不删除
+   */
+  async stashApply(index?: number): Promise<void> {
+    if (!this.dir) throw new Error('仓库未打开');
+
+    const args = ['stash', 'apply'];
+    if (index !== undefined) args.push(`stash@{${index}}`);
+    await this.gitCliExec(args);
+  }
+
+  /**
+   * Stash drop - 删除 stash
+   */
+  async stashDrop(index?: number): Promise<void> {
+    if (!this.dir) throw new Error('仓库未打开');
+
+    const args = ['stash', 'drop'];
+    if (index !== undefined) args.push(`stash@{${index}}`);
+    await this.gitCliExec(args);
+  }
+
+  /**
+   * 获取 stash 列表
+   */
+  async getStashes(): Promise<GitStashEntry[]> {
+    if (!this.dir) return [];
+
+    try {
+      const { stdout } = await execFileAsync('git', ['stash', 'list', '--format=%gd:%gs:%gD'], { cwd: this.dir });
+      const lines = stdout.trim().split('\n').filter(Boolean);
+      const stashes: GitStashEntry[] = [];
+
+      for (let i = 0; i < lines.length; i++) {
+        const parts = lines[i].split(':');
+        const ref = parts[0];
+        const message = parts.slice(1).join(':');
+        
+        // 获取 stash 的详细信息
+        let files: StashFileChange[] = [];
+        let stats = { additions: 0, deletions: 0, filesChanged: 0 };
+        
+        try {
+          const { stdout: diffOut } = await execFileAsync('git', ['diff', `${ref}^`, ref, '--name-status'], { cwd: this.dir });
+          const diffLines = diffOut.trim().split('\n');
+          for (const line of diffLines) {
+            const [status, path] = line.split('\t');
+            if (status && path) {
+              files.push({
+                path,
+                type: status === 'A' ? 'added' : status === 'D' ? 'deleted' : 'modified',
+                additions: 0,
+                deletions: 0,
+              });
+              stats.filesChanged++;
+            }
+          }
+        } catch {
+          // 忽略获取文件列表失败
+        }
+
+        stashes.push({
+          index: i,
+          ref,
+          message,
+          date: Date.now(),
+          dateStr: new Date().toLocaleString(),
+          files,
+          stats,
+        });
+      }
+
+      return stashes;
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * 重命名分支
+   */
+  async renameBranch(oldName: string, newName: string): Promise<void> {
+    if (!this.dir) throw new Error('仓库未打开');
+
+    try {
+      await this.gitCliExec(['branch', '-m', oldName, newName]);
+    } catch (error) {
+      console.error('[GitService] 重命名分支失败:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 撤销提交（revert）
+   */
+  async revert(oid: string): Promise<void> {
+    if (!this.dir) throw new Error('仓库未打开');
+
+    try {
+      await this.gitCliExec(['revert', oid]);
+    } catch (error) {
+      console.error('[GitService] revert 失败:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Cherry-pick 提交
+   */
+  async cherryPick(oid: string): Promise<void> {
+    if (!this.dir) throw new Error('仓库未打开');
+
+    try {
+      await this.gitCliExec(['cherry-pick', oid]);
+    } catch (error) {
+      console.error('[GitService] cherry-pick 失败:', error);
+      throw error;
+    }
   }
 
   /**
@@ -662,12 +918,76 @@ class GitService {
       // 获取文件变更列表（使用 git CLI）
       let files: CommitFileChange[] = [];
       try {
-        const { stdout } = await execFileAsync(
+        // 获取文件状态和路径
+        const { stdout: statusOutput } = await execFileAsync(
           'git',
           ['diff-tree', '--no-commit-id', '--name-status', '-r', oid],
           { cwd: this.dir }
         );
-        files = parseNameStatus(stdout);
+        
+        // 根据是否有父提交选择不同的 diff 命令
+        let numstatOutput = '';
+        if (commitObj.commit.parent.length > 0) {
+          // 有父提交的情况
+          const { stdout } = await execFileAsync(
+            'git',
+            ['diff', '--numstat', oid + '^', oid],
+            { cwd: this.dir }
+          );
+          numstatOutput = stdout;
+        } else {
+          // 初始提交，使用 --root 参数
+          const { stdout } = await execFileAsync(
+            'git',
+            ['diff', '--numstat', '--root', oid],
+            { cwd: this.dir }
+          );
+          numstatOutput = stdout;
+        }
+
+        // 解析状态信息
+        const statusMap: Record<string, CommitFileChange['shortStatus']> = {
+          A: 'A', M: 'M', D: 'D', R: 'R', C: 'C',
+        };
+        const fullStatusMap: Record<string, CommitFileChange['status']> = {
+          A: 'added', M: 'modified', D: 'deleted', R: 'renamed', C: 'copied',
+        };
+
+        // 解析 numstat 输出，创建路径到统计的映射
+        const numstatMap: Record<string, { additions: number; deletions: number }> = {};
+        for (const line of numstatOutput.trim().split('\n')) {
+          if (!line.trim()) continue;
+          const parts = line.split('\t');
+          if (parts.length >= 3) {
+            const additions = parseInt(parts[0]) || 0;
+            const deletions = parseInt(parts[1]) || 0;
+            const filePath = parts[2];
+            numstatMap[filePath] = { additions, deletions };
+          }
+        }
+
+        // 解析状态输出并合并统计信息
+        for (const line of statusOutput.trim().split('\n')) {
+          if (!line.trim()) continue;
+          const parts = line.split('\t');
+          const statusCode = parts[0]?.trim();
+          const filePath = parts[1] || parts[0]?.substring(1)?.trim();
+
+          if (!statusCode || !filePath) continue;
+
+          const shortStatus = statusMap[statusCode[0]] || 'M';
+          const status = fullStatusMap[statusCode[0]] || 'modified';
+          const stats = numstatMap[filePath] || { additions: 0, deletions: 0 };
+
+          files.push({
+            path: filePath,
+            status,
+            shortStatus,
+            additions: stats.additions,
+            deletions: stats.deletions,
+            oldPath: statusCode.startsWith('R') ? parts[1] : undefined,
+          });
+        }
       } catch {
         // CLI 不可用时返回空列表
       }
@@ -887,6 +1207,28 @@ class GitService {
       newPath: f.path,
       hunks: [],
     }));
+  }
+
+  /**
+   * 获取当前分支与上游分支的 ahead/behind 数量
+   */
+  async getAheadBehind(): Promise<{ ahead: number; behind: number }> {
+    if (!this.dir) return { ahead: 0, behind: 0 };
+
+    try {
+      const { stdout } = await execFileAsync('git', ['rev-list', '--count', '--left-right', '@{upstream}...HEAD'], { cwd: this.dir });
+      const parts = stdout.trim().split('\t');
+      if (parts.length === 2) {
+        return {
+          behind: parseInt(parts[0], 10) || 0,
+          ahead: parseInt(parts[1], 10) || 0,
+        };
+      }
+    } catch {
+      // 如果没有上游分支，返回默认值
+    }
+
+    return { ahead: 0, behind: 0 };
   }
 }
 

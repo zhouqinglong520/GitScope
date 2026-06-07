@@ -156,7 +156,7 @@ function App() {
             title: 'Stash',
             prompt: '输入 stash 备注（可选）',
           });
-          await window.electronAPI.git.stash(message || undefined);
+          await window.electronAPI.git.stash(message ? { message } : undefined);
         }
       },
     },
@@ -437,7 +437,7 @@ function App() {
                     prompt: '输入 stash 备注（可选）',
                   });
                   if (message !== null) {
-                    await window.electronAPI.git.stash(message || undefined);
+                    await window.electronAPI.git.stash(message ? { message } : undefined);
                     console.log('[App] Stash 成功');
                     // 刷新仓库 UI 数据
                     await refresh();
@@ -459,6 +459,21 @@ function App() {
 
             {/* 分支选择器 */}
             <button
+              onClick={async () => {
+                const branchName = await window.electronAPI.fs.showInputBox({
+                  title: '切换分支',
+                  prompt: '请输入要切换的分支名称',
+                  defaultValue: currentRepo.currentBranch || undefined,
+                });
+                if (branchName) {
+                  try {
+                    await window.electronAPI.git.checkout(branchName);
+                    await refresh();
+                  } catch (err) {
+                    console.error('[App] 切换分支失败:', err);
+                  }
+                }
+              }}
               className="btn-icon flex items-center gap-1.5 px-2"
               title={i18n.branch.current}
             >

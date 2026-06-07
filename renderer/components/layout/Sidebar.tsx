@@ -38,9 +38,9 @@ function Sidebar({ onOpenRepo }: SidebarProps) {
   const isExpanded = (section: SectionType) => expandedSections.has(section);
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full bg-[#252526] border-r border-[#3c3c3c]">
       {/* 仓库标题栏 */}
-      <div className="h-9 flex items-center justify-between px-3 border-b border-panel-border">
+      <div className="h-9 flex items-center justify-between px-3 border-b border-[#3c3c3c] bg-[#2d2d30]">
         <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
           {i18n.sidebar.repositories}
         </span>

@@ -74,6 +74,26 @@ function registerIpcHandlers() {
     await gitService.reset(files);
   });
 
+  /** 暂存文件（stage） */
+  ipcMain.handle('git:stage', async (_, files: string[]) => {
+    await gitService.stage(files);
+  });
+
+  /** 暂存所有（stageAll） */
+  ipcMain.handle('git:stageAll', async () => {
+    await gitService.stageAll();
+  });
+
+  /** 取消暂存（unstage） */
+  ipcMain.handle('git:unstage', async (_, files: string[]) => {
+    await gitService.unstage(files);
+  });
+
+  /** 取消暂存所有（unstageAll） */
+  ipcMain.handle('git:unstageAll', async () => {
+    await gitService.unstageAll();
+  });
+
   /** 提交 */
   ipcMain.handle('git:commit', async (_, message: string, options?: { amend?: boolean; author?: { name: string; email: string } }) => {
     if (options?.amend) {
@@ -147,8 +167,68 @@ function registerIpcHandlers() {
   });
 
   /** Stash pop */
-  ipcMain.handle('git:stashPop', async () => {
-    await gitService.stashPop();
+  ipcMain.handle('git:stashPop', async (_, index?: number) => {
+    await gitService.stashPop(index);
+  });
+
+  /** Stash apply */
+  ipcMain.handle('git:stashApply', async (_, index?: number) => {
+    await gitService.stashApply(index);
+  });
+
+  /** Stash drop */
+  ipcMain.handle('git:stashDrop', async (_, index?: number) => {
+    await gitService.stashDrop(index);
+  });
+
+  /** 获取 Stash 列表 */
+  ipcMain.handle('git:getStashes', async () => {
+    return await gitService.getStashes();
+  });
+
+  /** 获取当前分支与上游分支的 ahead/behind 数量 */
+  ipcMain.handle('git:getAheadBehind', async () => {
+    return await gitService.getAheadBehind();
+  });
+
+  /** 删除标签 */
+  ipcMain.handle('git:deleteTag', async (_, name: string) => {
+    await gitService.deleteTag(name);
+  });
+
+  /** 重命名分支 */
+  ipcMain.handle('git:renameBranch', async (_, oldName: string, newName: string) => {
+    await gitService.renameBranch(oldName, newName);
+  });
+
+  /** 撤销提交 (revert) */
+  ipcMain.handle('git:revert', async (_, oid: string) => {
+    await gitService.revert(oid);
+  });
+
+  /** Cherry-pick 提交 */
+  ipcMain.handle('git:cherryPick', async (_, oid: string) => {
+    await gitService.cherryPick(oid);
+  });
+
+  /** 添加远程仓库 */
+  ipcMain.handle('git:addRemote', async (_, name: string, url: string) => {
+    await gitService.addRemote(name, url);
+  });
+
+  /** 删除远程仓库 */
+  ipcMain.handle('git:removeRemote', async (_, name: string) => {
+    await gitService.removeRemote(name);
+  });
+
+  /** 修改远程仓库 URL */
+  ipcMain.handle('git:setRemoteUrl', async (_, name: string, url: string) => {
+    await gitService.setRemoteUrl(name, url);
+  });
+
+  /** 获取 reflog */
+  ipcMain.handle('git:reflog', async () => {
+    return await gitService.reflog();
   });
 
   /** 获取提交详情 */
@@ -174,16 +254,6 @@ function registerIpcHandlers() {
   /** 刷新仓库状态 */
   ipcMain.handle('git:refresh', async () => {
     await gitService.refresh();
-  });
-
-  /** 获取 Stash 列表 - 补充这个缺失的方法，简单返回空数组 */
-  ipcMain.handle('git:getStashes', async () => {
-    return [];
-  });
-
-  /** 获取 ahead/behind 数量 */
-  ipcMain.handle('git:getAheadBehind', async () => {
-    return await gitService.getAheadBehind();
   });
 
   // ========== 凭证服务 ==========

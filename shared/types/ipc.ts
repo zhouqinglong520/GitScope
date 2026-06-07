@@ -25,7 +25,7 @@ export interface IpcGitApi {
   getLog: (options?: { ref?: string; depth?: number }) => Promise<GitCommit[]>;
   getBranches: () => Promise<GitBranch[]>;
   getStatus: () => Promise<GitStatus | null>;
-  getDiff: (filePath?: string, options?: DiffOptions) => Promise<GitDiff[]>;
+  getDiff: (filePath?: string, commitOid?: string) => Promise<GitDiff[]>;
   stage: (files: string[]) => Promise<void>;
   stageAll: () => Promise<void>;
   unstage: (files: string[]) => Promise<void>;
@@ -82,6 +82,7 @@ export interface IpcGitApi {
   openInDiffTool: (filePath?: string) => Promise<boolean>;
   // ========== 分支跟踪状态 ==========
   getBranchTrackingStatus: () => Promise<Record<string, BranchTrackingStatus>>;
+  getAheadBehind: () => Promise<{ ahead: number; behind: number }>;
   // ========== 提交模板 ==========
   getCommitTemplate: () => Promise<string | null>;
   // ========== 文件操作 ==========
@@ -108,6 +109,157 @@ export interface IpcGitApi {
   /** 获取文件在指定提交的内容(base64) */
   getFileContent: (filePath: string, oid: string) =>
     Promise<string | null>;
+
+  // ========== P2 新增 IPC 方法 ==========
+
+  /** 交互式 Rebase：获取待操作提交列表 */
+  getRebaseActions: (upstream: string) =>
+    Promise<Array<{ oid: string; shortOid: string; message: string; author: string }>>;
+
+  /** 交互式 Rebase：执行 Rebase 计划 */
+  executeRebasePlan: (plan: import('./git').RebasePlan) =>
+    Promise<void>;
+
+  /** 子模块：列出子模块（增强版） */
+  listSubmodulesEnhanced: () =>
+    Promise<import('./git').SubmoduleInfo[]>;
+
+  /** 子模块：同步子模块 */
+  syncSubmodule: (path: string) =>
+    Promise<void>;
+
+  /** Worktree：列出 Worktree */
+  listWorktrees: () =>
+    Promise<import('./git').WorktreeInfo[]>;
+
+  /** Worktree：创建 Worktree */
+  createWorktree: (path: string, ref: string) =>
+    Promise<void>;
+
+  /** Worktree：删除 Worktree */
+  removeWorktree: (path: string, force?: boolean) =>
+    Promise<void>;
+
+  /** LFS：获取 LFS 状态 */
+  getLfsStatus: () =>
+    Promise<import('./git').LfsStatus | null>;
+
+  /** LFS：安装 LFS */
+  installLfs: () =>
+    Promise<void>;
+
+  /** LFS：追踪模式 */
+  lfsTrack: (pattern: string) =>
+    Promise<void>;
+
+  /** LFS：取消追踪 */
+  lfsUntrack: (pattern: string) =>
+    Promise<void>;
+
+  /** LFS：锁定文件 */
+  lfsLock: (path: string) =>
+    Promise<void>;
+
+  /** LFS：解锁文件 */
+  lfsUnlock: (path: string, force?: boolean) =>
+    Promise<void>;
+
+  /** LFS：拉取 LFS 对象 */
+  lfsPull: () =>
+    Promise<void>;
+
+  /** LFS：推送 LFS 对象 */
+  lfsPush: () =>
+    Promise<void>;
+
+  /** LFS：修剪本地 LFS 缓存 */
+  lfsPrune: () =>
+    Promise<void>;
+
+  /** Reflog：获取完整 Reflog（增强版） */
+  getReflog: () =>
+    Promise<import('./git').ReflogEntry[]>;
+
+  /** 仓库统计 */
+  getRepoStats: () =>
+    Promise<import('./git').RepoStats | null>;
+
+  /** 自定义操作：列出 */
+  listCustomActions: () =>
+    Promise<import('./git').CustomAction[]>;
+
+  /** 自定义操作：保存 */
+  saveCustomAction: (action: import('./git').CustomAction) =>
+    Promise<void>;
+
+  /** 自定义操作：删除 */
+  deleteCustomAction: (id: string) =>
+    Promise<void>;
+
+  /** 自定义操作：执行 */
+  executeCustomAction: (id: string, context?: { filePath?: string; ref?: string }) =>
+    Promise<{ exitCode: number; stdout: string; stderr: string }>;
+
+  /** 偏好设置：获取 */
+  getPreferences: () =>
+    Promise<import('./git').AppPreferences>;
+
+  /** 偏好设置：保存 */
+  savePreferences: (prefs: Partial<import('./git').AppPreferences>) =>
+    Promise<void>;
+
+  /** Bisect：开始 */
+  bisectStart: (badRef: string, goodRef: string) =>
+    Promise<void>;
+
+  /** Bisect：标记 */
+  bisectMark: (ref: string, result: 'good' | 'bad' | 'skip') =>
+    Promise<import('./git').BisectState | null>;
+
+  /** Bisect：跳过 */
+  bisectSkip: () =>
+    Promise<import('./git').BisectState | null>;
+
+  /** Bisect：重置 */
+  bisectReset: () =>
+    Promise<void>;
+
+  /** Bisect：获取状态 */
+  getBisectState: () =>
+    Promise<import('./git').BisectState | null>;
+
+  /** Patch：创建 */
+  createPatch: (refs: string[], outputPath?: string) =>
+    Promise<string>;
+
+  /** Patch：应用 */
+  applyPatch: (patchPath: string, options?: { check?: boolean; reject?: boolean }) =>
+    Promise<void>;
+
+  /** Patch：列出 */
+  listPatches: (dir?: string) =>
+    Promise<import('./git').PatchInfo[]>;
+
+  /** 自动 Fetch 设置 */
+  setAutoFetch: (intervalMinutes: number) =>
+    Promise<void>;
+
+  /** 推送标签 */
+  pushTag: (tagName: string, remote?: string) =>
+    Promise<void>;
+
+  /** 推送所有标签 */
+  pushAllTags: (remote?: string) =>
+    Promise<void>;
+
+  /** 获取合并请求列表（Gitee/GitHub） */
+  getPullRequests: (remote?: string) =>
+    Promise<Array<{ id: number; title: string; state: string; url: string; author: string }>>;
+
+  /** GPG 签名验证 */
+  verifyCommitSignature: (oid: string) =>
+    Promise<{ valid: boolean; key: string; signer: string } | null>;
+
 }
 
 export interface CredentialInfo {
