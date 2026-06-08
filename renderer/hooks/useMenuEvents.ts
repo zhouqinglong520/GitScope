@@ -1,12 +1,63 @@
 /**
  * 监听主进程菜单事件
- * 主进程菜单点击 → IPC → 渲染进程执行对应操作
+ * 主进程菜单点击 → IPC → 渲染进程触发专业弹窗
+ *
+ * 所有 showInputBox 假功能已替换为 Fork 风格专业弹窗
  */
 
 import { useEffect } from 'react';
 import { useRepoStore } from '../stores/repoStore';
 
-export function useMenuEvents() {
+/** 全局弹窗状态管理 — 供 App.tsx / MainLayout 读取 */
+export interface DialogState {
+  newBranch: boolean;
+  deleteBranch: string | null;   // 预填分支名
+  renameBranch: string | null;   // 预填分支名
+  switchBranch: boolean;
+  mergeBranch: string | null;    // 预填来源分支
+  newTag: boolean;
+  deleteTag: string | null;      // 预填标签名
+  pushTag: string | null;        // 预填标签名
+  initRepo: boolean;
+  remotesManager: boolean;
+  gitignoreEditor: boolean;
+  stashMenu: boolean;
+  cloneRepo: boolean;
+}
+
+export const initialDialogState: DialogState = {
+  newBranch: false,
+  deleteBranch: null,
+  renameBranch: null,
+  switchBranch: false,
+  mergeBranch: null,
+  newTag: false,
+  deleteTag: null,
+  pushTag: null,
+  initRepo: false,
+  remotesManager: false,
+  gitignoreEditor: false,
+  stashMenu: false,
+  cloneRepo: false,
+};
+
+export type DialogAction =
+  | { type: 'SHOW'; dialog: keyof DialogState; payload?: string | null }
+  | { type: 'HIDE'; dialog: keyof DialogState };
+
+export function dialogReducer(state: DialogState, action: DialogAction): DialogState {
+  switch (action.type) {
+    case 'SHOW':
+      return { ...state, [action.dialog]: action.payload !== undefined ? action.payload : true };
+    case 'HIDE':
+      return { ...state, [action.dialog]: typeof state[action.dialog] === 'string' ? null : false };
+    default:
+      return state;
+  }
+}
+
+/** 菜单事件到弹窗的映射 */
+export function useMenuEvents(dispatch: (action: DialogAction) => void) {
   const {
     currentRepo,
     activeRepoId,
@@ -16,32 +67,18 @@ export function useMenuEvents() {
   } = useRepoStore();
 
   useEffect(() => {
-    // 菜单事件处理映射
     const handlers: Record<string, () => void> = {
       'menu:openRepo': async () => {
         const path = await window.electronAPI.fs.selectFolder();
         if (path) await openRepo(path);
       },
 
-      'menu:cloneRepo': async () => {
-        const url = await window.electronAPI.fs.showInputBox({
-          title: '克隆仓库',
-          prompt: '请输入仓库 URL',
-        });
-        if (url) {
-          const dir = await window.electronAPI.fs.selectFolder();
-          if (dir) {
-            await window.electronAPI.git.clone(url, dir);
-          }
-        }
+      'menu:cloneRepo': () => {
+        dispatch({ type: 'SHOW', dialog: 'cloneRepo' });
       },
 
-      'menu:initRepo': async () => {
-        const dir = await window.electronAPI.fs.selectFolder();
-        if (dir) {
-          // 初始化后打开
-          await openRepo(dir);
-        }
+      'menu:initRepo': () => {
+        dispatch({ type: 'SHOW', dialog: 'initRepo' });
       },
 
       'menu:closeRepo': () => {
@@ -49,7 +86,6 @@ export function useMenuEvents() {
       },
 
       'menu:undo': () => {
-        // 触发 Undo 操作
         document.dispatchEvent(new KeyboardEvent('keydown', {
           key: 'z', ctrlKey: true, bubbles: true,
         }));
@@ -62,7 +98,6 @@ export function useMenuEvents() {
       },
 
       'menu:find': () => {
-        // 聚焦搜索框或打开 Quick Launch
         document.dispatchEvent(new KeyboardEvent('keydown', {
           key: 'k', ctrlKey: true, bubbles: true,
         }));
@@ -83,39 +118,41 @@ export function useMenuEvents() {
       },
 
       'menu:fetch': async () => {
-        if (currentRepo) await window.electronAPI.git.fetch();
-      },
-
-      'menu:pull': async () => {
-        if (currentRepo) await window.electronAPI.git.pull();
-      },
-
-      'menu:push': async () => {
-        if (currentRepo) await window.electronAPI.git.push();
-      },
-
-      'menu:stash': async () => {
         if (currentRepo) {
-          const message = await window.electronAPI.fs.showInputBox({
-            title: 'Stash',
-            prompt: '输入 stash 备注（可选）',
-          });
-          await window.electronAPI.git.stash({ message: message || undefined });
+          // 触发 PushPullDialog 的 fetch 模式
+          window.dispatchEvent(new CustomEvent('showPushPullDialog', { detail: 'fetch' }));
         }
       },
 
-      'menu:stashPop': async () => {
-        if (currentRepo) await window.electronAPI.git.stashPop();
+      'menu:pull': async () => {
+        if (currentRepo) {
+          window.dispatchEvent(new CustomEvent('showPushPullDialog', { detail: 'pull' }));
+        }
+      },
+
+      'menu:push': async () => {
+        if (currentRepo) {
+          window.dispatchEvent(new CustomEvent('showPushPullDialog', { detail: 'push' }));
+        }
+      },
+
+      'menu:stash': () => {
+        dispatch({ type: 'SHOW', dialog: 'stashMenu' });
+      },
+
+      'menu:stashPop': () => {
+        // 触发 Stash 管理面板（StashDialog 或 StashSection）
+        if (currentRepo) {
+          window.dispatchEvent(new CustomEvent('showStashPop'));
+        }
       },
 
       'menu:editGitignore': () => {
-        // 触发 .gitignore 编辑器
-        window.dispatchEvent(new CustomEvent('showGitignoreEditor'));
+        dispatch({ type: 'SHOW', dialog: 'gitignoreEditor' });
       },
 
       'menu:manageRemotes': () => {
-        // 触发远程仓库管理
-        window.dispatchEvent(new CustomEvent('showRemotesManager'));
+        dispatch({ type: 'SHOW', dialog: 'remotesManager' });
       },
 
       'menu:submodules': () => {
@@ -134,80 +171,43 @@ export function useMenuEvents() {
         if (currentRepo) await window.electronAPI.shell.openPath(currentRepo.path);
       },
 
-      'menu:newBranch': async () => {
-        if (!currentRepo) return;
-        const name = await window.electronAPI.fs.showInputBox({
-          title: '新建分支',
-          prompt: '请输入分支名称',
-        });
-        if (name) await window.electronAPI.git.createBranch(name);
+      'menu:newBranch': () => {
+        dispatch({ type: 'SHOW', dialog: 'newBranch' });
       },
 
       'menu:switchBranch': () => {
-        // 触发分支选择器
-        window.dispatchEvent(new CustomEvent('showBranchSelector'));
+        dispatch({ type: 'SHOW', dialog: 'switchBranch' });
       },
 
-      'menu:merge': async () => {
-        if (!currentRepo) return;
-        const name = await window.electronAPI.fs.showInputBox({
-          title: '合并分支',
-          prompt: '请输入要合并的分支名称',
-        });
-        if (name) await window.electronAPI.git.merge(name);
+      'menu:merge': () => {
+        dispatch({ type: 'SHOW', dialog: 'mergeBranch' });
       },
 
       'menu:interactiveRebase': () => {
         window.dispatchEvent(new CustomEvent('showInteractiveRebase'));
       },
 
-      'menu:renameBranch': async () => {
-        if (!currentRepo || !currentRepo.currentBranch) return;
-        const newName = await window.electronAPI.fs.showInputBox({
-          title: '重命名分支',
-          prompt: `重命名 ${currentRepo.currentBranch} 为`,
-        });
-        if (newName) await window.electronAPI.git.renameBranch(currentRepo.currentBranch, newName);
+      'menu:renameBranch': () => {
+        dispatch({ type: 'SHOW', dialog: 'renameBranch', payload: currentRepo?.currentBranch || null });
       },
 
-      'menu:deleteBranch': async () => {
-        if (!currentRepo) return;
-        const name = await window.electronAPI.fs.showInputBox({
-          title: '删除分支',
-          prompt: '请输入要删除的分支名称',
-        });
-        if (name) await window.electronAPI.git.deleteBranch(name);
+      'menu:deleteBranch': () => {
+        dispatch({ type: 'SHOW', dialog: 'deleteBranch' });
       },
 
-      'menu:newTag': async () => {
-        if (!currentRepo) return;
-        const name = await window.electronAPI.fs.showInputBox({
-          title: '创建标签',
-          prompt: '输入标签名称',
-        });
-        if (name) await window.electronAPI.git.createTag(name);
+      'menu:newTag': () => {
+        dispatch({ type: 'SHOW', dialog: 'newTag' });
       },
 
-      'menu:deleteTag': async () => {
-        if (!currentRepo) return;
-        const name = await window.electronAPI.fs.showInputBox({
-          title: '删除标签',
-          prompt: '输入要删除的标签名称',
-        });
-        if (name) await window.electronAPI.git.deleteTag(name);
+      'menu:deleteTag': () => {
+        dispatch({ type: 'SHOW', dialog: 'deleteTag' });
       },
 
-      'menu:pushTag': async () => {
-        if (!currentRepo) return;
-        const name = await window.electronAPI.fs.showInputBox({
-          title: '推送标签',
-          prompt: '输入要推送的标签名称',
-        });
-        if (name) await window.electronAPI.git.push({ remote: 'origin', branch: name });
+      'menu:pushTag': () => {
+        dispatch({ type: 'SHOW', dialog: 'pushTag' });
       },
 
       'menu:shortcuts': () => {
-        // 显示快捷键列表
         window.dispatchEvent(new CustomEvent('showShortcuts'));
       },
     };
@@ -224,5 +224,5 @@ export function useMenuEvents() {
     return () => {
       cleanupFns.forEach(fn => fn());
     };
-  }, [currentRepo, activeRepoId, openRepo, closeRepo, toggleSidebar]);
+  }, [currentRepo, activeRepoId, openRepo, closeRepo, toggleSidebar, dispatch]);
 }
