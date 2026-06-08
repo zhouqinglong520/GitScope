@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useRepoStore, type GitCommit, type GitBranch } from '../../stores/repoStore';
+import type { GraphNode } from '../../../shared/types/git';
 import { useContextMenu, type MenuItem } from '../contextmenu/ContextMenu';
 
 // ============================================================
@@ -19,18 +20,7 @@ const VISIBLE_BUFFER = 20;
 // ============================================================
 // 类型
 // ============================================================
-interface GraphNode {
-  commit: GitCommit;
-  lane: number;
-  color: string;
-  row: number;
-  isMainBranch: boolean;
-  branchNames: string[];
-  isMergeCommit: boolean;
-  collapsedCommitCount: number;
-  isCollapsed: boolean;
-  collapseParentOid: string | null;
-}
+// GraphNode imported from shared/types/git
 
 interface EdgeInfo {
   fromOid: string;
