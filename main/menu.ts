@@ -114,6 +114,10 @@ function createAppMenu() {
           accelerator: 'CmdOrCtrl+K',
           click: () => mainWindow?.webContents.send('menu:quickLaunch'),
         },
+        {
+          label: '快捷键速查表',
+          click: () => mainWindow?.webContents.send('menu:shortcuts'),
+        },
         { type: 'separator' },
         { role: 'toggleDevTools', label: '开发者工具' },
         { role: 'togglefullscreen', label: '全屏' },
@@ -181,6 +185,16 @@ function createAppMenu() {
         {
           label: 'Reflog 查看',
           click: () => mainWindow?.webContents.send('menu:reflog'),
+        },
+        {
+          label: '操作时间线（可视化 Reflog）',
+          click: () => mainWindow?.webContents.send('menu:reflogVisual'),
+        },
+        { type: 'separator' },
+        {
+          label: 'Amend Last Commit',
+          accelerator: 'CmdOrCtrl+Shift+Enter',
+          click: () => mainWindow?.webContents.send('menu:amendCommit'),
         },
         {
           label: '内置终端',
