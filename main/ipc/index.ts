@@ -1096,6 +1096,45 @@ function registerIpcHandlers() {
     return await aiService.testConnection();
   });
 
+  // ========== P2: 增强功能 ==========
+
+  /** P2-5: Rebase with --update-refs */
+  ipcMain.handle('git:rebaseWithUpdateRefs', async (_, onto: string, updateRefs: boolean) => {
+    return await gitService.rebaseWithUpdateRefs(onto, updateRefs);
+  });
+
+  /** P2-6: 从剪贴板内容应用 Patch */
+  ipcMain.handle('git:applyPatchFromContent', async (_, patchContent: string, options?: { check?: boolean; cached?: boolean; reject?: boolean }) => {
+    return await gitService.applyPatchFromContent(patchContent, options);
+  });
+
+  /** P2-7: 仓库磁盘占用统计 */
+  ipcMain.handle('git:getRepoDiskUsage', async () => {
+    return await gitService.getRepoDiskUsage();
+  });
+
+  /** P2-8: 操作活动日志 */
+  ipcMain.handle('git:getActivityLog', async (_, limit?: number) => {
+    return gitService.getActivityLog(limit);
+  });
+
+  ipcMain.handle('git:clearActivityLog', async () => {
+    gitService.clearActivityLog();
+  });
+
+  ipcMain.handle('git:logActivity', async (_, action: string, detail: string, status?: string) => {
+    return gitService.logActivity(action, detail, status as any);
+  });
+
+  ipcMain.handle('git:updateActivity', async (_, id: string, status: string, detail?: string) => {
+    gitService.updateActivity(id, status as any, detail);
+  });
+
+  /** P2-10: 部分 Stash (git stash push -p) */
+  ipcMain.handle('git:stashPartial', async (_, options?: { message?: string }) => {
+    return await gitService.stashPartial(options);
+  });
+
   console.log('[Majie] 所有 IPC 处理器已注册');
 }
 
