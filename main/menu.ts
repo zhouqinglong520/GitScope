@@ -183,8 +183,12 @@ function createAppMenu() {
           click: () => mainWindow?.webContents.send('menu:reflog'),
         },
         {
-          label: '在终端中打开',
+          label: '内置终端',
           accelerator: 'CmdOrCtrl+`',
+          click: () => mainWindow?.webContents.send('menu:toggleTerminal'),
+        },
+        {
+          label: '在外部终端中打开',
           click: () => mainWindow?.webContents.send('menu:openTerminal'),
         },
         {
