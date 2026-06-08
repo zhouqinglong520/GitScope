@@ -23,6 +23,7 @@ import ConflictResolutionPanel from '../conflict/ConflictResolutionPanel';
 import ConflictWarningDialog from '../conflict/ConflictWarningDialog';
 import ReflogPanel from '../reflog/ReflogPanel';
 import TerminalPanel from '../terminal/TerminalPanel';
+import GiteePanel from '../gitee/GiteePanel';
 import TagPanel from '../branch/TagPanel';
 import { useRepoStore } from '../../stores/repoStore';
 import { useI18 } from '../../i18n';
@@ -46,6 +47,7 @@ function MainLayout() {
   const [conflictWarningData, setConflictWarningData] = useState<{ type: string; branch: string; files: string[] }>({ type: '', branch: '', files: [] });
   const [showReflog, setShowReflog] = useState(false);
   const [showTerminal, setShowTerminal] = useState(false);
+  const [showGitee, setShowGitee] = useState(false);
   const {
     commits,
     filteredCommits,
@@ -267,6 +269,7 @@ function MainLayout() {
       showShortcuts: () => {},  // TODO: add shortcuts dialog
       toggleTerminal: () => setShowTerminal(prev => !prev),
       'menu:toggleTerminal': () => setShowTerminal(prev => !prev),
+      'menu:gitee': () => setShowGitee(true),
     };
     for (const [event, handler] of Object.entries(handlers)) {
       window.addEventListener(event, handler);
@@ -533,6 +536,12 @@ function MainLayout() {
         visible={showTerminal}
         onClose={() => setShowTerminal(false)}
         cwd={currentRepo?.path}
+      />
+      {/* Gitee 集成面板 */}
+      <GiteePanel
+        visible={showGitee}
+        onClose={() => setShowGitee(false)}
+        repoPath={currentRepo?.path}
       />
     </div>
   );
