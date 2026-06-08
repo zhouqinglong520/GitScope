@@ -1,0 +1,386 @@
+/**
+ * Majie 码界 — Gitee 面板样式
+ */
+.gitee-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 150ms ease;
+}
+
+.gitee-dialog {
+  background: var(--bg-surface, #10141a);
+  border: 1px solid var(--border-default, #252b34);
+  border-radius: 12px;
+  overflow: hidden;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.gitee-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-subtle, #1a1f28);
+  background: var(--bg-overlay, #1e2229);
+}
+
+.gitee-logo-area {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.gitee-logo-area h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary, #e6e6e6);
+}
+
+.gitee-logo-icon {
+  width: 28px;
+  height: 28px;
+  color: #c71d23;
+}
+
+.gitee-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid var(--accent, #00d4aa);
+}
+
+.gitee-username {
+  font-size: 12px;
+  color: var(--text-muted, #6b7280);
+}
+
+.gitee-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.gitee-close-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted, #6b7280);
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 120ms;
+}
+
+.gitee-close-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary, #e6e6e6);
+}
+
+/* 登录页面 */
+.gitee-login-body {
+  padding: 24px 20px;
+}
+
+.gitee-login-desc {
+  color: var(--text-secondary, #9ca3af);
+  font-size: 13px;
+  margin: 0 0 20px 0;
+  line-height: 1.5;
+}
+
+.gitee-oauth-setup {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.gitee-setup-step {
+  font-size: 12px;
+  color: var(--text-secondary, #9ca3af);
+  margin: 0;
+  line-height: 1.6;
+}
+
+.gitee-setup-step a {
+  color: var(--accent, #00d4aa);
+  text-decoration: none;
+}
+
+.gitee-setup-step code {
+  background: rgba(0, 212, 170, 0.1);
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 11px;
+  color: var(--accent, #00d4aa);
+}
+
+.gitee-form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.gitee-form-row label {
+  font-size: 12px;
+  color: var(--text-secondary, #9ca3af);
+}
+
+.gitee-form-row input {
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border-default, #252b34);
+  background: var(--bg-base, #0a0e14);
+  color: var(--text-primary, #e6e6e6);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 120ms;
+}
+
+.gitee-form-row input:focus {
+  border-color: var(--accent, #00d4aa);
+}
+
+/* 按钮 */
+.gitee-btn {
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: none;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 120ms;
+  font-weight: 500;
+}
+
+.gitee-btn-primary {
+  background: var(--accent, #00d4aa);
+  color: #0a0e14;
+}
+
+.gitee-btn-primary:hover { filter: brightness(1.1); }
+.gitee-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.gitee-btn-gitee {
+  background: #c71d23;
+  color: white;
+  padding: 10px 20px;
+}
+
+.gitee-btn-gitee:hover { background: #d42a30; }
+.gitee-btn-gitee:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.gitee-btn-sm {
+  padding: 4px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--border-default, #252b34);
+  background: transparent;
+  color: var(--text-secondary, #9ca3af);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 120ms;
+}
+
+.gitee-btn-sm:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary, #e6e6e6);
+}
+
+.gitee-error {
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: rgba(248, 81, 73, 0.1);
+  border: 1px solid rgba(248, 81, 73, 0.3);
+  color: #f85149;
+  font-size: 12px;
+  margin-bottom: 12px;
+}
+
+/* Tab */
+.gitee-tabs {
+  display: flex;
+  gap: 0;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--border-subtle, #1a1f28);
+  background: var(--bg-elevated, #171b22);
+}
+
+.gitee-tab {
+  padding: 10px 16px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted, #6b7280);
+  font-size: 13px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 120ms;
+}
+
+.gitee-tab:hover { color: var(--text-secondary, #9ca3af); }
+
+.gitee-tab.active {
+  color: var(--accent, #00d4aa);
+  border-bottom-color: var(--accent, #00d4aa);
+}
+
+/* 内容区 */
+.gitee-content {
+  padding: 16px;
+  overflow-y: auto;
+  max-height: 50vh;
+}
+
+.gitee-loading, .gitee-empty {
+  text-align: center;
+  padding: 32px 0;
+  color: var(--text-muted, #6b7280);
+  font-size: 13px;
+}
+
+.gitee-hint { font-size: 12px; color: var(--text-faint, #4b5563); }
+
+/* PR 列表 */
+.gitee-pr-filters {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.gitee-repo-label {
+  font-size: 12px;
+  color: var(--accent, #00d4aa);
+  font-weight: 500;
+}
+
+.gitee-pr-state-btns {
+  display: flex;
+  gap: 4px;
+}
+
+.gitee-state-btn {
+  padding: 3px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--border-default, #252b34);
+  background: transparent;
+  color: var(--text-muted, #6b7280);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 120ms;
+}
+
+.gitee-state-btn.active {
+  background: var(--accent, #00d4aa);
+  color: #0a0e14;
+  border-color: var(--accent, #00d4aa);
+}
+
+.gitee-pr-list { display: flex; flex-direction: column; gap: 6px; }
+
+.gitee-pr-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 6px;
+  background: var(--bg-elevated, #171b22);
+  border: 1px solid var(--border-subtle, #1a1f28);
+  transition: border-color 120ms;
+}
+
+.gitee-pr-item:hover { border-color: var(--border-default, #252b34); }
+
+.gitee-pr-icon { font-size: 14px; padding-top: 2px; flex-shrink: 0; }
+
+.gitee-pr-info { flex: 1; min-width: 0; }
+
+.gitee-pr-title {
+  font-size: 13px;
+  color: var(--text-primary, #e6e6e6);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gitee-pr-meta {
+  display: flex;
+  gap: 12px;
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--text-muted, #6b7280);
+}
+
+.gitee-label {
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  border: 1px solid;
+  white-space: nowrap;
+}
+
+/* 仓库列表 */
+.gitee-repo-list { display: flex; flex-direction: column; gap: 6px; }
+
+.gitee-repo-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 6px;
+  background: var(--bg-elevated, #171b22);
+  border: 1px solid var(--border-subtle, #1a1f28);
+}
+
+.gitee-repo-icon { font-size: 16px; }
+
+.gitee-repo-info { flex: 1; min-width: 0; }
+
+.gitee-repo-name {
+  font-size: 13px;
+  color: var(--text-primary, #e6e6e6);
+  font-weight: 500;
+}
+
+.gitee-repo-desc {
+  font-size: 11px;
+  color: var(--text-muted, #6b7280);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gitee-repo-branch {
+  font-size: 11px;
+  color: var(--text-faint, #4b5563);
+  background: var(--bg-base, #0a0e14);
+  padding: 2px 8px;
+  border-radius: 3px;
+}
+
+.gitee-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.gitee-settings h4 {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-primary, #e6e6e6);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
