@@ -212,6 +212,58 @@ function App() {
         }
       },
     },
+    {
+      id: 'amend',
+      label: 'Amend Last Commit',
+      description: '修改上次提交',
+      category: '提交',
+      shortcut: 'Ctrl+Shift+Enter',
+      action: async () => {
+        if (currentRepo) {
+          try {
+            await window.electronAPI.git.commit('', { amend: true });
+          } catch (e) { console.error(e); }
+        }
+      },
+    },
+    {
+      id: 'reflog-visual',
+      label: '操作时间线',
+      description: '可视化 Reflog 时间线',
+      category: '仓库',
+      action: () => {
+        window.dispatchEvent(new CustomEvent('showReflogVisual'));
+      },
+    },
+    {
+      id: 'shortcuts',
+      label: '快捷键速查表',
+      description: '查看所有快捷键',
+      category: '工具',
+      shortcut: '?',
+      action: () => {
+        window.dispatchEvent(new CustomEvent('showShortcuts'));
+      },
+    },
+    {
+      id: 'toggle-gitee',
+      label: 'Gitee 面板',
+      description: '打开 Gitee 集成面板',
+      category: '工具',
+      shortcut: 'Ctrl+G',
+      action: () => {
+        window.dispatchEvent(new CustomEvent('menu:gitee'));
+      },
+    },
+    {
+      id: 'auto-fetch-toggle',
+      label: '自动 Fetch',
+      description: '每5分钟自动获取远程更新',
+      category: '远程',
+      action: () => {
+        // Toggle is managed by MainLayout
+      },
+    },
   ];
 
   // 全局键盘快捷键
@@ -246,8 +298,22 @@ function App() {
       // Ctrl+`: 切换终端面板
       if (e.ctrlKey && e.key === '`') {
         e.preventDefault();
-        // 通过 CustomEvent 通知 MainLayout 切换终端
         window.dispatchEvent(new CustomEvent('toggleTerminal'));
+      }
+
+      // Ctrl+Shift+Enter: Amend Last Commit
+      if (e.ctrlKey && e.shiftKey && e.key === 'Enter') {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent('menu:amendCommit'));
+      }
+
+      // ?: 快捷键速查表
+      if (e.key === '?' && !e.ctrlKey && !e.altKey && !e.metaKey) {
+        const target = e.target as HTMLElement;
+        if (target.tagName !== 'INPUT' && target.tagName !== 'TEXTAREA') {
+          e.preventDefault();
+          window.dispatchEvent(new CustomEvent('showShortcuts'));
+        }
       }
     };
 
