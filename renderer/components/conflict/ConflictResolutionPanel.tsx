@@ -316,7 +316,7 @@ function ConflictResolutionPanel({
     } finally {
       setIsSaving(false);
     }
-  }, [parsedFile, conflicFiles, operationType, onClose, onRefresh, loadConflicts]);
+  }, [parsedFile, conflictedFiles, operationType, onClose, onRefresh, loadConflicts]);
 
   // 继续操作
   const handleContinue = useCallback(async () => {
