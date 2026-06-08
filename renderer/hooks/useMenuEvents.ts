@@ -23,6 +23,11 @@ export interface DialogState {
   gitignoreEditor: boolean;
   stashMenu: boolean;
   cloneRepo: boolean;
+  // P1 新增弹窗
+  staleBranches: boolean;        // P1-8: 陈旧分支批量删除
+  gitFlow: boolean;              // P1-7: Git Flow 工作流
+  externalTools: boolean;        // P1-9: 外部 Diff/Merge 工具设置
+  githubNotifications: boolean;  // P1-6: GitHub 通知
 }
 
 export const initialDialogState: DialogState = {
@@ -39,6 +44,10 @@ export const initialDialogState: DialogState = {
   gitignoreEditor: false,
   stashMenu: false,
   cloneRepo: false,
+  staleBranches: false,
+  gitFlow: false,
+  externalTools: false,
+  githubNotifications: false,
 };
 
 export type DialogAction =
@@ -209,6 +218,23 @@ export function useMenuEvents(dispatch: (action: DialogAction) => void) {
 
       'menu:shortcuts': () => {
         window.dispatchEvent(new CustomEvent('showShortcuts'));
+      },
+
+      // P1: 新增菜单事件
+      'menu:staleBranches': () => {
+        dispatch({ type: 'SHOW', dialog: 'staleBranches' });
+      },
+
+      'menu:gitFlow': () => {
+        dispatch({ type: 'SHOW', dialog: 'gitFlow' });
+      },
+
+      'menu:externalTools': () => {
+        dispatch({ type: 'SHOW', dialog: 'externalTools' });
+      },
+
+      'menu:githubNotifications': () => {
+        dispatch({ type: 'SHOW', dialog: 'githubNotifications' });
       },
 
       'menu:openRepoAtPath': async (_: any, path: string) => {
