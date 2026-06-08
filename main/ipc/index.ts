@@ -9,6 +9,7 @@ const { gitService } = require('../services/git/index');
 const { credentialService } = require('../services/credential/index');
 const { createTerminal, getTerminal, writeTerminal, resizeTerminal, killTerminal, killAllTerminals } = require('../services/terminal/index');
 const giteeService = require('../services/gitee/index');
+const aiService = require('../services/ai/index');
 
 /**
  * 注册所有 IPC 处理器
@@ -942,6 +943,51 @@ function registerIpcHandlers() {
   /** 设置 OAuth 配置 */
   ipcMain.handle('gitee:setOAuthConfig', (_, clientId: string, clientSecret: string) => {
     giteeService.setOAuthConfig(clientId, clientSecret);
+  });
+
+  // ========== AI 服务 ==========
+
+  /** AI 生成 Commit Message */
+  ipcMain.handle('ai:generateCommitMessage', async (_, diff: string, language?: string) => {
+    try { return await aiService.generateCommitMessage(diff, language); }
+    catch (error) { return { error: error.message }; }
+  });
+
+  /** AI 代码审查 */
+  ipcMain.handle('ai:reviewCode', async (_, diff: string, language?: string) => {
+    try { return await aiService.reviewCode(diff, language); }
+    catch (error) { return { error: error.message }; }
+  });
+
+  /** AI 解释代码 */
+  ipcMain.handle('ai:explainCode', async (_, code: string, language?: string) => {
+    try { return await aiService.explainCode(code, language); }
+    catch (error) { return { error: error.message }; }
+  });
+
+  /** 获取 AI 配置 */
+  ipcMain.handle('ai:getConfig', () => {
+    return aiService.getConfig();
+  });
+
+  /** 设置 AI 配置 */
+  ipcMain.handle('ai:setConfig', (_, config) => {
+    aiService.setConfig(config);
+  });
+
+  /** 切换到 Ollama 本地模式 */
+  ipcMain.handle('ai:useOllama', (_, model?: string) => {
+    aiService.useOllama(model);
+  });
+
+  /** 检查 AI 是否配置 */
+  ipcMain.handle('ai:isConfigured', () => {
+    return aiService.isConfigured();
+  });
+
+  /** 测试 AI 连接 */
+  ipcMain.handle('ai:testConnection', async () => {
+    return await aiService.testConnection();
   });
 
   console.log('[Majie] 所有 IPC 处理器已注册');
