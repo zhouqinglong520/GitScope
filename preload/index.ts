@@ -159,6 +159,32 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getCodeHistory: (filePath: string, options: { lineStart: number; lineEnd: number; mode: 'line' | 'string'; search?: string }) => ipcRenderer.invoke('git:getCodeHistory', filePath, options),
     blamePreviousRevision: (filePath: string, line: number) => ipcRenderer.invoke('git:blamePreviousRevision', filePath, line),
     setAutoFetch: (intervalMinutes: number) => ipcRenderer.invoke('git:setAutoFetch', intervalMinutes),
+
+    // ========== P1: 新增功能 ==========
+    // P1-8: 陈旧分支
+    getMergedBranches: (targetBranch?: string) => ipcRenderer.invoke('git:getMergedBranches', targetBranch),
+    batchDeleteBranches: (names: string[], force?: boolean) => ipcRenderer.invoke('git:batchDeleteBranches', names, force),
+
+    // P1-7: Git Flow
+    gitflowInit: (options?: any) => ipcRenderer.invoke('git:gitflowInit', options),
+    gitflowIsInitialized: () => ipcRenderer.invoke('git:gitflowIsInitialized'),
+    gitflowStartFeature: (name: string, base?: string) => ipcRenderer.invoke('git:gitflowStartFeature', name, base),
+    gitflowFinishFeature: (name: string, options?: any) => ipcRenderer.invoke('git:gitflowFinishFeature', name, options),
+    gitflowStartRelease: (version: string) => ipcRenderer.invoke('git:gitflowStartRelease', version),
+    gitflowFinishRelease: (version: string, options?: any) => ipcRenderer.invoke('git:gitflowFinishRelease', version, options),
+    gitflowStartHotfix: (version: string) => ipcRenderer.invoke('git:gitflowStartHotfix', version),
+    gitflowFinishHotfix: (version: string, options?: any) => ipcRenderer.invoke('git:gitflowFinishHotfix', version, options),
+    gitflowGetConfig: () => ipcRenderer.invoke('git:gitflowGetConfig'),
+
+    // P1-9: 外部 Diff/Merge 工具
+    openInMergeTool: (filePath: string) => ipcRenderer.invoke('git:openInMergeTool', filePath),
+    getDiffToolConfig: () => ipcRenderer.invoke('git:getDiffToolConfig'),
+    setDiffTool: (tool: string) => ipcRenderer.invoke('git:setDiffTool', tool),
+    getMergeToolConfig: () => ipcRenderer.invoke('git:getMergeToolConfig'),
+    setMergeTool: (tool: string) => ipcRenderer.invoke('git:setMergeTool', tool),
+
+    // P1-6: GitHub 通知
+    getGitHubNotifications: (token: string) => ipcRenderer.invoke('git:getGitHubNotifications', token),
   },
 
   // ========== 凭证服务 ==========
