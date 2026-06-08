@@ -3,15 +3,10 @@
  * OAuth 登录 + PR/MR 管理 + 仓库浏览
  */
 import React, { useState, useEffect, useCallback } from 'react';
+import type { GiteeUser } from '../../../shared/types/ipc';
 import './GiteePanel.css';
 
-interface GiteeUser {
-  id: number;
-  login: string;
-  name: string;
-  avatar_url: string;
-  html_url: string;
-}
+// GiteeUser imported from shared
 
 interface PullRequest {
   id: number;
