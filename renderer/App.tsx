@@ -13,6 +13,10 @@ import { useMenuEvents, initialDialogState, dialogReducer, type DialogState, typ
 import { NewBranchDialog, DeleteBranchDialog, RenameBranchDialog, MergeBranchDialog, SwitchBranchDialog } from './components/dialogs/BranchDialogs';
 import { NewTagDialog, DeleteTagDialog, PushTagDialog } from './components/dialogs/TagDialogs';
 import { InitRepoDialog, RemotesManagerDialog, GitignoreEditorDialog, StashMenuDialog } from './components/dialogs/RepoDialogs';
+import { StaleBranchesDialog } from './components/dialogs/StaleBranchesDialog';
+import { GitFlowDialog } from './components/dialogs/GitFlowDialog';
+import { ExternalToolsDialog } from './components/dialogs/ExternalToolsDialog';
+import { GitHubNotificationsPanel } from './components/dialogs/GitHubNotificationsPanel';
 import { zhCN } from './i18n/zh-CN';
 
 function useI18n() { return zhCN; }
@@ -270,6 +274,11 @@ function App() {
     { id: 'init-repo', label: '初始化仓库', description: '创建新的 Git 仓库', category: '仓库', action: () => { dispatch({ type: 'SHOW', dialog: 'initRepo' }); } },
     { id: 'manage-remotes', label: '管理远程仓库', description: '添加/编辑/删除远程仓库', category: '仓库', action: () => { dispatch({ type: 'SHOW', dialog: 'remotesManager' }); } },
     { id: 'edit-gitignore', label: '编辑 .gitignore', description: '编辑忽略规则文件', category: '仓库', action: () => { dispatch({ type: 'SHOW', dialog: 'gitignoreEditor' }); } },
+    // P1 新增
+    { id: 'stale-branches', label: '清理陈旧分支', description: '查询并批量删除已合并分支', category: '分支', action: () => { dispatch({ type: 'SHOW', dialog: 'staleBranches' }); } },
+    { id: 'git-flow', label: 'Git Flow', description: 'Feature/Release/Hotfix 工作流', category: '分支', action: () => { dispatch({ type: 'SHOW', dialog: 'gitFlow' }); } },
+    { id: 'external-tools', label: '外部工具设置', description: '配置 Diff/Merge 外部工具', category: '设置', action: () => { dispatch({ type: 'SHOW', dialog: 'externalTools' }); } },
+    { id: 'github-notifications', label: 'GitHub 通知', description: '查看 GitHub 仓库通知', category: '远程', action: () => { dispatch({ type: 'SHOW', dialog: 'githubNotifications' }); } },
   ];
 
   // 全局键盘快捷键
@@ -374,7 +383,7 @@ function App() {
       <div className="flex-1 flex overflow-hidden">
         {currentRepo && !sidebarCollapsed && (
           <aside className="bg-sidebar-bg border-r border-panel-border flex flex-col overflow-hidden" style={{ width: sidebarWidth, minWidth: sidebarWidth }}>
-            <Sidebar onOpenRepo={handleOpenRepo} />
+            <Sidebar onOpenRepo={handleOpenRepo} onShowDialog={(dialog, payload) => dispatch({ type: 'SHOW', dialog: dialog as any, payload })} />
           </aside>
         )}
         <main className="flex-1 flex flex-col overflow-hidden">
@@ -424,6 +433,11 @@ function App() {
       {dialogs.remotesManager && <RemotesManagerDialog onClose={() => closeDialog('remotesManager')} />}
       {dialogs.gitignoreEditor && <GitignoreEditorDialog onClose={() => closeDialog('gitignoreEditor')} />}
       {dialogs.stashMenu && <StashMenuDialog onClose={() => closeDialog('stashMenu')} />}
+      {/* P1 新增弹窗 */}
+      {dialogs.staleBranches && <StaleBranchesDialog onClose={() => closeDialog('staleBranches')} />}
+      {dialogs.gitFlow && <GitFlowDialog onClose={() => closeDialog('gitFlow')} />}
+      {dialogs.externalTools && <ExternalToolsDialog onClose={() => closeDialog('externalTools')} />}
+      {dialogs.githubNotifications && <GitHubNotificationsPanel onClose={() => closeDialog('githubNotifications')} />}
     </div>
   );
 }
