@@ -1,5 +1,5 @@
 /**
- * GitScope 码界 — 主样式文件
+ * Majie 码界 — 主样式文件
  * 设计语言：深邃层次 + 精准信息密度 + 微动效
  * 参考 Fork/GitKraken 的视觉层次体系，但走独立设计路线
  */
@@ -11,10 +11,10 @@
 /* ==================== 设计令牌 ==================== */
 :root {
   /* 层级色阶（从深到浅，3 级视觉层次） */
-  --bg-base:      #181818;  /* 最底层：编辑器/画布 */
-  --bg-surface:   #1e1e1e;  /* 面板底色 */
-  --bg-elevated:  #252526;  /* 提升层：工具栏、侧边栏 */
-  --bg-overlay:   #2d2d30;  /* 最高层：标题栏、Tab */
+  --bg-base:      #0a0e14;  /* 最底层：编辑器/画布 */
+  --bg-surface:   #10141a;  /* 面板底色 */
+  --bg-elevated:  #171b22;  /* 提升层：工具栏、侧边栏 */
+  --bg-overlay:   #1e2229;  /* 最高层：标题栏、Tab */
   
   /* 边框 */
   --border-subtle: #2a2a2a;
@@ -22,9 +22,9 @@
   --border-active:  #4f4f4f;
   
   /* 主色 */
-  --accent:       #4f8ff7;
-  --accent-dim:   #3a6fd8;
-  --accent-glow:  rgba(79, 143, 247, 0.15);
+  --accent:       #00d4aa;
+  --accent-dim:   #00b892;
+  --accent-glow:  rgba(0, 212, 170, 0.15);
   
   /* 语义色 */
   --success:      #3fb950;
