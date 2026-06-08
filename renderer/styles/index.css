@@ -1,18 +1,63 @@
 /**
- * GitGUI 主样式文件
- * 使用 Tailwind CSS 进行样式定义
- * 参考 Fork 的设计风格
+ * GitScope 码界 — 主样式文件
+ * 设计语言：深邃层次 + 精准信息密度 + 微动效
+ * 参考 Fork/GitKraken 的视觉层次体系，但走独立设计路线
  */
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* 全局基础样式 */
+/* ==================== 设计令牌 ==================== */
+:root {
+  /* 层级色阶（从深到浅，3 级视觉层次） */
+  --bg-base:      #181818;  /* 最底层：编辑器/画布 */
+  --bg-surface:   #1e1e1e;  /* 面板底色 */
+  --bg-elevated:  #252526;  /* 提升层：工具栏、侧边栏 */
+  --bg-overlay:   #2d2d30;  /* 最高层：标题栏、Tab */
+  
+  /* 边框 */
+  --border-subtle: #2a2a2a;
+  --border-default: #3c3c3c;
+  --border-active:  #4f4f4f;
+  
+  /* 主色 */
+  --accent:       #4f8ff7;
+  --accent-dim:   #3a6fd8;
+  --accent-glow:  rgba(79, 143, 247, 0.15);
+  
+  /* 语义色 */
+  --success:      #3fb950;
+  --warning:      #d29922;
+  --danger:       #f85149;
+  --info:         #58a6ff;
+  
+  /* 文字 */
+  --text-primary:   #e6e6e6;
+  --text-secondary: #9ca3af;
+  --text-muted:     #6b7280;
+  --text-faint:     #4b5563;
+  
+  /* 滚动条 */
+  --scrollbar-thumb: #424242;
+  --scrollbar-hover: #5a5a5a;
+  --scrollbar-track: var(--bg-surface);
+  
+  /* 圆角 */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  
+  /* 过渡 */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --duration-fast: 120ms;
+  --duration-normal: 200ms;
+  --duration-slow: 350ms;
+}
+
+/* ==================== 基础重置 ==================== */
 @layer base {
-  * {
-    box-sizing: border-box;
-  }
+  * { box-sizing: border-box; }
 
   html, body, #root {
     height: 100%;
@@ -22,348 +67,308 @@
   }
 
   body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     font-size: 13px;
     line-height: 1.5;
+    color: var(--text-primary);
+    background: var(--bg-base);
   }
 
-  /* 自定义滚动条 - Fork 风格 */
-  ::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
-  }
-
-  ::-webkit-scrollbar-track {
-    background: #1e1e1e;
-  }
-
+  /* 精致滚动条 — Fork 风格 */
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb {
-    background: #424242;
-    border-radius: 5px;
-    border: 2px solid #1e1e1e;
+    background: var(--scrollbar-thumb);
+    border-radius: 4px;
+    border: 2px solid transparent;
+    background-clip: content-box;
   }
+  ::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-hover); background-clip: content-box; }
+  ::-webkit-scrollbar-corner { background: transparent; }
+  
+  * { scrollbar-width: thin; scrollbar-color: var(--scrollbar-thumb) transparent; }
 
-  ::-webkit-scrollbar-thumb:hover {
-    background: #5a5a5a;
-  }
-
-  /* Firefox 滚动条 */
-  * {
-    scrollbar-width: thin;
-    scrollbar-color: #424242 #1e1e1e;
-  }
+  /* 选中色 */
+  ::selection { background: var(--accent); color: white; }
+  
+  /* 焦点环 */
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: var(--radius-sm); }
 }
 
-/* 自定义组件样式 */
+/* ==================== 组件系统 ==================== */
 @layer components {
-  /* 按钮样式 - Fork 风格 */
-  .btn {
-    @apply px-3 py-1.5 rounded text-sm font-medium transition-all duration-200;
-  }
 
-  .btn-primary {
-    @apply bg-primary-600 text-white hover:bg-primary-700;
+  /* ---- 按钮 ---- */
+  .btn {
+    @apply px-3 py-1.5 rounded font-medium transition-all;
+    transition-duration: var(--duration-fast);
   }
+  .btn:active { transform: scale(0.97); }
+  
+  .btn-primary {
+    background: var(--accent);
+    color: white;
+  }
+  .btn-primary:hover { background: var(--accent-dim); }
+  .btn-primary:disabled { background: var(--border-default); color: var(--text-muted); cursor: not-allowed; transform: none; }
 
   .btn-secondary {
-    @apply bg-[#3c3c3c] text-white hover:bg-[#505054] active:scale-[0.98];
+    background: var(--bg-overlay);
+    color: var(--text-primary);
+    border: 1px solid var(--border-default);
   }
+  .btn-secondary:hover { background: var(--border-active); border-color: var(--border-active); }
 
-  .btn-danger {
-    @apply bg-red-600 text-white hover:bg-red-700;
+  .btn-ghost {
+    background: transparent;
+    color: var(--text-secondary);
   }
+  .btn-ghost:hover { background: rgba(255,255,255,0.06); color: var(--text-primary); }
 
   .btn-icon {
-    @apply p-1.5 rounded hover:bg-[#3c3c3c]/70 transition-colors duration-200;
+    @apply p-1.5 rounded transition-all;
+    background: transparent;
+    color: var(--text-secondary);
+    transition-duration: var(--duration-fast);
   }
+  .btn-icon:hover { background: rgba(255,255,255,0.08); color: var(--text-primary); }
+  .btn-icon:active { transform: scale(0.92); }
 
-  /* 输入框样式 */
+  /* ---- 输入框 ---- */
   .input {
-    @apply bg-[#3c3c3c] border border-[#3c3c3c] rounded px-3 py-1.5 text-sm;
-    @apply focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500;
-    @apply placeholder:text-gray-500;
+    background: var(--bg-base);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    transition: border-color var(--duration-fast), box-shadow var(--duration-fast);
   }
-
-  /* 面板样式 */
-  .panel {
-    @apply bg-panel-bg border border-panel-border;
+  .input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-glow);
+    outline: none;
   }
+  .input::placeholder { color: var(--text-faint); }
 
+  /* ---- 面板 ---- */
+  .panel { background: var(--bg-surface); border: 1px solid var(--border-subtle); }
+  
   .panel-header {
-    @apply px-3 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider;
-    @apply border-b border-panel-border;
+    padding: 6px 12px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid var(--border-subtle);
+    background: var(--bg-elevated);
   }
 
-  /* 列表项样式 */
+  /* ---- 列表项 ---- */
   .list-item {
-    @apply px-3 py-1.5 cursor-pointer transition-colors duration-100;
-    @apply hover:bg-sidebar-hover;
+    padding: 4px 12px;
+    cursor: pointer;
+    transition: background var(--duration-fast), color var(--duration-fast);
   }
+  .list-item:hover { background: rgba(255,255,255,0.04); }
+  .list-item-active { background: var(--accent-glow); color: var(--text-primary); }
 
-  .list-item-active {
-    @apply bg-sidebar-active;
-  }
-
-  /* 标签样式 */
+  /* ---- 标签 ---- */
   .badge {
-    @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-medium;
+    @apply inline-flex items-center px-1.5 py-0.5 rounded font-medium;
+    font-size: 11px;
   }
+  .badge-blue   { background: rgba(79,143,247,0.15); color: #58a6ff; }
+  .badge-green  { background: rgba(63,185,80,0.15);  color: #3fb950; }
+  .badge-yellow { background: rgba(210,153,34,0.15); color: #d29922; }
+  .badge-red    { background: rgba(248,81,73,0.15);  color: #f85149; }
+  .badge-gray   { background: rgba(156,163,175,0.12);color: #9ca3af; }
+  .badge-purple { background: rgba(163,113,247,0.15);color: #a371f7; }
+  .badge-orange { background: rgba(219,137,24,0.15); color: #db8918; }
 
-  .badge-blue {
-    @apply bg-blue-500/20 text-blue-400;
-  }
-
-  .badge-green {
-    @apply bg-green-500/20 text-green-400;
-  }
-
-  .badge-yellow {
-    @apply bg-yellow-500/20 text-yellow-400;
-  }
-
-  .badge-red {
-    @apply bg-red-500/20 text-red-400;
-  }
-
-  .badge-gray {
-    @apply bg-gray-500/20 text-gray-400;
-  }
-
-  .badge-purple {
-    @apply bg-purple-500/20 text-purple-400;
-  }
-
-  .badge-orange {
-    @apply bg-orange-500/20 text-orange-400;
-  }
-
-  /* Tab 样式 */
+  /* ---- Tab ---- */
   .tab {
-    @apply px-4 py-2 text-sm font-medium transition-colors cursor-pointer;
-    @apply border-b-2 border-transparent;
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all var(--duration-fast);
+  }
+  .tab-active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab-inactive { color: var(--text-muted); }
+  .tab-inactive:hover { color: var(--text-secondary); }
+
+  /* ---- 分割线 ---- */
+  .divider { height: 1px; background: var(--border-subtle); margin: 8px 0; }
+
+  /* ---- 侧边栏 ---- */
+  .sidebar-section { border-bottom: 1px solid var(--border-subtle); }
+  
+  .sidebar-section-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    cursor: pointer;
+    transition: background var(--duration-fast);
+  }
+  .sidebar-section-header:hover { background: rgba(255,255,255,0.04); }
+  
+  .sidebar-section-title { font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+  
+  .sidebar-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 12px 4px 28px;
+    cursor: pointer;
+    transition: all var(--duration-fast);
+    border-radius: 0;
+  }
+  .sidebar-item:hover { background: rgba(255,255,255,0.04); }
+  .sidebar-item-active { background: var(--accent-glow); }
+  .sidebar-item-active .sidebar-item-label { color: var(--accent); font-weight: 500; }
+  .sidebar-item-label { font-size: 13px; color: var(--text-primary); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sidebar-item-meta { font-size: 11px; color: var(--text-faint); flex-shrink: 0; }
+
+  /* ---- 提交列表 ---- */
+  .commit-item {
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    height: 32px;
+    cursor: pointer;
+    transition: background var(--duration-fast);
+  }
+  .commit-item:hover { background: rgba(255,255,255,0.04); }
+  .commit-item-selected { background: rgba(79,143,247,0.12); }
+
+  .commit-hash { font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace; font-size: 12px; color: #58a6ff; min-width: 54px; flex-shrink: 0; }
+  .commit-message { font-size: 13px; color: var(--text-primary); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: 8px; }
+  .commit-author { font-size: 12px; color: var(--text-muted); width: 64px; flex-shrink: 0; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .commit-date { font-size: 11px; color: var(--text-faint); width: 72px; flex-shrink: 0; text-align: right; }
+
+  /* ---- 文件列表 ---- */
+  .file-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 12px;
+    cursor: pointer;
+    transition: background var(--duration-fast);
+  }
+  .file-item:hover { background: rgba(255,255,255,0.04); }
+  .file-item-selected { background: rgba(79,143,247,0.12); }
+
+  .file-status-added   { color: var(--success); }
+  .file-status-modified { color: var(--warning); }
+  .file-status-deleted  { color: var(--danger); }
+  .file-status-renamed  { color: var(--info); }
+
+  /* ---- Diff 视图 ---- */
+  .diff-line { display: flex; font-size: 13px; font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace; line-height: 20px; }
+  .diff-line-number { width: 48px; text-align: right; padding-right: 8px; color: var(--text-faint); user-select: none; flex-shrink: 0; }
+  .diff-line-content { flex: 1; white-space: pre; }
+  .diff-line-add { background: rgba(63,185,80,0.1); }
+  .diff-line-delete { background: rgba(248,81,73,0.1); }
+
+  /* ---- 拖拽条 ---- */
+  .resize-handle {
+    height: 3px;
+    background: transparent;
+    cursor: row-resize;
+    transition: background var(--duration-normal);
+    position: relative;
+  }
+  .resize-handle::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 32px;
+    height: 3px;
+    border-radius: 2px;
+    background: var(--border-default);
+    opacity: 0;
+    transition: opacity var(--duration-normal);
+  }
+  .resize-handle:hover { background: rgba(79,143,247,0.08); }
+  .resize-handle:hover::after { opacity: 1; background: var(--accent); }
+
+  .resize-handle-vertical {
+    width: 3px;
+    background: transparent;
+    cursor: col-resize;
+    transition: background var(--duration-normal);
+  }
+  .resize-handle-vertical:hover { background: var(--accent); }
+
+  /* ---- 模态框 ---- */
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    backdrop-filter: blur(4px);
+    z-index: 50;
   }
 
-  .tab-active {
-    @apply text-primary-400 border-primary-400;
-  }
+  /* ---- 拖拽区域 ---- */
+  .drag-region { -webkit-app-region: drag; }
+  .no-drag { -webkit-app-region: no-drag; }
 
-  .tab-inactive {
-    @apply text-gray-400 hover:text-white;
-  }
-
-  /* 分割线 */
-  .divider {
-    @apply h-px bg-[#3c3c3c] my-2;
-  }
-
-  /* 分支颜色 - Fork 风格 */
-  .branch-blue { color: #5799da; }
-  .branch-green { color: #7dce82; }
+  /* ---- 分支颜色 ---- */
+  .branch-blue   { color: #5799da; }
+  .branch-green  { color: #7dce82; }
   .branch-orange { color: #e2a855; }
   .branch-purple { color: #b47ccf; }
-  .branch-cyan { color: #52c4e8; }
-  .branch-red { color: #e85d75; }
+  .branch-cyan   { color: #52c4e8; }
+  .branch-red    { color: #e85d75; }
   .branch-yellow { color: #f5d76e; }
-  .branch-pink { color: #f06292; }
+  .branch-pink   { color: #f06292; }
 }
 
-/* 工具类 */
+/* ==================== 工具类 ==================== */
 @layer utilities {
-  /* 文本截断 */
-  .truncate-2 {
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
+  .truncate-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .no-select { user-select: none; -webkit-user-select: none; }
+  .smooth-scroll { scroll-behavior: smooth; }
+  
+  /* 微动效 */
+  .transition-panel {
+    transition: height var(--duration-slow) var(--ease-out),
+                opacity var(--duration-normal) var(--ease-out),
+                transform var(--duration-slow) var(--ease-out);
   }
-
-  /* 抗锯齿 */
-  .antialiased {
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
+  
+  .transition-fade {
+    transition: opacity var(--duration-normal) var(--ease-out);
   }
-
-  /* 拖动区域 */
-  .drag-region {
-    -webkit-app-region: drag;
+  
+  /* 文字渐变（用于品牌标题） */
+  .text-gradient {
+    background: linear-gradient(135deg, var(--accent), #a371f7);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
   }
-
-  .no-drag {
-    -webkit-app-region: no-drag;
-  }
-
-  /* 禁用文本选择 */
-  .no-select {
-    user-select: none;
-    -webkit-user-select: none;
-  }
-
-  /* 平滑滚动 */
-  .smooth-scroll {
-    scroll-behavior: smooth;
-  }
+  
+  /* 发光效果 */
+  .glow-accent { box-shadow: 0 0 0 3px var(--accent-glow); }
+  .glow-success { box-shadow: 0 0 0 3px rgba(63,185,80,0.2); }
+  .glow-danger { box-shadow: 0 0 0 3px rgba(248,81,73,0.2); }
 }
 
-/* 动画 */
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
+/* ==================== 动画 ==================== */
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+@keyframes slideUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes slideDown { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
-}
-
-.animate-spin {
-  animation: spin 1s linear infinite;
-}
-
-.animate-pulse {
-  animation: pulse 2s ease-in-out infinite;
-}
-
-/* 模态框背景 */
-.modal-backdrop {
-  @apply fixed inset-0 bg-black/50 backdrop-blur-sm z-50;
-}
-
-/* 代码高亮 */
-.code-add {
-  @apply bg-green-900/30 text-green-400;
-}
-
-.code-delete {
-  @apply bg-red-900/30 text-red-400;
-}
-
-.code-context {
-  @apply text-gray-300;
-}
-
-/* 提交图节点 */
-.graph-node {
-  @apply rounded-full border-2 border-current;
-}
-
-.graph-node-current {
-  @apply ring-2 ring-white ring-offset-1 ring-offset-[#1e1e1e];
-}
-
-/* 拖拽条 - Fork 风格 */
-.resize-handle {
-  @apply h-1 bg-[#3c3c3c] hover:bg-primary-500 cursor-row-resize transition-colors;
-}
-
-.resize-handle-vertical {
-  @apply w-1 bg-[#3c3c3c] hover:bg-primary-500 cursor-col-resize transition-colors;
-}
-
-/* Fork 风格的侧边栏 */
-.sidebar-section {
-  @apply border-b border-[#3c3c3c];
-}
-
-.sidebar-section-header {
-  @apply flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-[#2a2d2e] transition-colors;
-}
-
-.sidebar-section-title {
-  @apply text-xs font-medium text-gray-300;
-}
-
-.sidebar-item {
-  @apply flex items-center gap-2 px-3 py-1.5 cursor-pointer transition-colors;
-  @apply hover:bg-[#2a2d2e];
-}
-
-.sidebar-item-active {
-  @apply bg-[#094771] text-white;
-}
-
-/* Fork 风格的提交列表 */
-.commit-item {
-  @apply flex items-center px-3 py-2 cursor-pointer transition-colors;
-  @apply hover:bg-[#2a2d2e];
-}
-
-.commit-item-selected {
-  @apply bg-[#094771];
-}
-
-.commit-hash {
-  @apply font-mono text-xs text-[#61afef] w-14 flex-shrink-0;
-}
-
-.commit-message {
-  @apply text-sm text-gray-200 flex-1 truncate mr-2;
-}
-
-.commit-author {
-  @apply text-xs text-gray-400 w-16 flex-shrink-0 text-right;
-}
-
-.commit-date {
-  @apply text-xs text-gray-500 w-20 flex-shrink-0 text-right;
-}
-
-/* Fork 风格的文件列表 */
-.file-item {
-  @apply flex items-center px-3 py-1.5 cursor-pointer transition-colors;
-  @apply hover:bg-[#2a2d2e];
-}
-
-.file-item-selected {
-  @apply bg-[#094771];
-}
-
-.file-status-added {
-  @apply text-green-400;
-}
-
-.file-status-modified {
-  @apply text-yellow-400;
-}
-
-.file-status-deleted {
-  @apply text-red-400;
-}
-
-.file-status-renamed {
-  @apply text-blue-400;
-}
-
-/* Fork 风格的 Diff 视图 */
-.diff-line {
-  @apply flex text-sm font-mono;
-}
-
-.diff-line-number {
-  @apply w-12 text-right pr-2 text-gray-600 select-none;
-}
-
-.diff-line-content {
-  @apply flex-1 whitespace-pre;
-}
-
-.diff-line-add {
-  @apply bg-green-900/20;
-}
-
-.diff-line-delete {
-  @apply bg-red-900/20;
-}
-
-.diff-line-context {
-  @apply text-gray-300;
-}
+.animate-spin { animation: spin 1s linear infinite; }
+.animate-pulse { animation: pulse 2s ease-in-out infinite; }
+.animate-slide-up { animation: slideUp var(--duration-slow) var(--ease-out); }
+.animate-slide-down { animation: slideDown var(--duration-slow) var(--ease-out); }
+.animate-fade-in { animation: fadeIn var(--duration-normal) var(--ease-out); }
