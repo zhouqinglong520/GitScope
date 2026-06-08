@@ -1,76 +1,88 @@
-# GitScope 码界 — 功能现状清单
+# Majie 码界 — 功能现状清单
 
-> 更新时间：2026-06-04 (v0.2)
+> 更新时间：2026-06-08 (v1.0)
 
-## ✅ 已完成（后端 API + 前端 UI + IPC 通道全部打通）
+## ✅ 已完成功能（48 项）
 
-| # | 功能 | 后端 API | IPC | Preload | 前端 UI | 右键菜单 |
-|---|------|---------|-----|---------|--------|---------|
-| 1 | 打开仓库 | ✅ | ✅ | ✅ | ✅ | ✅（资源管理器/复制路径/移除） |
-| 2 | 提交历史（log） | ✅ | ✅ | ✅ | ✅ CommitGraph | ✅（创建分支/标签/Rebase/Reset/Cherry-pick/Revert/复制SHA） |
-| 3 | 分支列表+右键 | ✅ | ✅ | ✅ | ✅ Sidebar | ✅ 切换/合并/重命名/删除 |
-| 4 | 当前分支切换 | ✅ checkout | ✅ | ✅ | ✅ 单击分支名 | — |
-| 5 | 创建分支 | ✅ | ✅ | ✅ | ✅ QuickLaunch + 右键 | ✅ |
-| 6 | 文件状态（status） | ✅ | ✅ | ✅ | ✅ StatusPanel | ✅（查看历史） |
-| 7 | Diff 查看 | ✅ | ✅ | ✅ | ✅ DiffView（行内Stage/Unstage+Hunk折叠+统计条） | — |
-| 8 | 暂存/取消暂存 | ✅ add/reset | ✅ | ✅ stage/unstage | ✅ checkbox 勾选 | — |
-| 9 | 提交（commit） | ✅ | ✅ | ✅ | ✅ CommitBar（Conventional Commits+Amend标记） | — |
-| 10 | 标签列表+右键 | ✅ tags | ✅ | ✅ | ✅ Sidebar | ✅ 检出/推送/删除 |
-| 11 | Stash + 右键 | ✅ stash/stashPop | ✅ | ✅ | ✅ Sidebar + QuickLaunch | ✅ 应用/弹出/删除 |
-| 12 | Push/Pull/Fetch | ✅ | ✅ | ✅ | ✅ 工具栏按钮+操作反馈 | — |
-| 13 | Quick Launch (Ctrl+K) | — | — | — | ✅ | — |
-| 14 | 提交筛选栏 | — | — | — | ✅ CommitFilterBar | — |
-| 15 | 作者筛选 | ✅ getAuthorStats | ✅ | ✅ | ✅ AuthorFilter | — |
-| 16 | 提交详情面板 | ✅ getCommitDetail | ✅ | ✅ | ✅ CommitDetailPanel | — |
-| 17 | 文件历史弹窗 | ✅ getFileHistory | ✅ | ✅ | ✅ FileHistory | — |
-| 18 | 凭证管理 | ✅ safeStorage | ✅ | ✅ | — | — |
-| 19 | 多仓库 Tab | — | — | — | ✅ | — |
-| 20 | 自定义标题栏 | — | ✅ | ✅ | ✅ 最小化/最大化/关闭 | — |
-| 21 | 提交图 Fork 风格 | — | — | — | ✅ 通道线+S曲线+节点分层(HEAD实心/分支实心/普通空心)+当前分支最左列 | — |
-| 22 | Undo/Redo 安全网 | ✅ | ✅ | ✅ | ✅ 14种可撤销操作+Ctrl+Z/Ctrl+Shift+Z | — |
-| 23 | 自定义输入弹窗 | ✅ BrowserWindow | ✅ | ✅ | ✅ 文本输入+Enter/Esc+预填值 | — |
-| 24 | 远程仓库管理 | ✅ addRemote/removeRemote/setRemoteUrl | ✅ | ✅ | ✅ 侧边栏Remotes区块+右键菜单 | — |
-| 25 | Reflog 查看 | ✅ reflog | ✅ | ✅ | ✅ 弹窗式浏览+Reset/Detach恢复 | — |
-| 26 | Blame 视图 | ✅ blame | ✅ | ✅ | ✅ DiffView内Blame模式切换 | — |
-| 27 | .gitignore 编辑 | ✅ fs读写 | ✅ | ✅ | ✅ 可视化编辑弹窗+快捷规则 | — |
-| 28 | 克隆仓库 | ✅ clone | ✅ | ✅ | ✅ QuickLaunch入口+输入URL+选择目录 | — |
-| 29 | 状态栏 ahead/behind | ✅ rev-list | ✅ | ✅ | ✅ 动态数字显示 | — |
-| 30 | 侧边栏宽度拖拽 | — | — | — | ✅ 160-400px | — |
-| 31 | 工具栏操作反馈 | — | — | — | ✅ loading+成功/失败闪烁+disabled | — |
-| 32 | 子模块管理 | ✅ listSubmodules等5方法 | ✅ | ✅ | ✅ 侧边栏Submodules区段+右键菜单 | ✅ 初始化/更新/删除 |
-| 33 | 交互式 Rebase | ✅ rebaseInteractive | ✅ | ✅ | ✅ 弹窗式提交列表+5种操作+排序 | — |
-| 34 | 三窗格冲突解决器 | ✅ merge冲突检测 | ✅ | ✅ | ✅ Theirs/Merged/Yours三窗格+冲突解析+选择解决 | — |
+### 基础操作（17 项）
 
-## ✅ 本轮修复的 IPC 通道断裂（关键！）
+| # | 功能 | 后端 API | IPC | Preload | 前端 UI | 备注 |
+|---|------|---------|-----|---------|--------|------|
+| 1 | 打开仓库 | ✅ | ✅ | ✅ | ✅ | 资源管理器/复制路径/移除 |
+| 2 | 提交历史（log） | ✅ | ✅ | ✅ | ✅ CommitGraph | Fork风格直线分支算法 |
+| 3 | 分支列表+右键 | ✅ | ✅ | ✅ | ✅ Sidebar | 切换/合并/重命名/删除/着色 |
+| 4 | 当前分支切换 | ✅ checkout | ✅ | ✅ | ✅ | |
+| 5 | 创建分支 | ✅ | ✅ | ✅ | ✅ 专业弹窗 | |
+| 6 | 文件状态（status） | ✅ | ✅ | ✅ | ✅ StatusPanel | |
+| 7 | Diff 查看 | ✅ | ✅ | ✅ | ✅ DiffView | 词级高亮+行级暂存+minimap+段落标记 |
+| 8 | 暂存/取消暂存 | ✅ add/reset | ✅ | ✅ stage/unstage | ✅ | 行级+文件级 |
+| 9 | 提交（commit） | ✅ | ✅ | ✅ | ✅ CommitBar | Conventional Commits + Amend |
+| 10 | 标签列表+右键 | ✅ tags | ✅ | ✅ | ✅ Sidebar | 检出/推送/删除/Pin |
+| 11 | Stash | ✅ stash/stashPop | ✅ | ✅ | ✅ Sidebar + 弹窗 | Pop/Apply/Drop/Branch + 部分 Stash |
+| 12 | Push/Pull/Fetch | ✅ | ✅ | ✅ | ✅ 工具栏 | ahead/behind 显示 |
+| 13 | Quick Launch (Ctrl+K) | — | — | — | ✅ | |
+| 14 | 远程仓库管理 | ✅ addRemote/removeRemote | ✅ | ✅ | ✅ 专业弹窗 | |
+| 15 | Reflog 查看 | ✅ reflog | ✅ | ✅ | ✅ 弹窗 | Reset/Detach 恢复 |
+| 16 | 克隆仓库 | ✅ clone | ✅ | ✅ | ✅ 专业弹窗 | Fork 风格增强 |
+| 17 | 最近打开 | ✅ | ✅ | ✅ | ✅ 菜单 | 动态列表 |
 
-| 问题 | 修复 |
-|------|------|
-| Preload `git:stage` → IPC 无此通道 | IPC 添加 `git:stage` 别名→`gitService.add()` |
-| Preload `git:stageAll` → IPC 无此通道 | IPC 添加 `git:stageAll` 别名→`gitService.addAll()` |
-| Preload `git:unstage` → IPC 无此通道 | IPC 添加 `git:unstage` 别名→`gitService.reset()` |
-| Preload `git:unstageAll` → IPC 无此通道 | IPC 添加 `git:unstageAll`→`git reset HEAD .` |
-| Preload `git:getFileLog` → IPC 无此通道 | IPC 添加 `git:getFileLog` 别名→`gitService.getFileHistory()` |
-| Preload `git:getFileDiff` → IPC 无此通道 | IPC 添加 `git:getFileDiff`→`gitService.diff()` |
-| Preload `shell:openPath` → IPC 无此通道 | IPC 添加 `shell:openPath`→`shell.openPath()` |
-| Preload 缺 `getStagedDiff` | Preload 添加 `git:getStagedDiff` |
-| Preload 缺 `getRemotes` | Preload 添加 `git:getRemotes` |
-| IPC 类型缺 `GitRemote` import | ipc.ts 添加 `GitRemote` import |
+### 高级 Git 操作（11 项）
 
-## ❌ 未实现（需新增）
+| # | 功能 | 后端 API | IPC | Preload | 前端 UI | 备注 |
+|---|------|---------|-----|---------|--------|------|
+| 18 | 交互式 Rebase | ✅ rebaseInteractive | ✅ | ✅ | ✅ 弹窗 | pick/squash/reword/edit/drop |
+| 19 | `--update-refs` | ✅ rebaseWithUpdateRefs | ✅ | ✅ | ✅ 弹窗 | |
+| 20 | 三窗格冲突解决 | ✅ merge冲突检测 | ✅ | ✅ | ✅ | THEIRS/MERGED/YOURS |
+| 21 | 冲突预判 | ✅ predictConflict | ✅ | ✅ | ✅ | rebase/cherry-pick/revert |
+| 22 | Cherry-pick / Revert | ✅ | ✅ | ✅ | ✅ 右键菜单 | |
+| 23 | Undo/Redo | ✅ | ✅ | ✅ | ✅ | 14种可撤销操作 |
+| 24 | Blame 视图 | ✅ blame | ✅ | ✅ | ✅ DiffView内 | |
+| 25 | GPG 签名 | ✅ | ✅ | ✅ | ✅ | |
+| 26 | Bisect | ✅ | ✅ | ✅ | ✅ | |
+| 27 | Worktree | ✅ | ✅ | ✅ | ✅ | |
+| 28 | 拖拽分支操作 | — | — | — | ✅ | 拖拽=合并/Cherry-pick |
+
+### 可视化与工具（12 项）
+
+| # | 功能 | 后端 API | IPC | Preload | 前端 UI | 备注 |
+|---|------|---------|-----|---------|--------|------|
+| 29 | Diff minimap | — | — | — | ✅ Canvas | 点击跳转+颜色标识 |
+| 30 | 滚动条冲突标记 | — | — | — | ✅ | 6px 窄条按 hunk 着色 |
+| 31 | 分支标签着色 | — | — | — | ✅ | 匹配提交图颜色 |
+| 32 | ↩︎ 段落标记 | — | — | — | ✅ | modify group 自动标记 |
+| 33 | Treemap | ✅ getRepoDiskUsage | ✅ | ✅ | ✅ 弹窗 | SVG Slice-and-Dice |
+| 34 | Activity Manager | ✅ activityLog 全套 | ✅ | ✅ | ✅ 弹窗 | 状态筛选+清空 |
+| 35 | 粘贴 Patch | ✅ applyPatchFromContent | ✅ | ✅ | ✅ 弹窗 | --cached/--check |
+| 36 | 外部 Diff/Merge | ✅ | ✅ | ✅ | ✅ 弹窗 | 12种工具配置 |
+| 37 | 自定义命令 | ✅ | ✅ | ✅ | ✅ | checkbox + input 参数 |
+| 38 | .gitignore 编辑 | ✅ fs读写 | ✅ | ✅ | ✅ 弹窗 | 快捷规则 |
+| 39 | 快捷键速查 | — | — | — | ✅ | |
+| 40 | 内置终端 | ✅ | ✅ | ✅ | ✅ | |
+
+### 远程与集成（8 项）
+
+| # | 功能 | 后端 API | IPC | Preload | 前端 UI | 备注 |
+|---|------|---------|-----|---------|--------|------|
+| 41 | GitHub 通知 | ✅ | ✅ | ✅ | ✅ 面板 | Token + 未读列表 |
+| 42 | Git Flow | ✅ | ✅ | ✅ | ✅ 弹窗 | Feature/Release/Hotfix |
+| 43 | 陈旧分支批量删除 | ✅ | ✅ | ✅ | ✅ 弹窗 | 已合并分支一键清理 |
+| 44 | Gitee 集成 | ✅ OAuth + API | ✅ | ✅ | ✅ | OAuth + PR 管理 |
+| 45 | AI 集成 | ✅ OpenAI + Ollama | ✅ | ✅ | ✅ | 生成提交消息 + 代码审查 |
+| 46 | 子模块管理 | ✅ 5方法 | ✅ | ✅ | ✅ | 初始化/更新/删除 |
+| 47 | 多仓库 Tab | — | — | — | ✅ | |
+| 48 | 中英文 i18n | — | — | — | ✅ | 默认中文 |
+
+## 🔲 待实现（P3 — 4 项）
 
 | # | 功能 | 优先级 | 说明 |
 |---|------|-------|------|
-| 1 | 拖拽操作 | P2 | ✅ 已完成：拖拽分支标签到另一分支=合并/Cherry-pick |
-| 2 | DiffView 分区显示 | P2 | ✅ 已完成：区分 Staged/Unstaged 模式，点击 staged 文件看暂存区 diff |
-| 3 | 确认对话框美化 | P2 | 危险操作目前用 confirm()，后续改为自定义弹窗 |
+| 1 | Claude AI Code Review | P3 | 集成 Claude 代码审查 |
+| 2 | Codex | P3 | AI 代码生成/补全 |
+| 3 | 多源码目录 | P3 | 一个仓库多个代码目录 |
+| 4 | Hunk 级文件历史 | P3 | 按代码块追溯历史 |
 
-## 🎨 界面优化待办
+## 统计
 
-| # | 优化项 | 说明 |
-|---|-------|------|
-| 1 | 提交图行高/字体微调 | 参考 Fork 精确对齐 |
-| 2 | 暗色主题配色精调 | 对标 Fork 的配色一致性 |
-| 3 | 空状态引导优化 | 首次打开/无仓库时的引导体验 |
-| 4 | 分支标签显示优化 | 远程分支灰色淡化+当前分支白点标记（✅ 已完成） |
-| 5 | 节点分层渲染 | HEAD实心大圆+外环/分支实心中圆/普通空心小点（✅ 已完成） |
-| 6 | 当前分支最左列 | 当前分支始终在 column 0，main 在 column 1（✅ 已完成） |
+- **已追平 Fork**：~48 项
+- **码界独有**：Gitee 集成、AI 集成（Ollama 本地）
+- **待实现 P3**：4 项
