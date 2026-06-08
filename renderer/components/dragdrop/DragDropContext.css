@@ -1,0 +1,144 @@
+/* Drag Drop Context — Majie 码界 */
+
+.dd-draggable {
+  cursor: grab;
+}
+
+.dd-draggable:active {
+  cursor: grabbing;
+  opacity: 0.7;
+}
+
+.dd-drop-zone {
+  position: relative;
+  transition: background 0.15s;
+}
+
+.dd-drop-zone-highlight {
+  outline: 1px dashed var(--accent, #00d4aa);
+  outline-offset: -1px;
+}
+
+.dd-drop-zone-active {
+  background: rgba(0,212,170,0.08) !important;
+  outline: 2px solid var(--accent, #00d4aa);
+  outline-offset: -2px;
+  border-radius: 4px;
+}
+
+.dd-drop-indicator {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, rgba(0,212,170,0.1), transparent 70%);
+}
+
+/* Drop action menu */
+.dd-drop-menu-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.5);
+  backdrop-filter: blur(3px);
+}
+
+.dd-drop-menu {
+  width: 440px;
+  background: var(--bg-surface, #0d1117);
+  border: 1px solid var(--accent, #00d4aa);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 12px 40px rgba(0,212,170,0.2);
+}
+
+.dd-drop-menu-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: var(--bg-elevated, #161b22);
+  border-bottom: 1px solid var(--border-subtle, #21262d);
+}
+
+.dd-drop-source, .dd-drop-target {
+  font-size: 13px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.dd-drop-source {
+  color: var(--accent, #00d4aa);
+  background: rgba(0,212,170,0.1);
+}
+
+.dd-drop-target {
+  color: #5799da;
+  background: rgba(87,153,218,0.1);
+}
+
+.dd-drop-menu-actions {
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dd-drop-action {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  background: var(--bg-base, #0a0e14);
+  border: 1px solid var(--border-subtle, #21262d);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: left;
+}
+
+.dd-drop-action:hover {
+  border-color: var(--accent, #00d4aa);
+  background: var(--bg-hover, rgba(31,41,55,0.5));
+}
+
+.dd-drop-action-label {
+  font-size: 13px;
+  color: var(--text-primary, #e6edf3);
+}
+
+.dd-drop-cmd {
+  font-size: 11px;
+  font-family: monospace;
+  color: var(--text-muted, #8b949e);
+  padding-left: 20px;
+}
+
+.dd-drop-reset { border-color: rgba(232,93,117,0.3); }
+.dd-drop-reset:hover { border-color: #e85d75; }
+
+.dd-drop-menu-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 8px 12px;
+  border-top: 1px solid var(--border-subtle, #21262d);
+}
+
+.dd-drop-cancel {
+  padding: 4px 12px;
+  font-size: 11px;
+  border-radius: 4px;
+  border: 1px solid var(--border-subtle, #21262d);
+  background: transparent;
+  color: var(--text-muted, #8b949e);
+  cursor: pointer;
+}
+
+.dd-drop-cancel:hover {
+  background: var(--bg-hover, #1f2937);
+  color: var(--text-primary, #e6edf3);
+}
