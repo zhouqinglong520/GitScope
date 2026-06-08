@@ -4,12 +4,10 @@
  * 增强：时间格式化、操作类型图标、批量选择
  */
 import React, { useState, useEffect } from 'react';
+import type { ReflogEntry } from '../../../shared/types/git';
 import './ReflogPanel.css';
 
-interface ReflogEntry {
-  oid: string; shortOid: string; action: string;
-  ref: string; message: string; timestamp: number; author: string;
-}
+// ReflogEntry imported from shared
 
 interface Props { visible: boolean; onClose: () => void; onRefresh?: () => void; }
 
