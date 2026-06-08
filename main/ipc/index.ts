@@ -633,6 +633,11 @@ function registerIpcHandlers() {
     await gitService.applyPatchReverse(patchPath);
   });
 
+  /** 获取选中代码的历史 */
+  ipcMain.handle('git:getCodeHistory', async (_, options: any) => {
+    return await gitService.getCodeHistory(options);
+  });
+
   /** 列出补丁 */
   ipcMain.handle('git:listPatches', async () => {
     return await gitService.listPatches();
