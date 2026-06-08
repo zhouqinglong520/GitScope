@@ -8,19 +8,36 @@
 
 ## 功能特性
 
-- 🎨 **Fork 风格提交图** — Bezier 曲线分支连线 + 节点分层（HEAD/分支/普通）+ 拖拽交互
+### 核心体验
+- 🎨 **Fork 风格提交图** — 直线分支算法 + 可折叠合并提交 + 节点分层 + 拖拽交互
 - 📋 **Quick Launch 命令面板** — Ctrl+K 快速执行任何操作
 - 🌿 **完整分支操作** — 创建/切换/删除/重命名/合并/拖拽合并/Cherry-pick
-- 🔀 **交互式 Rebase** — 可视化提交列表，支持 pick/squash/reword/edit/drop
-- ⚔️ **三窗格冲突解决器** — Theirs/Merged/Yours 三窗格 + 冲突解析
-- 📝 **增强 CommitBar** — Conventional Commits 模板 + Amend 标记
-- 🔍 **DiffView 增强** — 行内 Stage/Unstage + Staged/Unstaged 分区 + Hunk 折叠 + Blame 模式
+- 🔀 **交互式 Rebase** — 可视化提交列表 + pick/squash/reword/edit/drop + --update-refs
+- ⚔️ **三窗格冲突解决器** — THEIRS/MERGED/YOURS 三窗格 + 冲突预判 + 滚动条冲突标记
+- 📝 **增强 CommitBar** — Conventional Commits 模板 + Amend 标记 + 最近提交消息选择
+- 🔍 **DiffView 增强** — 词级高亮 + 行级暂存 + Diff minimap + ↩︎段落标记 + 3种diff算法
+
+### Git 工作流
+- 🌊 **Git Flow** — Feature/Release/Hotfix 全套工作流
+- 🏷️ **标签管理** — 创建/删除/检出/推送标签 + Pin 固定
+- 📦 **Stash 管理** — Stash/Pop/Apply/Drop + 部分 Stash(-p) + 提交图中 Stash 节点
+- 🗑️ **陈旧分支清理** — 一键查询已合并分支并批量删除
 - ↩️ **Undo/Redo 安全网** — 14 种可撤销操作 + Ctrl+Z / Ctrl+Shift+Z
-- 🏷️ **标签管理** — 创建/删除/检出/推送标签
-- 📦 **Stash 管理** — Stash/Pop/Apply/Drop + 右键菜单
+
+### 远程与集成
 - 🔗 **远程仓库管理** — 侧边栏 Remotes 区块 + 添加/删除/修改 URL
-- 📊 **Reflog 查看** — 操作历史浏览 + Reset/Detach 恢复
+- 🔔 **GitHub 通知** — Token 配置 + 未读通知列表 + 跳转浏览器
+- 🇨🇳 **Gitee 深度集成** — OAuth 登录 + PR 管理
+- 🤖 **AI 集成** — 生成提交消息 + 代码审查 + 支持 Ollama 本地模型
+
+### 可视化与工具
+- 📊 **Treemap 磁盘占用** — 仓库文件大小可视化 + 扩展名分组
+- 📈 **Reflog 查看** — 操作历史浏览 + Reset/Detach 恢复
+- 🕐 **Activity Manager** — 操作活动日志管理器
+- 📋 **粘贴 Patch** — 从剪贴板粘贴并应用 patch
 - 🧩 **子模块管理** — 添加/初始化/更新/删除
+- 🛠️ **外部 Diff/Merge 工具** — 12 种工具配置 + VSCode 深度适配
+- ⚡ **自定义命令** — checkbox/input 参数支持
 - ✏️ **.gitignore 编辑器** — 可视化弹窗 + 快捷规则
 - 🌐 **中英文 i18n** — 完整语言包，默认中文
 
