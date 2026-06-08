@@ -1,9 +1,9 @@
 {
-  "name": "gitscope",
+  "name": "majie",
   "version": "0.1.0",
-  "description": "GitScope 码界 - 国产 Git 图形化客户端",
+  "description": "Majie 码界 - 国产 Git 图形化客户端",
   "main": "dist/main/index.js",
-  "author": "GitScope Team",
+  "author": "Majie Team",
   "license": "MIT",
   "scripts": {
     "dev": "concurrently \"npm run dev:main\" \"npm run dev:renderer\"",
