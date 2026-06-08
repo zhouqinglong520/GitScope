@@ -2477,9 +2477,139 @@ function parseNameStatus(output: string): CommitFileChange[] {
     }
   }
 
+  // ========== P2: 增强功能 ==========
+
+  /** P2-5: Rebase with --update-refs */
+  async rebaseWithUpdateRefs(onto: string, updateRefs: boolean): Promise<{ success: boolean; conflicts?: boolean; message?: string }> {
+    if (!this.dir) throw new Error('仓库未打开');
+    const args = ['rebase', onto];
+    if (updateRefs) args.push('--update-refs');
+    try {
+      await this.gitCliExec(args);
+      return { success: true };
+    } catch (error: any) {
+      const msg = error.message || '';
+      if (msg.includes('conflict')) {
+        return { success: false, conflicts: true, message: 'Rebase 产生冲突，请手动解决' };
+      }
+      return { success: false, message: msg };
+    }
+  }
+
+  /** P2-6: 从剪贴板内容应用 Patch */
+  async applyPatchFromContent(patchContent: string, options?: { check?: boolean; cached?: boolean; reject?: boolean }): Promise<{ success: boolean; message?: string }> {
+    if (!this.dir) throw new Error('仓库未打开');
+    try {
+      const fs = require('fs/promises');
+      const tmpPath = require('path').join(require('os').tmpdir(), `majie-paste-patch-${Date.now()}.patch`);
+      await fs.writeFile(tmpPath, patchContent, 'utf-8');
+      const args = ['apply'];
+      if (options?.check) args.push('--check');
+      if (options?.cached) args.push('--cached');
+      if (options?.reject) args.push('--reject');
+      args.push(tmpPath);
+      await this.gitCliExec(args);
+      // 清理临时文件
+      try { await fs.unlink(tmpPath); } catch {}
+      return { success: true };
+    } catch (error: any) {
+      return { success: false, message: error.message || 'Patch 应用失败' };
+    }
+  }
+
+  /** P2-7: 仓库磁盘占用统计 */
+  async getRepoDiskUsage(): Promise<{ totalSize: number; entries: Array<{ path: string; size: number; type: 'file' | 'dir'; extension?: string }> }> {
+    if (!this.dir) throw new Error('仓库未打开');
+    try {
+      const { stdout } = await this.gitCliExec(['ls-files']);
+      const files = stdout.trim().split('\n').filter(Boolean);
+      const entries: Array<{ path: string; size: number; type: 'file'; extension?: string }> = [];
+      let totalSize = 0;
+      for (const file of files) {
+        try {
+          const stat = await fs.stat(require('path').join(this.dir!, file));
+          totalSize += stat.size;
+          const ext = file.split('.').pop()?.toLowerCase() || '';
+          entries.push({ path: file, size: stat.size, type: 'file', extension: ext });
+        } catch { /* skip */ }
+      }
+      // 按大小降序
+      entries.sort((a, b) => b.size - a.size);
+      return { totalSize, entries };
+    } catch {
+      return { totalSize: 0, entries: [] };
+    }
+  }
+
+  /** P2-8: 操作活动日志 */
+  private activityLog: Array<{ id: string; action: string; detail: string; timestamp: number; status: 'running' | 'success' | 'failed' }> = [];
+
+  logActivity(action: string, detail: string, status: 'running' | 'success' | 'failed' = 'running'): string {
+    const id = `act-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    this.activityLog.unshift({ id, action, detail, timestamp: Date.now(), status });
+    // 最多保留 200 条
+    if (this.activityLog.length > 200) this.activityLog = this.activityLog.slice(0, 200);
+    return id;
+  }
+
+  updateActivity(id: string, status: 'success' | 'failed', detail?: string): void {
+    const act = this.activityLog.find(a => a.id === id);
+    if (act) {
+      act.status = status;
+      if (detail) act.detail = detail;
+    }
+  }
+
+  getActivityLog(limit?: number): Array<{ id: string; action: string; detail: string; timestamp: number; status: string }> {
+    return (limit ? this.activityLog.slice(0, limit) : this.activityLog).map(a => ({ ...a }));
+  }
+
+  clearActivityLog(): void {
+    this.activityLog = [];
+  }
+
+  /** P2-10: 部分 Stash (git stash push -p) */
+  async stashPartial(options?: { message?: string }): Promise<{ success: boolean; message?: string }> {
+    if (!this.dir) throw new Error('仓库未打开');
+    try {
+      const args = ['stash', 'push', '-p'];
+      if (options?.message) args.push('-m', options.message);
+      const { stdout } = await this.gitCliExecWithInput(args, '');
+      return { success: true, message: stdout.trim() };
+    } catch (error: any) {
+      const msg = error.message || '';
+      if (msg.includes('did not save')) {
+        return { success: false, message: '没有选择任何更改，Stash 未保存' };
+      }
+      return { success: false, message: msg };
+    }
+  }
+
+  /** 辅助：带 stdin 输入的 git CLI 执行（用于 -p 交互式命令，自动回复 'a' 全选） */
+  private async gitCliExecWithInput(args: string[], input: string): Promise<{ stdout: string; stderr: string }> {
+    return new Promise((resolve, reject) => {
+      const proc = require('child_process').spawn('git', args, {
+        cwd: this.dir || undefined,
+        env: { ...process.env, GIT_EDITOR: 'true', GIT_TERMINAL_PROMPT: '0', LANG: 'C' },
+        stdio: ['pipe', 'pipe', 'pipe'],
+      });
+      let stdout = '', stderr = '';
+      proc.stdout.on('data', (d: Buffer) => { stdout += d.toString(); });
+      proc.stderr.on('data', (d: Buffer) => { stderr += d.toString(); });
+      // 对 -p 交互式，自动发送 'a' (apply all) 然后 'q' (quit)
+      proc.stdin.write('a\nq\n');
+      proc.stdin.end();
+      proc.on('close', (code: number) => {
+        if (code === 0) resolve({ stdout, stderr });
+        else reject(new Error(stderr || `git ${args.join(' ')} failed with code ${code}`));
+      });
+      proc.on('error', (err: Error) => reject(err));
+    });
+  }
+
 }
 
 
 // 导出单例
 const gitService = new GitService();
-export const gitService = new GitService();
+export { gitService };
