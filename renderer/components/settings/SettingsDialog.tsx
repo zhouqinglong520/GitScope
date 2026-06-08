@@ -4,15 +4,9 @@
  * 保存时触发语言切换
  */
 import React, { useState, useEffect } from 'react';
+import type { AppPreferences } from '../../../shared/types/git';
 import { setLocale } from '../../i18n';
 import './SettingsDialog.css';
-
-interface AppPreferences {
-  general: { defaultCloneDir: string; language: string; checkUpdateOnStart: boolean; minimizeToTray: boolean; autoFetchInterval: number; };
-  appearance: { theme: string; fontSize: number; tabWidth: number; showWhitespace: boolean; colorBlindMode: boolean; commitGraphStyle: string; };
-  git: { mergeStrategy: string; pullRebase: boolean; pushAutoSetUpstream: boolean; autoPushAfterCommit: boolean; gpgSign: boolean; commitTemplatePath: string; externalDiffTool: string; externalMergeTool: string; };
-  notifications: { showOnComplete: boolean; showOnConflict: boolean; soundEnabled: boolean; };
-}
 
 type TabKey = 'general' | 'appearance' | 'git' | 'notifications';
 const TABS: { key: TabKey; label: string }[] = [
