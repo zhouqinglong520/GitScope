@@ -253,6 +253,14 @@ function getMenuTemplate() {
           click: () => mainWindow?.webContents.send('menu:gitee'),
         },
         {
+          label: 'GitHub 通知...',
+          click: () => mainWindow?.webContents.send('menu:githubNotifications'),
+        },
+        {
+          label: '外部工具设置...',
+          click: () => mainWindow?.webContents.send('menu:externalTools'),
+        },
+        {
           label: '在资源管理器中打开',
           click: () => mainWindow?.webContents.send('menu:openInExplorer'),
         },
@@ -289,6 +297,15 @@ function getMenuTemplate() {
         {
           label: '删除分支...',
           click: () => mainWindow?.webContents.send('menu:deleteBranch'),
+        },
+        { type: 'separator' },
+        {
+          label: '清理陈旧分支...',
+          click: () => mainWindow?.webContents.send('menu:staleBranches'),
+        },
+        {
+          label: 'Git Flow...',
+          click: () => mainWindow?.webContents.send('menu:gitFlow'),
         },
       ],
     },
