@@ -296,8 +296,8 @@ function MainLayout() {
           />
 
           {/* 分支信息栏 */}
-          <div className="h-8 bg-[#252526] flex items-center px-3 border-b border-panel-border">
-            <div className="flex items-center gap-2 overflow-x-auto">
+          <div className="h-8 flex items-center px-3" style={{ background: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-subtle)' }}>
+            <div className="flex items-center gap-1.5 overflow-x-auto">
               {branches.map((branch) => (
                 <span
                   key={branch.name}
@@ -312,9 +312,9 @@ function MainLayout() {
           </div>
 
           {/* 提交图搜索/筛选栏 */}
-          <div className="h-9 bg-[#252526] flex items-center gap-2 px-3 border-b border-panel-border">
+          <div className="h-9 flex items-center gap-2 px-3" style={{ background: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-subtle)' }}>
             <input
-              className="bg-[#1e1e1e] border border-[#3c3c3c] rounded px-2 py-1 text-xs text-gray-300 w-40 focus:border-[#4CAF50] focus:outline-none"
+              className="input px-2 py-1 text-xs w-40"
               placeholder={t('commitGraph.searchPlaceholder') || '搜索提交...'}
               value={graphSearch}
               onChange={e => { setGraphSearch(e.target.value); updateCommitFilter({ search: e.target.value }); }}
@@ -325,13 +325,14 @@ function MainLayout() {
                 return (
                   <button
                     key={d}
-                    className={`px-2 py-0.5 rounded text-xs ${graphDateFilter === d ? 'bg-[#094771] text-white' : 'text-gray-500 hover:text-gray-300'}`}
+                    className={`px-2 py-0.5 rounded text-xs transition-colors ${graphDateFilter === d ? 'text-white' : ''}`}
+                    style={{ background: graphDateFilter === d ? 'var(--accent)' : 'transparent', color: graphDateFilter === d ? 'white' : 'var(--text-muted)' }}
                     onClick={() => { setGraphDateFilter(d); const now = Date.now() / 1000; if (d === 'all') updateCommitFilter({ startDate: undefined, endDate: undefined }); else if (d === 'today') updateCommitFilter({ startDate: now - 86400 }); else if (d === 'week') updateCommitFilter({ startDate: now - 604800 }); else if (d === 'month') updateCommitFilter({ startDate: now - 2592000 }); }}
                   >{labels[d]}</button>
                 );
               })}
             </div>
-            <span className="text-xs text-gray-600 ml-auto">{filteredCommits.length} 提交</span>
+            <span className="text-[11px] ml-auto" style={{ color: 'var(--text-faint)' }}>{filteredCommits.length} 提交</span>
           </div>
 
           {/* 提交图 */}
@@ -357,7 +358,7 @@ function MainLayout() {
         {/* 拖拽条 */}
         <div
           onMouseDown={handleMouseDown}
-          className="h-1 bg-[#3c3c3c] hover:bg-primary-500 cursor-row-resize transition-colors flex-shrink-0"
+          className="resize-handle flex-shrink-0"
         />
 
         {/* 下半部分：提交详情 + 暂存区 + Diff */}
@@ -378,10 +379,8 @@ function MainLayout() {
           <div className="flex-1 flex overflow-hidden">
             {/* 左侧：暂存区 */}
             <div className="w-[300px] flex-shrink-0 border-r border-panel-border flex flex-col overflow-hidden">
-              <div className="flex-shrink-0 px-3 py-2 bg-panel-bg border-b border-panel-border">
-                <div className="text-xs font-semibold text-gray-400">
-                  {t('detail.fileChanges')}
-                </div>
+              <div className="panel-header">
+                {t('detail.fileChanges')}
               </div>
               <div className="flex-1 overflow-hidden">
                 <StatusPanel
@@ -403,10 +402,8 @@ function MainLayout() {
 
             {/* 右侧：Diff 对比 */}
             <div className="flex-1 flex flex-col overflow-hidden">
-              <div className="flex-shrink-0 px-3 py-2 bg-panel-bg border-b border-panel-border">
-                <div className="text-xs font-semibold text-gray-400">
-                  {t('detail.diff')}
-                </div>
+              <div className="panel-header">
+                {t('detail.diff')}
               </div>
               <div className="flex-1 overflow-hidden">
                 {selectedFile || selectedCommit ? (
@@ -415,13 +412,13 @@ function MainLayout() {
                     filePath={selectedFile}
                   />
                 ) : (
-                  <div className="h-full flex items-center justify-center text-gray-500">
-                    <div className="text-center">
-                      <svg className="w-12 h-12 mx-auto mb-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  <div className="h-full flex items-center justify-center" style={{ color: 'var(--text-muted)' }}>
+                    <div className="text-center animate-fade-in">
+                      <svg className="w-16 h-16 mx-auto mb-3 opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                       </svg>
                       <p className="text-sm">选择一个文件查看差异</p>
-                      <p className="text-xs mt-1">或选择一个提交查看变更</p>
+                      <p className="text-xs mt-1" style={{ color: 'var(--text-faint)' }}>或选择一个提交查看变更</p>
                     </div>
                   </div>
                 )}
