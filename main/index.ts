@@ -7,7 +7,7 @@ export {};
 const { app, BrowserWindow, shell, Menu } = require('electron');
 const path = require('path');
 const { registerIpcHandlers } = require('./ipc/index');
-const { createAppMenu, setMainWindow } = require('./menu');
+const { createAppMenu, setMainWindow, addRecentRepo, rebuildMenu } = require('./menu');
 
 // 开发模式标志
 const isDev = !app.isPackaged;
