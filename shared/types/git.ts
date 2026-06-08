@@ -288,20 +288,24 @@ export interface CommitFileChange {
 export interface GraphNode {
   /** 提交对象 */
   commit: GitCommit;
-  /** 列索引 */
-  column: number;
+  /** Lane 索引（Fork 风格直线分支算法） */
+  lane: number;
   /** 颜色 */
   color: string;
   /** 行索引 */
   row: number;
-  /** 父节点列索引列表 */
-  parentColumns: number[];
-  /** 该提交所在的分支名称 */
-  branchName?: string;
-  /** 该提交的 refs 标签 */
-  refs: string[];
-  /** 是否属于折叠的分支 */
-  isCollapsed?: boolean;
+  /** 是否属于主干分支 */
+  isMainBranch: boolean;
+  /** 所属分支名称列表 */
+  branchNames: string[];
+  /** 是否为合并提交 */
+  isMergeCommit: boolean;
+  /** 折叠的提交数量 */
+  collapsedCommitCount: number;
+  /** 是否被折叠 */
+  isCollapsed: boolean;
+  /** 折叠父提交 OID */
+  collapseParentOid: string | null;
 }
 
 // ============= 新增：分支跟踪状态 =============
@@ -567,6 +571,10 @@ export interface LfsTrackPattern {
   pattern: string;
   /** 锁定属性 */
   lockable: boolean;
+  /** 文件总大小 */
+  size?: number;
+  /** 文件数量 */
+  fileCount?: number;
 }
 
 /** Git LFS 状态 */
@@ -654,6 +662,8 @@ export interface CustomAction {
   showInContextMenu: boolean;
   /** 是否显示在工具栏 */
   showInToolbar: boolean;
+  /** P2-9: 自定义命令 checkbox — 执行前可选参数 */
+  params?: Array<{ name: string; label: string; type: 'checkbox' | 'input'; defaultValue?: string | boolean; checked?: boolean }>;
 }
 
 /** 偏好设置 */
