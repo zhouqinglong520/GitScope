@@ -210,13 +210,17 @@ export function useMenuEvents(dispatch: (action: DialogAction) => void) {
       'menu:shortcuts': () => {
         window.dispatchEvent(new CustomEvent('showShortcuts'));
       },
+
+      'menu:openRepoAtPath': async (_: any, path: string) => {
+        if (path) await openRepo(path);
+      },
     };
 
     // 注册所有菜单事件监听
     const cleanupFns: (() => void)[] = [];
 
     for (const [channel, handler] of Object.entries(handlers)) {
-      const listener = () => handler();
+      const listener = (...args: any[]) => handler(...args);
       window.electronAPI.ipc.on(channel, listener);
       cleanupFns.push(() => window.electronAPI.ipc.removeListener(channel, listener));
     }
