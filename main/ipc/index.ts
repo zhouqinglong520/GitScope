@@ -50,13 +50,13 @@ function registerIpcHandlers() {
   });
 
   /** 获取文件差异 */
-  ipcMain.handle('git:getDiff', async (_, filePath?: string, commitOid?: string) => {
-    return await gitService.diff(filePath, commitOid);
+  ipcMain.handle('git:getDiff', async (_, filePath?: string, commitOid?: string, algorithm?: string) => {
+    return await gitService.diff(filePath, commitOid, algorithm as any);
   });
 
   /** 获取暂存区差异 */
-  ipcMain.handle('git:getStagedDiff', async (_, filePath?: string) => {
-    return await gitService.stagedDiff(filePath);
+  ipcMain.handle('git:getStagedDiff', async (_, filePath?: string, algorithm?: string) => {
+    return await gitService.stagedDiff(filePath, algorithm as any);
   });
 
   /** 暂存文件 */
@@ -636,6 +636,11 @@ function registerIpcHandlers() {
   /** 获取选中代码的历史 */
   ipcMain.handle('git:getCodeHistory', async (_, options: any) => {
     return await gitService.getCodeHistory(options);
+  });
+
+  /** Blame 上一版本 */
+  ipcMain.handle('git:blamePreviousRevision', async (_, filePath: string, commitOid: string) => {
+    return await gitService.blamePreviousRevision(filePath, commitOid);
   });
 
   /** 列出补丁 */
