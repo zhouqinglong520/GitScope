@@ -306,6 +306,43 @@ contextBridge.exposeInMainWorld('electronAPI', {
     openTerminal: (path) => ipcRenderer.invoke('shell:openTerminal', path),
   },
 
+  // ========== 终端服务 ==========
+  terminal: {
+    /** 创建终端 */
+    create: (id: string, cwd?: string) =>
+      ipcRenderer.invoke("terminal:create", id, cwd),
+
+    /** 写入数据 */
+    write: (id: string, data: string) =>
+      ipcRenderer.send("terminal:write", id, data),
+
+    /** 调整尺寸 */
+    resize: (id: string, cols: number, rows: number) =>
+      ipcRenderer.send("terminal:resize", id, cols, rows),
+
+    /** 关闭终端 */
+    kill: (id: string) =>
+      ipcRenderer.send("terminal:kill", id),
+
+    /** 获取默认 shell */
+    getDefaultShell: () =>
+      ipcRenderer.invoke("terminal:getDefaultShell"),
+
+    /** 监听终端输出 */
+    onData: (callback: (id: string, data: string) => void) => {
+      const handler = (_event: any, id: string, data: string) => callback(id, data);
+      ipcRenderer.on("terminal:data", handler);
+      return () => ipcRenderer.removeListener("terminal:data", handler);
+    },
+
+    /** 监听终端退出 */
+    onExit: (callback: (id: string, exitCode: number) => void) => {
+      const handler = (_event: any, id: string, exitCode: number) => callback(id, exitCode);
+      ipcRenderer.on("terminal:exit", handler);
+      return () => ipcRenderer.removeListener("terminal:exit", handler);
+    },
+  },
+
   // ========== 窗口服务 ==========
   window: {
     /** 最小化 */
