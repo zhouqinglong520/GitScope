@@ -5,17 +5,10 @@
  */
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import type { ReflogEntry } from '../../../shared/types/git';
 import './ReflogVisualPanel.css';
 
-interface ReflogEntry {
-  oid: string;
-  shortOid: string;
-  action: string;
-  ref: string;
-  message: string;
-  timestamp: number;
-  author: string;
-}
+// ReflogEntry imported from shared
 
 interface Props {
   visible: boolean;
