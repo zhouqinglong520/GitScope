@@ -1,6 +1,6 @@
-appId: com.gitscope.app
-productName: GitScope
-copyright: Copyright © 2024-2026 GitScope Team. 个人永久免费使用
+appId: com.majie.app
+productName: Majie
+copyright: Copyright © 2024-2026 Majie Team. 个人永久免费使用
 
 directories:
   output: release
