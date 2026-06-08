@@ -791,6 +791,72 @@ function registerIpcHandlers() {
     await gitService.syncSubmodule(subPath);
   });
 
+  // ========== P1-8: 陈旧分支 ==========
+
+  /** 获取已合并分支列表 */
+  ipcMain.handle('git:getMergedBranches', async (_, targetBranch?: string) => {
+    return await gitService.getMergedBranches(targetBranch);
+  });
+
+  /** 批量删除分支 */
+  ipcMain.handle('git:batchDeleteBranches', async (_, names: string[], force?: boolean) => {
+    return await gitService.batchDeleteBranches(names, force);
+  });
+
+  // ========== P1-7: Git Flow ==========
+
+  ipcMain.handle('git:gitflowInit', async (_, options?: any) => {
+    await gitService.gitflowInit(options);
+  });
+  ipcMain.handle('git:gitflowIsInitialized', async () => {
+    return await gitService.gitflowIsInitialized();
+  });
+  ipcMain.handle('git:gitflowStartFeature', async (_, name: string, base?: string) => {
+    return await gitService.gitflowStartFeature(name, base);
+  });
+  ipcMain.handle('git:gitflowFinishFeature', async (_, name: string, options?: any) => {
+    await gitService.gitflowFinishFeature(name, options);
+  });
+  ipcMain.handle('git:gitflowStartRelease', async (_, version: string) => {
+    return await gitService.gitflowStartRelease(version);
+  });
+  ipcMain.handle('git:gitflowFinishRelease', async (_, version: string, options?: any) => {
+    await gitService.gitflowFinishRelease(version, options);
+  });
+  ipcMain.handle('git:gitflowStartHotfix', async (_, version: string) => {
+    return await gitService.gitflowStartHotfix(version);
+  });
+  ipcMain.handle('git:gitflowFinishHotfix', async (_, version: string, options?: any) => {
+    await gitService.gitflowFinishHotfix(version, options);
+  });
+  ipcMain.handle('git:gitflowGetConfig', async () => {
+    return await gitService.gitflowGetConfig();
+  });
+
+  // ========== P1-9: 外部 Diff/Merge 工具 ==========
+
+  ipcMain.handle('git:openInMergeTool', async (_, filePath: string) => {
+    await gitService.openInMergeTool(filePath);
+  });
+  ipcMain.handle('git:getDiffToolConfig', async () => {
+    return await gitService.getDiffToolConfig();
+  });
+  ipcMain.handle('git:setDiffTool', async (_, tool: string) => {
+    await gitService.setDiffTool(tool);
+  });
+  ipcMain.handle('git:getMergeToolConfig', async () => {
+    return await gitService.getMergeToolConfig();
+  });
+  ipcMain.handle('git:setMergeTool', async (_, tool: string) => {
+    await gitService.setMergeTool(tool);
+  });
+
+  // ========== P1-6: GitHub 通知 ==========
+
+  ipcMain.handle('git:getGitHubNotifications', async (_, token: string) => {
+    return await gitService.getGitHubNotifications(token);
+  });
+
   /** Blame 追踪 */
   ipcMain.handle('git:blame', async (_, filePath: string) => {
     return await gitService.blame(filePath);
