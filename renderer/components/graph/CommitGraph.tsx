@@ -1,177 +1,330 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useRepoStore, type GitCommit, type GitBranch } from '../../stores/repoStore';
 import { useContextMenu, type MenuItem } from '../contextmenu/ContextMenu';
 
+// ============================================================
+// 常量
+// ============================================================
 const BRANCH_COLORS = [
-  '#e05673', // 红色 - 主分支
-  '#5b8def', // 蓝色
-  '#68c263', // 绿色
-  '#c9a73c', // 黄色
-  '#a06cd5', // 紫色
-  '#3eb4c6', // 青色
-  '#d4844e', // 橙色
-  '#e86580', // 粉色
+  '#e05673', // 红
+  '#5b8def', // 蓝
+  '#68c263', // 绿
+  '#c9a73c', // 黄
+  '#a06cd5', // 紫
+  '#3eb4c6', // 青
+  '#d4844e', // 橙
+  '#e86580', // 粉
+  '#7ec8e3', // 浅蓝
+  '#b5e48c', // 浅绿
 ];
 
-const ROW_HEIGHT = 36;
-const COLUMN_WIDTH = 20; // 更窄的列宽
-const NODE_RADIUS = 3.5; // 稍微减小节点
-const GRAPH_WIDTH = 140; // 相应减小画布宽度
+const ROW_HEIGHT = 32;
+const LANE_WIDTH = 22;
+const NODE_RADIUS = 3.5;
+const GRAPH_MIN_WIDTH = 120;
+const VISIBLE_BUFFER = 20; // 上下多渲染的行数
 
+// ============================================================
+// 类型
+// ============================================================
 interface GraphNode {
   commit: GitCommit;
-  column: number;
+  lane: number;          // 列号（j 坐标）
   color: string;
-  row: number;
+  row: number;           // 行号（i 坐标，拓扑排序后的索引）
   isMainBranch: boolean;
-  branchNames: string[]; // 添加分支名称
+  branchNames: string[];
+  branchChildren: string[];  // 第一父节点指向此提交的子提交 oid
+  mergeChildren: string[];   // 非第一父节点指向此提交的子提交 oid
 }
 
-interface Slot {
-  nextParentHash: string;
+interface EdgeInfo {
+  fromOid: string;
+  toOid: string;
+  fromLane: number;
+  toLane: number;
+  fromRow: number;
+  toRow: number;
   color: string;
+  isMergeEdge: boolean;  // 合并边（非第一父节点）需要特殊路径
 }
 
-function buildGraphNodes(
-  commits: GitCommit[],
-  branches: GitBranch[]
-): GraphNode[] {
-  if (commits.length === 0) return [];
+// ============================================================
+// 算法核心：基于 pvigier 直线分支算法
+// 参考: https://pvigier.github.io/2019/05/06/commit-graph-drawing-algorithms.html
+// ============================================================
 
-  const nodes: GraphNode[] = [];
-  
-  // 创建分支到提交的映射
+/**
+ * 时间拓扑排序：按 committer date 从新到旧排序，
+ * 但保证拓扑序（父节点一定在子节点之后）。
+ */
+function temporalTopologicalSort(
+  commits: GitCommit[],
+  childMap: Map<string, string[]>
+): GitCommit[] {
+  const oidSet = new Set(commits.map(c => c.oid));
+
+  // 按 committer date 从新到旧排序
+  const sorted = [...commits].sort(
+    (a, b) => b.committerTimestamp - a.committerTimestamp
+  );
+
+  const explored = new Set<string>();
+  const result: GitCommit[] = [];
+  const commitMap = new Map(sorted.map(c => [c.oid, c]));
+
+  function dfs(oid: string) {
+    if (explored.has(oid) || !oidSet.has(oid)) return;
+    explored.add(oid);
+    const children = childMap.get(oid);
+    if (children) {
+      for (const childOid of children) {
+        dfs(childOid);
+      }
+    }
+    const commit = commitMap.get(oid);
+    if (commit) result.push(commit);
+  }
+
+  for (const c of sorted) {
+    dfs(c.oid);
+  }
+
+  return result;
+}
+
+/**
+ * 构建 childMap: oid → 其子提交 oid 列表
+ */
+function buildChildMap(commits: GitCommit[]): Map<string, string[]> {
+  const childMap = new Map<string, string[]>();
+  for (const c of commits) {
+    for (const pOid of c.parentIds) {
+      const children = childMap.get(pOid) || [];
+      children.push(c.oid);
+      childMap.set(pOid, children);
+    }
+  }
+  return childMap;
+}
+
+/**
+ * 直线分支车道分配算法
+ * 核心思想：
+ * - 维护活跃分支列表 B，nil 表示已结束可复用的位置
+ * - 每个提交尝试继承某个 branchChild 的车道
+ * - 计算禁列（forbidden lanes）避免合并线穿过其他节点
+ * - 设为 nil 而非删除，保证其他分支不偏移（直线）
+ */
+function assignLanes(
+  sortedCommits: GitCommit[],
+  childMap: Map<string, string[]>,
+  branches: GitBranch[]
+): { nodes: GraphNode[]; edges: EdgeInfo[]; maxLane: number } {
+  if (sortedCommits.length === 0) return { nodes: [], edges: [], maxLane: 0 };
+
+  // 分支名 → 提交 oid 映射
   const branchMap = new Map<string, string[]>();
   for (const branch of branches) {
     if (branch.oid) {
-      if (!branchMap.has(branch.oid)) {
-        branchMap.set(branch.oid, []);
-      }
-      branchMap.get(branch.oid)!.push(branch.name);
+      const list = branchMap.get(branch.oid) || [];
+      list.push(branch.name);
+      branchMap.set(branch.oid, list);
     }
   }
-  
-  // 活跃插槽：每个插槽代表一个垂直列
-  const activeSlots: Map<string, Slot> = new Map();
-  
-  // 找到主分支
+
+  // 主分支 oid
   const mainBranch = branches.find(
-    (b) => b.name === 'main' || b.name === 'master' || b.current
+    b => b.name === 'main' || b.name === 'master' || b.current
   );
   const mainBranchOid = mainBranch?.oid;
 
-  // 从最新到最旧遍历（从上到下）
-  for (let row = 0; row < commits.length; row++) {
-    const commit = commits[row];
-    let column: number;
+  // oid → GraphNode 映射（按 row 索引）
+  const nodeMap = new Map<string, GraphNode>();
+  const activeBranches: (string | null)[] = []; // 活跃分支列表，存 oid 或 nil
+
+  // 记录每列占用的行范围，用于计算禁列
+  // laneOccupiedRows[lane] = Set of rows where that lane has content
+  const laneOccupiedRows: Map<number, Set<number>> = new Map();
+
+  // 先给所有节点分类 children
+  const branchChildrenMap = new Map<string, string[]>();
+  const mergeChildrenMap = new Map<string, string[]>();
+
+  for (const commit of sortedCommits) {
+    const children = childMap.get(commit.oid) || [];
+    const branchKids: string[] = [];
+    const mergeKids: string[] = [];
+
+    for (const childOid of children) {
+      const childCommit = sortedCommits.find(c => c.oid === childOid);
+      if (childCommit) {
+        // 如果此提交是 child 的第一父节点 → branch child
+        if (childCommit.parentIds[0] === commit.oid) {
+          branchKids.push(childOid);
+        } else {
+          mergeKids.push(childOid);
+        }
+      }
+    }
+    branchChildrenMap.set(commit.oid, branchKids);
+    mergeChildrenMap.set(commit.oid, mergeKids);
+  }
+
+  // 逐行处理（从上到下，row 0 = 最新提交）
+  for (let row = 0; row < sortedCommits.length; row++) {
+    const commit = sortedCommits[row];
+    const branchKids = branchChildrenMap.get(commit.oid) || [];
+    const mergeKids = mergeChildrenMap.get(commit.oid) || [];
+
+    // 计算禁列：合并子节点连接到此提交时不能穿过的列
+    const forbiddenLanes = new Set<number>();
+
+    for (const mergeChildOid of mergeKids) {
+      const childNode = nodeMap.get(mergeChildOid);
+      if (childNode) {
+        // 从 childNode.row 到当前 row 之间，哪些列有内容
+        const childRow = childNode.row;
+        for (const [lane, rows] of laneOccupiedRows) {
+          // 检查该列在 [childRow, row] 范围内是否有内容
+          for (const r of rows) {
+            if (r > childRow && r < row) {
+              forbiddenLanes.add(lane);
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    let lane: number;
     let color: string;
 
-    // 1. 处理入度：检查是否有插槽正在寻找这个 commit
-    let existingSlotKey: string | undefined;
-    for (const [key, slot] of activeSlots) {
-      if (slot.nextParentHash === commit.oid) {
-        existingSlotKey = key;
+    // 尝试继承某个 branchChild 的车道
+    let inherited = false;
+    for (const childOid of branchKids) {
+      const childNode = nodeMap.get(childOid);
+      if (childNode && !forbiddenLanes.has(childNode.lane)) {
+        // 继承这个子节点的车道
+        lane = childNode.lane;
+        color = childNode.color;
+        // 在活跃分支列表中替换子节点
+        const idx = activeBranches.indexOf(childOid);
+        if (idx !== -1) {
+          activeBranches[idx] = commit.oid;
+        } else {
+          activeBranches.push(commit.oid);
+        }
+        inherited = true;
         break;
       }
     }
 
-    if (existingSlotKey) {
-      // 有插槽指向它，使用该插槽
-      const slotIndex = parseInt(existingSlotKey);
-      column = slotIndex;
-      color = activeSlots.get(existingSlotKey)!.color;
-      activeSlots.delete(existingSlotKey);
-    } else {
-      // 没有插槽指向它，是一个新分支的顶端，找一个新的可用插槽
-      let newColumn = 0;
-      const usedColumns = new Set<number>();
-      for (const key of activeSlots.keys()) {
-        usedColumns.add(parseInt(key));
-      }
-      while (usedColumns.has(newColumn)) {
-        newColumn++;
-      }
-      column = newColumn;
-      color = BRANCH_COLORS[column % BRANCH_COLORS.length];
-    }
-
-    // 2. 处理出度：设置父节点的插槽
-    for (let i = 0; i < commit.parentIds.length; i++) {
-      const parentOid = commit.parentIds[i];
-      
-      if (i === 0) {
-        // 第一个父节点继承当前插槽
-        activeSlots.set(column.toString(), {
-          nextParentHash: parentOid,
-          color: color,
-        });
+    if (!inherited) {
+      // 找一个 nil 位置或追加
+      let nilIdx = activeBranches.indexOf(null);
+      if (nilIdx !== -1) {
+        lane = nilIdx;
+        activeBranches[nilIdx] = commit.oid;
       } else {
-        // 合并提交的其他父节点，分配新的插槽
-        let mergeColumn = 0;
-        const usedColumns = new Set<number>();
-        for (const key of activeSlots.keys()) {
-          usedColumns.add(parseInt(key));
+        lane = activeBranches.length;
+        activeBranches.push(commit.oid);
+      }
+      color = BRANCH_COLORS[lane % BRANCH_COLORS.length];
+    }
+
+    // 其余 branchChildren 设为 nil（分支已结束在此）
+    for (const childOid of branchKids) {
+      const childNode = nodeMap.get(childOid);
+      if (childNode) {
+        // 只处理没被继承的那个
+        if (childNode.lane !== lane!) {
+          const idx = activeBranches.indexOf(childOid);
+          if (idx !== -1) {
+            activeBranches[idx] = null;
+          }
         }
-        while (usedColumns.has(mergeColumn)) {
-          mergeColumn++;
-        }
-        activeSlots.set(mergeColumn.toString(), {
-          nextParentHash: parentOid,
-          color: BRANCH_COLORS[mergeColumn % BRANCH_COLORS.length],
-        });
       }
     }
 
-    // 判断是否是主分支
-    const isMainBranch = mainBranchOid === commit.oid || column === 0;
-    
-    // 如果是主分支，强制使用主颜色
+    // 主分支强制颜色
+    const isMainBranch = mainBranchOid === commit.oid || lane! === 0;
     if (isMainBranch) {
       color = BRANCH_COLORS[0];
     }
 
     const node: GraphNode = {
       commit,
-      column,
-      color,
+      lane: lane!,
+      color: color!,
       row,
       isMainBranch,
       branchNames: branchMap.get(commit.oid) || [],
+      branchChildren: branchKids,
+      mergeChildren: mergeKids,
     };
+    nodeMap.set(commit.oid, node);
 
-    nodes.push(node);
+    // 记录此列占用
+    if (!laneOccupiedRows.has(lane!)) {
+      laneOccupiedRows.set(lane!, new Set());
+    }
+    laneOccupiedRows.get(lane!)!.add(row);
   }
 
-  return nodes;
+  // 收集节点和边
+  const nodes = sortedCommits.map((c, row) => nodeMap.get(c.oid)!);
+  const edges: EdgeInfo[] = [];
+
+  for (const node of nodes) {
+    for (let pIdx = 0; pIdx < node.commit.parentIds.length; pIdx++) {
+      const parentOid = node.commit.parentIds[pIdx];
+      const parentNode = nodeMap.get(parentOid);
+      if (!parentNode) continue;
+
+      const isMergeEdge = pIdx > 0;
+      edges.push({
+        fromOid: node.commit.oid,
+        toOid: parentOid,
+        fromLane: node.lane,
+        toLane: parentNode.lane,
+        fromRow: node.row,
+        toRow: parentNode.row,
+        color: node.color,
+        isMergeEdge,
+      });
+    }
+  }
+
+  const maxLane = nodes.reduce((max, n) => Math.max(max, n.lane), 0);
+  return { nodes, edges, maxLane };
 }
+
+// ============================================================
+// 工具函数
+// ============================================================
 
 function formatRelativeTime(timestamp: number): string {
   const date = new Date(timestamp * 1000);
   const now = new Date();
   const diff = now.getTime() - date.getTime();
-
   if (diff < 60000) return '刚刚';
-  if (diff < 3600000) return `${Math.floor(diff / 60000)} 分钟前`;
-  if (diff < 86400000) return `${Math.floor(diff / 3600000)} 小时前`;
-  if (diff < 604800000) return `${Math.floor(diff / 86400000)} 天前`;
-
-  return date.toLocaleDateString('zh-CN', {
-    month: 'short',
-    day: 'numeric',
-  });
+  if (diff < 3600000) return `${Math.floor(diff / 60000)}分钟前`;
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)}小时前`;
+  if (diff < 604800000) return `${Math.floor(diff / 86400000)}天前`;
+  return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' });
 }
 
 function getAvatarColor(email: string): string {
-  const colors = [
-    '#5b8def', '#68c263', '#c9a73c', '#a06cd5',
-    '#3eb4c6', '#e86580', '#d4844e', '#5b8def',
-  ];
+  const colors = ['#5b8def', '#68c263', '#c9a73c', '#a06cd5', '#3eb4c6', '#e86580', '#d4844e', '#5b8def'];
   let hash = 0;
-  for (let i = 0; i < email.length; i++) {
-    hash = email.charCodeAt(i) + ((hash << 5) - hash);
-  }
+  for (let i = 0; i < email.length; i++) hash = email.charCodeAt(i) + ((hash << 5) - hash);
   return colors[Math.abs(hash) % colors.length];
 }
+
+// ============================================================
+// 主组件
+// ============================================================
 
 function CommitGraph({
   selectedCommit,
@@ -208,127 +361,154 @@ function CommitGraph({
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
+  const [containerHeight, setContainerHeight] = useState(800);
 
-  const graphNodes = useMemo(() => {
-    return buildGraphNodes(commits, branches);
+  // ========== 图计算 ==========
+  const { graphNodes, edges, graphWidth } = useMemo(() => {
+    if (commits.length === 0) return { graphNodes: [] as GraphNode[], edges: [] as EdgeInfo[], graphWidth: GRAPH_MIN_WIDTH };
+
+    const childMap = buildChildMap(commits);
+    const sorted = temporalTopologicalSort(commits, childMap);
+    const { nodes, edges, maxLane } = assignLanes(sorted, childMap, branches);
+    const w = Math.max(GRAPH_MIN_WIDTH, (maxLane + 1) * LANE_WIDTH + 20);
+
+    return { graphNodes: nodes, edges, graphWidth: w };
   }, [commits, branches]);
 
-  const totalHeight = commits.length * ROW_HEIGHT;
+  const totalHeight = graphNodes.length * ROW_HEIGHT;
 
+  // ========== 监听容器尺寸 ==========
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const obs = new ResizeObserver(entries => {
+      for (const entry of entries) {
+        setContainerHeight(entry.contentRect.height);
+      }
+    });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+
+  // ========== Canvas 绘制（仅可见区域）==========
   useEffect(() => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
     if (!canvas || !ctx) return;
 
     const dpr = window.devicePixelRatio || 1;
-    const width = GRAPH_WIDTH;
-    const height = totalHeight;
+    const visibleTop = scrollTop;
+    const visibleBottom = scrollTop + containerHeight;
 
-    canvas.width = width * dpr;
-    canvas.height = height * dpr;
-    canvas.style.width = `${width}px`;
-    canvas.style.height = `${height}px`;
+    // 可见行范围
+    const firstVisibleRow = Math.max(0, Math.floor(visibleTop / ROW_HEIGHT) - VISIBLE_BUFFER);
+    const lastVisibleRow = Math.min(graphNodes.length - 1, Math.ceil(visibleBottom / ROW_HEIGHT) + VISIBLE_BUFFER);
+
+    const canvasHeight = containerHeight;
+    const canvasWidth = graphWidth;
+
+    canvas.width = canvasWidth * dpr;
+    canvas.height = canvasHeight * dpr;
+    canvas.style.width = `${canvasWidth}px`;
+    canvas.style.height = `${canvasHeight}px`;
 
     ctx.scale(dpr, dpr);
-    ctx.fillStyle = '#1e1e1e';
-    ctx.fillRect(0, 0, width, height);
+    ctx.clearRect(0, 0, canvasWidth, canvasHeight);
 
-    // 先绘制所有连线
-    for (let i = 0; i < graphNodes.length; i++) {
-      const node = graphNodes[i];
-      const nodeX = node.column * COLUMN_WIDTH + COLUMN_WIDTH / 2;
-      const nodeY = node.row * ROW_HEIGHT + ROW_HEIGHT / 2;
+    // 构建快速查找：oid → node
+    const nodeMap = new Map(graphNodes.map(n => [n.commit.oid, n]));
 
-      for (let j = 0; j < node.commit.parentIds.length; j++) {
-        const parentOid = node.commit.parentIds[j];
-        const parentNode = graphNodes.find((n) => n.commit.oid === parentOid);
-        if (!parentNode) continue;
+    // 1. 绘制连线
+    for (const edge of edges) {
+      // 只绘制至少有一端在可见范围内的边
+      if (edge.fromRow > lastVisibleRow && edge.toRow > lastVisibleRow) continue;
+      if (edge.fromRow < firstVisibleRow && edge.toRow < firstVisibleRow) continue;
 
-        const parentX = parentNode.column * COLUMN_WIDTH + COLUMN_WIDTH / 2;
-        const parentY = parentNode.row * ROW_HEIGHT + ROW_HEIGHT / 2;
+      const fromX = edge.fromLane * LANE_WIDTH + LANE_WIDTH / 2;
+      const fromY = edge.fromRow * ROW_HEIGHT + ROW_HEIGHT / 2 - scrollTop;
+      const toX = edge.toLane * LANE_WIDTH + LANE_WIDTH / 2;
+      const toY = edge.toRow * ROW_HEIGHT + ROW_HEIGHT / 2 - scrollTop;
 
-        const isMainBranch = node.isMainBranch || parentNode.isMainBranch;
-        const lineWidth = isMainBranch ? 2.2 : 1.4;
+      // 不在画布内的跳过
+      if (fromY < -100 && toY < -100) continue;
+      if (fromY > canvasHeight + 100 && toY > canvasHeight + 100) continue;
 
-        // Fork风格：更细的线条
+      const isMainLine = !edge.isMergeEdge;
+      const lineWidth = isMainLine ? 2 : 1.4;
+
+      ctx.strokeStyle = edge.color;
+      ctx.lineWidth = lineWidth;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+
+      if (edge.fromLane === edge.toLane) {
+        // 同列直线
+        ctx.moveTo(fromX, fromY);
+        ctx.lineTo(toX, toY);
+      } else {
+        // Fork 风格贝塞尔曲线
+        const dy = toY - fromY;
+        const ctrlOffset = Math.min(Math.abs(dy) * 0.4, 16);
+
+        if (edge.isMergeEdge) {
+          // 合并线：从子节点出发，平滑弯入父节点列
+          ctx.moveTo(fromX, fromY);
+          ctx.bezierCurveTo(
+            fromX, fromY + ctrlOffset,
+            toX, toY - ctrlOffset,
+            toX, toY
+          );
+        } else {
+          // 分支线：从子节点出发，平滑分出
+          ctx.moveTo(fromX, fromY);
+          ctx.bezierCurveTo(
+            fromX, fromY + ctrlOffset,
+            toX, toY - ctrlOffset,
+            toX, toY
+          );
+        }
+      }
+      ctx.stroke();
+    }
+
+    // 2. 绘制节点
+    for (let row = firstVisibleRow; row <= lastVisibleRow; row++) {
+      if (row < 0 || row >= graphNodes.length) continue;
+      const node = graphNodes[row];
+      const x = node.lane * LANE_WIDTH + LANE_WIDTH / 2;
+      const y = row * ROW_HEIGHT + ROW_HEIGHT / 2 - scrollTop;
+
+      // 填充
+      ctx.fillStyle = node.color;
+      ctx.beginPath();
+      ctx.arc(x, y, NODE_RADIUS, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 白色细边框
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+      ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      ctx.arc(x, y, NODE_RADIUS, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // HEAD 标记（当前分支的指向）
+      if (node.branchNames.some(b => branches.find(br => br.current && br.name === b))) {
         ctx.strokeStyle = node.color;
-        ctx.lineWidth = lineWidth;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
+        ctx.lineWidth = 1.5;
         ctx.beginPath();
-        drawConnectingLine(ctx, nodeX, nodeY, parentX, parentY);
+        ctx.arc(x, y, NODE_RADIUS + 2.5, 0, Math.PI * 2);
         ctx.stroke();
       }
     }
+  }, [graphNodes, edges, graphWidth, scrollTop, containerHeight]);
 
-    // 绘制所有节点
-    for (let i = 0; i < graphNodes.length; i++) {
-      const node = graphNodes[i];
-      const nodeX = node.column * COLUMN_WIDTH + COLUMN_WIDTH / 2;
-      const nodeY = node.row * ROW_HEIGHT + ROW_HEIGHT / 2;
+  // ========== 滚动处理 ==========
+  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    setScrollTop(e.currentTarget.scrollTop);
+  }, []);
 
-      // Fork风格：更小更精致的节点
-      ctx.fillStyle = node.color;
-      ctx.beginPath();
-      ctx.arc(nodeX, nodeY, NODE_RADIUS, 0, Math.PI * 2);
-      ctx.fill();
-      
-      // Fork风格：细白色边框
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.arc(nodeX, nodeY, NODE_RADIUS - 0.5, 0, Math.PI * 2);
-      ctx.stroke();
-    }
-  }, [graphNodes, totalHeight]);
-
-  function drawConnectingLine(
-    ctx: CanvasRenderingContext2D,
-    x1: number,
-    y1: number,
-    x2: number,
-    y2: number
-  ) {
-    if (Math.abs(x1 - x2) < 8) {
-      // 同列：直线
-      ctx.moveTo(x1, y1);
-      ctx.lineTo(x2, y2);
-    } else {
-      // Fork风格：平滑的曲线
-      const dx = Math.abs(x2 - x1);
-      const dy = y2 - y1;
-      
-      // Fork风格的平滑曲线 - 更自然的弯曲
-      const startControlOffset = Math.min(Math.abs(dy) * 0.35, 14);
-      const endControlOffset = Math.min(Math.abs(dy) * 0.35, 14);
-      
-      ctx.moveTo(x1, y1);
-      ctx.bezierCurveTo(
-        x1, y1 + startControlOffset,
-        x2, y2 - endControlOffset,
-        x2, y2
-      );
-    }
-  }
-
-  function lightenColor(color: string, percent: number): string {
-    const num = parseInt(color.replace('#', ''), 16);
-    const amt = Math.round(2.55 * percent);
-    const R = Math.min(255, (num >> 16) + amt);
-    const G = Math.min(255, ((num >> 8) & 0x00ff) + amt);
-    const B = Math.min(255, (num & 0x0000ff) + amt);
-    return `#${((1 << 24) + (R << 16) + (G << 8) + B).toString(16).slice(1)}`;
-  }
-
-  function darkenColor(color: string, percent: number): string {
-    const num = parseInt(color.replace('#', ''), 16);
-    const amt = Math.round(2.55 * percent);
-    const R = Math.max(0, (num >> 16) - amt);
-    const G = Math.max(0, ((num >> 8) & 0x00ff) - amt);
-    const B = Math.max(0, (num & 0x0000ff) - amt);
-    return `#${((1 << 24) + (R << 16) + (G << 8) + B).toString(16).slice(1)}`;
-  }
-
+  // ========== 右键菜单 ==========
   const [contextMenuItems, setContextMenuItems] = useState<MenuItem[]>([]);
   const [contextMenuOid, setContextMenuOid] = useState<string | null>(null);
 
@@ -343,8 +523,8 @@ function CommitGraph({
     setContextMenuItems([
       { id: 'checkout', label: '检出此提交', onClick: () => onCheckout?.(oid) },
       { id: 'divider-1', label: '', divider: true },
-      { id: 'create-branch', label: '从这里创建分支...', onClick: () => onCreateBranch?.(oid) },
-      { id: 'create-tag', label: '从这里创建标签...', onClick: () => onCreateTag?.(oid) },
+      { id: 'create-branch', label: '从此创建分支...', onClick: () => onCreateBranch?.(oid) },
+      { id: 'create-tag', label: '从此创建标签...', onClick: () => onCreateTag?.(oid) },
       { id: 'divider-2', label: '', divider: true },
       { id: 'reset', label: '重置到此处', onClick: () => onReset?.(oid) },
       { id: 'divider-3', label: '', divider: true },
@@ -356,39 +536,45 @@ function CommitGraph({
     showContextMenu(e);
   };
 
+  // ========== 可见行计算 ==========
+  const firstVisibleRow = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - VISIBLE_BUFFER);
+  const lastVisibleRow = Math.min(
+    graphNodes.length - 1,
+    Math.ceil((scrollTop + containerHeight) / ROW_HEIGHT) + VISIBLE_BUFFER
+  );
+
   return (
     <div className="h-full flex flex-col">
+      {/* 表头 */}
       <div className="px-3 py-1.5 border-b border-panel-border bg-[#1e1e1e] flex items-center text-xs text-gray-400 flex-shrink-0">
-        <span style={{ width: GRAPH_WIDTH }} className="flex-shrink-0"></span>
+        <span style={{ width: graphWidth }} className="flex-shrink-0"></span>
         <span className="flex-1">提交</span>
         <span className="w-24 flex-shrink-0 text-right">作者</span>
         <span className="w-20 flex-shrink-0 text-right">日期</span>
       </div>
 
+      {/* 滚动区域 */}
       <div
         ref={containerRef}
         className="flex-1 overflow-y-auto bg-[#1e1e1e]"
-        onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
+        onScroll={handleScroll}
       >
-        <div style={{ height: `${totalHeight}px`, position: 'relative' }}>
-          {/* 左侧分支图 Canvas - sticky定位 */}
+        <div style={{ height: totalHeight, position: 'relative' }}>
+          {/* 左侧分支图 Canvas */}
           <div
             className="sticky left-0 top-0 z-10"
             style={{
-              width: GRAPH_WIDTH,
+              width: graphWidth,
               height: totalHeight,
               backgroundColor: '#1e1e1e',
               borderRight: '1px solid #3c3c3c',
             }}
           >
-            <canvas
-              ref={canvasRef}
-              style={{ display: 'block' }}
-            />
+            <canvas ref={canvasRef} style={{ display: 'block' }} />
           </div>
 
-          {/* 提交记录列表 */}
-          {graphNodes.map((node) => {
+          {/* 提交记录列表（虚拟滚动） */}
+          {graphNodes.slice(firstVisibleRow, lastVisibleRow + 1).map((node) => {
             const isSelected = selectedCommit === node.commit.oid;
 
             return (
@@ -402,7 +588,7 @@ function CommitGraph({
                 style={{
                   top: node.row * ROW_HEIGHT,
                   height: ROW_HEIGHT,
-                  paddingLeft: GRAPH_WIDTH + 12,
+                  paddingLeft: graphWidth + 12,
                   paddingRight: 12,
                 }}
               >
@@ -413,22 +599,26 @@ function CommitGraph({
                   {node.commit.shortOid}
                 </span>
 
-                {/* 分支名称标签 */}
+                {/* 分支标签 */}
                 {node.branchNames.length > 0 && (
                   <div className="flex flex-wrap gap-1 mr-2">
-                    {node.branchNames.map((branchName) => (
-                      <span
-                        key={branchName}
-                        className="text-xs px-2 py-0.5 rounded-full flex-shrink-0"
-                        style={{
-                          backgroundColor: `${node.color}33`,
-                          color: node.color,
-                          border: `1px solid ${node.color}66`,
-                        }}
-                      >
-                        {branchName}
-                      </span>
-                    ))}
+                    {node.branchNames.map((branchName) => {
+                      const isCurrent = branches.find(br => br.current && br.name === branchName);
+                      return (
+                        <span
+                          key={branchName}
+                          className="text-xs px-1.5 py-0 rounded flex-shrink-0"
+                          style={{
+                            backgroundColor: isCurrent ? `${node.color}44` : `${node.color}22`,
+                            color: node.color,
+                            border: `1px solid ${isCurrent ? node.color : `${node.color}55`}`,
+                            fontWeight: isCurrent ? 600 : 400,
+                          }}
+                        >
+                          {isCurrent ? '● ' : ''}{branchName}
+                        </span>
+                      );
+                    })}
                   </div>
                 )}
 
