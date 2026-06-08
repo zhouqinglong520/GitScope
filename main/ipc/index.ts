@@ -7,6 +7,7 @@ export {};
 const { ipcMain, dialog, BrowserWindow, shell } = require('electron');
 const { gitService } = require('../services/git/index');
 const { credentialService } = require('../services/credential/index');
+const { createTerminal, getTerminal, writeTerminal, resizeTerminal, killTerminal, killAllTerminals } = require('../services/terminal/index');
 
 /**
  * 注册所有 IPC 处理器
@@ -819,7 +820,62 @@ function registerIpcHandlers() {
     return win?.isMaximized() ?? false;
   });
 
-  console.log('[GitGUI] 所有 IPC 处理器已注册');
+  // ========== 终端服务 ==========
+
+  /** 创建终端 */
+  ipcMain.handle('terminal:create', async (event, id: string, cwd?: string) => {
+    try {
+      const instance = createTerminal(id, cwd);
+      const sender = event.sender;
+
+      // 转发终端输出到渲染进程
+      instance.pty.onData((data: string) => {
+        try {
+          if (!sender.isDestroyed()) {
+            sender.send('terminal:data', id, data);
+          }
+        } catch {}
+      });
+
+      // 终端退出通知
+      instance.pty.onExit(({ exitCode }: { exitCode: number }) => {
+        try {
+          if (!sender.isDestroyed()) {
+            sender.send('terminal:exit', id, exitCode);
+          }
+        } catch {}
+        killTerminal(id);
+      });
+
+      return { id: instance.id, shell: instance.shell, cwd: instance.cwd };
+    } catch (error) {
+      console.error('[Terminal] 创建失败:', error);
+      return null;
+    }
+  });
+
+  /** 向终端写入数据 */
+  ipcMain.on('terminal:write', (_, id: string, data: string) => {
+    writeTerminal(id, data);
+  });
+
+  /** 调整终端尺寸 */
+  ipcMain.on('terminal:resize', (_, id: string, cols: number, rows: number) => {
+    resizeTerminal(id, cols, rows);
+  });
+
+  /** 关闭终端 */
+  ipcMain.on('terminal:kill', (_, id: string) => {
+    killTerminal(id);
+  });
+
+  /** 获取默认 shell */
+  ipcMain.handle('terminal:getDefaultShell', () => {
+    const { getDefaultShell } = require('../services/terminal/index');
+    return getDefaultShell();
+  });
+
+  console.log('[Majie] 所有 IPC 处理器已注册');
 }
 
 module.exports = { registerIpcHandlers };
