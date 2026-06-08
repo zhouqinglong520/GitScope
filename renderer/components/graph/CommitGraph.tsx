@@ -6,7 +6,7 @@ import { useContextMenu, type MenuItem } from '../contextmenu/ContextMenu';
 // 常量
 // ============================================================
 const BRANCH_COLORS = [
-  '#e05673', '#5b8def', '#68c263', '#c9a73c', '#a06cd5',
+  '#5b8def', '#e05673', '#68c263', '#c9a73c', '#a06cd5',
   '#3eb4c6', '#d4844e', '#e86580', '#7ec8e3', '#b5e48c',
 ];
 
@@ -26,12 +26,10 @@ interface GraphNode {
   row: number;
   isMainBranch: boolean;
   branchNames: string[];
-  branchChildren: string[];
-  mergeChildren: string[];
   isMergeCommit: boolean;
-  collapsedCommitCount: number; // 折叠的被合并提交数（0=非折叠或无折叠）
-  isCollapsed: boolean;        // 是否被折叠隐藏
-  collapseParentOid: string | null; // 属于哪个 merge commit 的折叠组
+  collapsedCommitCount: number;
+  isCollapsed: boolean;
+  collapseParentOid: string | null;
 }
 
 interface EdgeInfo {
@@ -43,36 +41,18 @@ interface EdgeInfo {
   toRow: number;
   color: string;
   isMergeEdge: boolean;
-  isCollapsed: boolean; // 是否是折叠虚线
+  isCollapsed: boolean;
 }
 
 // ============================================================
-// 算法核心：pvigier 直线分支算法 + 可折叠合并提交
+// Fork 风格直线分支算法
+// 核心思路：正向扫描（新→旧），每个分支从诞生到消亡固定一条 lane，
+// 主干始终 lane 0，分支按出现顺序右移，中间段纯直线。
 // ============================================================
 
-function temporalTopologicalSort(
-  commits: GitCommit[],
-  childMap: Map<string, string[]>
-): GitCommit[] {
-  const oidSet = new Set(commits.map(c => c.oid));
-  const sorted = [...commits].sort((a, b) => b.committerTimestamp - a.committerTimestamp);
-  const explored = new Set<string>();
-  const result: GitCommit[] = [];
-  const commitMap = new Map(sorted.map(c => [c.oid, c]));
-
-  function dfs(oid: string) {
-    if (explored.has(oid) || !oidSet.has(oid)) return;
-    explored.add(oid);
-    const children = childMap.get(oid);
-    if (children) { for (const childOid of children) dfs(childOid); }
-    const commit = commitMap.get(oid);
-    if (commit) result.push(commit);
-  }
-
-  for (const c of sorted) dfs(c.oid);
-  return result;
-}
-
+/**
+ * 构建子节点映射
+ */
 function buildChildMap(commits: GitCommit[]): Map<string, string[]> {
   const childMap = new Map<string, string[]>();
   for (const c of commits) {
@@ -87,24 +67,20 @@ function buildChildMap(commits: GitCommit[]): Map<string, string[]> {
 
 /**
  * 计算被 merge commit 合入的提交（第二父节点的祖先链）
- * 返回 mergeOid → 被合并的 oid 列表
  */
 function computeMergedCommits(
-  sortedCommits: GitCommit[],
-  childMap: Map<string, string[]>,
-  oidToRow: Map<string, number>
+  commits: GitCommit[],
+  commitMap: Map<string, GitCommit>
 ): Map<string, string[]> {
   const mergeToMerged = new Map<string, string[]>();
-  const commitMap = new Map(sortedCommits.map(c => [c.oid, c]));
 
-  for (const commit of sortedCommits) {
+  for (const commit of commits) {
     if (commit.parentIds.length < 2) continue;
 
-    // 第二父节点（被合入的分支）
     const secondParentOid = commit.parentIds[1];
     const firstParentOid = commit.parentIds[0];
 
-    // 沿着第二父节点向下追溯，直到遇到第一父节点的祖先
+    // 收集第一父节点链上的所有祖先
     const firstAncestors = new Set<string>();
     let current: string | undefined = firstParentOid;
     let safety = 0;
@@ -134,14 +110,28 @@ function computeMergedCommits(
   return mergeToMerged;
 }
 
-function assignLanes(
-  sortedCommits: GitCommit[],
-  childMap: Map<string, string[]>,
+/**
+ * Fork 风格直线分支分配算法
+ *
+ * 核心思路：
+ * 1. 按 committerTimestamp 降序排列（新→旧）
+ * 2. 从最新提交开始，正向分配 lane
+ * 3. 每个分支从诞生到消亡固定一条 lane（直线效果）
+ * 4. 主干始终 lane 0
+ * 5. 分支按出现顺序右移
+ * 6. 中间段纯直线，分叉/合并处贝塞尔曲线
+ */
+function assignLanesForkStyle(
+  commits: GitCommit[],
   branches: GitBranch[],
   collapsedMergeOids: Set<string>
 ): { nodes: GraphNode[]; edges: EdgeInfo[]; maxLane: number; totalVisibleRows: number } {
-  if (sortedCommits.length === 0) return { nodes: [], edges: [], maxLane: 0, totalVisibleRows: 0 };
+  if (commits.length === 0) return { nodes: [], edges: [], maxLane: 0, totalVisibleRows: 0 };
 
+  // 构建 commit 映射
+  const commitMap = new Map(commits.map(c => [c.oid, c]));
+
+  // 分支映射：oid → 分支名列表
   const branchMap = new Map<string, string[]>();
   for (const branch of branches) {
     if (branch.oid) {
@@ -151,157 +141,236 @@ function assignLanes(
     }
   }
 
+  // 主分支检测
   const mainBranch = branches.find(b => b.name === 'main' || b.name === 'master' || b.current);
   const mainBranchOid = mainBranch?.oid;
-  const nodeMap = new Map<string, GraphNode>();
-  const activeBranches: (string | null)[] = [];
-  const laneOccupiedRows: Map<number, Set<number>> = new Map();
 
-  const branchChildrenMap = new Map<string, string[]>();
-  const mergeChildrenMap = new Map<string, string[]>();
+  // 计算被合并提交
+  const mergeToMerged = computeMergedCommits(commits, commitMap);
 
-  for (const commit of sortedCommits) {
-    const children = childMap.get(commit.oid) || [];
-    const branchKids: string[] = [];
-    const mergeKids: string[] = [];
-    for (const childOid of children) {
-      const childCommit = sortedCommits.find(c => c.oid === childOid);
-      if (childCommit) {
-        if (childCommit.parentIds[0] === commit.oid) branchKids.push(childOid);
-        else mergeKids.push(childOid);
-      }
-    }
-    branchChildrenMap.set(commit.oid, branchKids);
-    mergeChildrenMap.set(commit.oid, mergeKids);
-  }
-
-  // 计算被合并的提交
-  const oidToRow = new Map<string, number>();
-  const mergeToMerged = computeMergedCommits(sortedCommits, childMap, oidToRow);
-
-  // 标记折叠：哪些 oid 被折叠隐藏
+  // 标记折叠
   const collapsedOids = new Set<string>();
   for (const mergeOid of collapsedMergeOids) {
     const merged = mergeToMerged.get(mergeOid) || [];
     for (const oid of merged) collapsedOids.add(oid);
   }
 
-  // 过滤掉折叠的提交，重新分配 row
-  let visibleRow = 0;
-  const rowMapping = new Map<string, number>(); // oid → visible row
+  // ========== 第一步：构建提交图结构 ==========
+  // 按 committerTimestamp 降序排列（新→旧）
+  const sorted = [...commits].sort((a, b) => b.committerTimestamp - a.committerTimestamp);
 
-  for (const commit of sortedCommits) {
+  // 过滤折叠提交，建立可见行号
+  let visibleRow = 0;
+  const rowMapping = new Map<string, number>();
+  const visibleCommits: GitCommit[] = [];
+  for (const commit of sorted) {
     if (collapsedOids.has(commit.oid)) continue;
     rowMapping.set(commit.oid, visibleRow);
+    visibleCommits.push(commit);
     visibleRow++;
   }
-
   const totalVisibleRows = visibleRow;
 
-  // 逐行处理可见提交
-  for (const commit of sortedCommits) {
-    if (collapsedOids.has(commit.oid)) continue;
+  // ========== 第二步：Fork 风格 lane 分配 ==========
+  // 关键数据结构：
+  // - oidToLane: 每个 commit 分配到的 lane
+  // - oidToColor: 每个 commit 的颜色
+  // - laneOwner: lane 当前被哪个 commit 占用（活跃分支追踪）
+  //   用分支头 commit oid 标识，当该分支合并/消亡时释放 lane
 
-    const row = rowMapping.get(commit.oid)!;
-    const branchKids = branchChildrenMap.get(commit.oid) || [];
-    const mergeKids = mergeChildrenMap.get(commit.oid) || [];
+  const oidToLane = new Map<string, number>();
+  const oidToColor = new Map<string, string>();
 
-    const forbiddenLanes = new Set<number>();
-    for (const mergeChildOid of mergeKids) {
-      if (collapsedOids.has(mergeChildOid)) continue;
-      const childNode = nodeMap.get(mergeChildOid);
-      if (childNode) {
-        for (const [lane, rows] of laneOccupiedRows) {
-          for (const r of rows) {
-            if (r > childNode.row && r < row) { forbiddenLanes.add(lane); break; }
-          }
-        }
-      }
-    }
+  // 活跃 lane 池：lane → 占用该 lane 的分支头 oid
+  // 分支头 = 该 lane 上最新（最靠前/时间最新）的可见 commit
+  const activeLanes: (string | null)[] = [];
+
+  // 已经处理过的 commit oid
+  const processed = new Set<string>();
+
+  /**
+   * 为一个 commit 分配 lane
+   * 规则：
+   * 1. 如果 commit 有第一父节点且第一父节点已有 lane → 继承第一父节点的 lane（连续主线）
+   * 2. 否则，找一个空闲 lane → 分支诞生
+   * 3. 如果是 merge commit，第二父节点需要一条新 lane → 分支合入
+   */
+  function allocateLane(commit: GitCommit, isMainLine: boolean): void {
+    if (processed.has(commit.oid)) return;
 
     let lane: number;
     let color: string;
-    let inherited = false;
 
-    for (const childOid of branchKids) {
-      if (collapsedOids.has(childOid)) continue;
-      const childNode = nodeMap.get(childOid);
-      if (childNode && !forbiddenLanes.has(childNode.lane)) {
-        lane = childNode.lane;
-        color = childNode.color;
-        const idx = activeBranches.indexOf(childOid);
-        if (idx !== -1) activeBranches[idx] = commit.oid;
-        else activeBranches.push(commit.oid);
-        inherited = true;
-        break;
+    if (isMainLine) {
+      // 主线：尝试继承第一父节点的 lane
+      const firstParentOid = commit.parentIds[0];
+      if (firstParentOid && oidToLane.has(firstParentOid)) {
+        // 继承父节点 lane
+        lane = oidToLane.get(firstParentOid)!;
+        color = oidToColor.get(firstParentOid)!;
+        // 更新 lane 占用
+        activeLanes[lane] = commit.oid;
+      } else {
+        // 主线分支诞生：找空闲 lane 或新 lane
+        const nilIdx = activeLanes.indexOf(null);
+        if (nilIdx !== -1) {
+          lane = nilIdx;
+          activeLanes[lane] = commit.oid;
+        } else {
+          lane = activeLanes.length;
+          activeLanes.push(commit.oid);
+        }
+        color = BRANCH_COLORS[lane % BRANCH_COLORS.length];
       }
-    }
-
-    if (!inherited) {
-      let nilIdx = activeBranches.indexOf(null);
-      if (nilIdx !== -1) { lane = nilIdx; activeBranches[nilIdx] = commit.oid; }
-      else { lane = activeBranches.length; activeBranches.push(commit.oid); }
+    } else {
+      // 非主线（分支侧）：分配新 lane
+      const nilIdx = activeLanes.indexOf(null);
+      if (nilIdx !== -1) {
+        lane = nilIdx;
+        activeLanes[lane] = commit.oid;
+      } else {
+        lane = activeLanes.length;
+        activeLanes.push(commit.oid);
+      }
       color = BRANCH_COLORS[lane % BRANCH_COLORS.length];
     }
 
-    for (const childOid of branchKids) {
-      if (collapsedOids.has(childOid)) continue;
-      const childNode = nodeMap.get(childOid);
-      if (childNode && childNode.lane !== lane!) {
-        const idx = activeBranches.indexOf(childOid);
-        if (idx !== -1) activeBranches[idx] = null;
+    oidToLane.set(commit.oid, lane);
+    oidToColor.set(commit.oid, color);
+    processed.add(commit.oid);
+  }
+
+  // ========== 第三步：正向遍历分配 lane ==========
+  // 从最新到最旧遍历可见提交
+  for (const commit of visibleCommits) {
+    const isMergeCommit = commit.parentIds.length > 1;
+
+    if (!processed.has(commit.oid)) {
+      // 确定这个 commit 是否在主线上
+      // 主线 = 有分支头指向它，或者是某个主线 commit 的第一父节点
+      const branchNames = branchMap.get(commit.oid) || [];
+      const isOnMainBranch = branchNames.some(b => b === 'main' || b === 'master') ||
+        mainBranchOid === commit.oid;
+
+      allocateLane(commit, isOnMainBranch);
+    }
+
+    // 处理 merge commit 的第二父节点
+    if (isMergeCommit) {
+      const secondParentOid = commit.parentIds[1];
+      // 第二父节点的祖先链需要独立 lane
+      // 但这些可能已被折叠，所以只处理可见的
+      if (secondParentOid && !collapsedOids.has(secondParentOid) && !processed.has(secondParentOid)) {
+        allocateLane(commitMap.get(secondParentOid)!, false);
       }
     }
 
-    const isMainBranch = mainBranchOid === commit.oid || lane! === 0;
-    if (isMainBranch) color = BRANCH_COLORS[0];
+    // 处理第一父节点（如果可见且未处理）
+    const firstParentOid = commit.parentIds[0];
+    if (firstParentOid && !collapsedOids.has(firstParentOid) && !processed.has(firstParentOid)) {
+      // 第一父节点继承当前 commit 的 lane（主线连续性）
+      const currentLane = oidToLane.get(commit.oid)!;
+      const currentColor = oidToColor.get(commit.oid)!;
+      oidToLane.set(firstParentOid, currentLane);
+      oidToColor.set(firstParentOid, currentColor);
+      activeLanes[currentLane] = firstParentOid;
+      processed.add(firstParentOid);
+    }
 
+    // 释放不再需要的 lane
+    // 如果一个 commit 没有可见子节点，它的 lane 可以被释放
+    // 但在正向遍历中我们无法立即判断，所以采用延迟释放策略
+  }
+
+  // ========== 第四步：对未处理的可见提交补充分配 ==========
+  // 有些提交可能因为分支拓扑的复杂性未被第一步覆盖
+  for (const commit of visibleCommits) {
+    if (processed.has(commit.oid)) continue;
+
+    // 检查是否有已处理的第一父节点可以继承
+    const firstParentOid = commit.parentIds[0];
+    if (firstParentOid && oidToLane.has(firstParentOid)) {
+      const parentLane = oidToLane.get(firstParentOid)!;
+      const parentColor = oidToColor.get(firstParentOid)!;
+      oidToLane.set(commit.oid, parentLane);
+      oidToColor.set(commit.oid, parentColor);
+      activeLanes[parentLane] = commit.oid;
+    } else {
+      // 分配新 lane
+      const nilIdx = activeLanes.indexOf(null);
+      const lane = nilIdx !== -1 ? nilIdx : activeLanes.length;
+      if (nilIdx !== -1) {
+        activeLanes[lane] = commit.oid;
+      } else {
+        activeLanes.push(commit.oid);
+      }
+      oidToLane.set(commit.oid, lane);
+      oidToColor.set(commit.oid, BRANCH_COLORS[lane % BRANCH_COLORS.length]);
+    }
+    processed.add(commit.oid);
+  }
+
+  // ========== 第五步：确保主干始终 lane 0 ==========
+  // 找到主干 commits 并将它们换到 lane 0
+  const mainBranchCommits = new Set<string>();
+  let headOid = mainBranchOid;
+  while (headOid) {
+    mainBranchCommits.add(headOid);
+    const c = commitMap.get(headOid);
+    if (!c || c.parentIds.length === 0) break;
+    headOid = c.parentIds[0]; // 沿第一父节点链
+  }
+
+  if (mainBranchCommits.size > 0) {
+    // 找主干当前占用的 lane
+    const mainLane = oidToLane.get(mainBranchOid || '');
+    if (mainLane !== undefined && mainLane !== 0) {
+      // 交换 lane 0 和 mainLane 的所有 commits
+      for (const [oid, lane] of oidToLane) {
+        if (lane === 0) oidToLane.set(oid, mainLane);
+        else if (lane === mainLane) oidToLane.set(oid, 0);
+      }
+    }
+  }
+
+  // ========== 第六步：构建 GraphNode 列表 ==========
+  const nodes: GraphNode[] = visibleCommits.map(commit => {
+    const lane = oidToLane.get(commit.oid) ?? 0;
+    const color = oidToColor.get(commit.oid) ?? BRANCH_COLORS[0];
     const isMergeCommit = commit.parentIds.length > 1;
-    const mergedCount = isMergeCommit ? (mergeToMerged.get(commit.oid) || []).length : 0;
-    // 只统计被折叠的提交数
     const collapsedCommitCount = isMergeCommit && collapsedMergeOids.has(commit.oid)
       ? (mergeToMerged.get(commit.oid) || []).filter(oid => collapsedOids.has(oid)).length
       : 0;
 
-    const node: GraphNode = {
+    return {
       commit,
-      lane: lane!,
-      color: color!,
-      row,
-      isMainBranch,
+      lane,
+      color: mainBranchCommits.has(commit.oid) ? BRANCH_COLORS[0] : color,
+      row: rowMapping.get(commit.oid)!,
+      isMainBranch: lane === 0 || mainBranchCommits.has(commit.oid),
       branchNames: branchMap.get(commit.oid) || [],
-      branchChildren: branchKids,
-      mergeChildren: mergeKids,
       isMergeCommit,
       collapsedCommitCount,
       isCollapsed: false,
       collapseParentOid: null,
     };
-    nodeMap.set(commit.oid, node);
+  });
 
-    if (!laneOccupiedRows.has(lane!)) laneOccupiedRows.set(lane!, new Set());
-    laneOccupiedRows.get(lane!)!.add(row);
-  }
-
-  const nodes = sortedCommits
-    .filter(c => !collapsedOids.has(c.oid))
-    .map(c => nodeMap.get(c.oid)!)
-    .filter(Boolean);
-
+  // ========== 第七步：构建 Edge 列表 ==========
   const edges: EdgeInfo[] = [];
+  const nodeMap = new Map(nodes.map(n => [n.commit.oid, n]));
 
   for (const node of nodes) {
     for (let pIdx = 0; pIdx < node.commit.parentIds.length; pIdx++) {
       const parentOid = node.commit.parentIds[pIdx];
-      
+
+      // 父节点被折叠 — 沿折叠链找到可见祖先
       if (collapsedOids.has(parentOid)) {
-        // 父节点被折叠 — 找到折叠的 merge commit，画虚线到它
-        // 沿着折叠链向上找到可见的祖先
         let ancestorOid = parentOid;
         while (collapsedOids.has(ancestorOid)) {
-          const ancestorCommit = sortedCommits.find(c => c.oid === ancestorOid);
+          const ancestorCommit = commitMap.get(ancestorOid);
           if (!ancestorCommit) break;
-          ancestorOid = ancestorCommit.parentIds[0]; // 沿第一父节点向上
+          ancestorOid = ancestorCommit.parentIds[0];
         }
         const ancestorNode = nodeMap.get(ancestorOid);
         if (ancestorNode) {
@@ -319,9 +388,14 @@ function assignLanes(
         }
         continue;
       }
-      
+
       const parentNode = nodeMap.get(parentOid);
       if (!parentNode) continue;
+
+      // Fork 风格连线颜色规则：
+      // - 主线（第一父节点）连线：使用子节点颜色（分支延续）
+      // - 合并线（第二父节点）连线：使用父节点颜色（被合入的分支色）
+      const edgeColor = pIdx > 0 ? parentNode.color : node.color;
 
       edges.push({
         fromOid: node.commit.oid,
@@ -330,7 +404,7 @@ function assignLanes(
         toLane: parentNode.lane,
         fromRow: node.row,
         toRow: parentNode.row,
-        color: node.isMergeCommit && pIdx > 0 ? parentNode.color : node.color,
+        color: edgeColor,
         isMergeEdge: pIdx > 0,
         isCollapsed: false,
       });
@@ -350,9 +424,9 @@ function formatRelativeTime(timestamp: number): string {
   const diff = now - timestamp;
   if (diff < 60) return '刚刚';
   if (diff < 3600) return `${Math.floor(diff / 60)}分钟前`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}小时前`;
-  if (diff < 2592000) return `${Math.floor(diff / 86400)}天前`;
-  if (diff < 31536000) return `${Math.floor(diff / 2592000)}个月前`;
+  if (diff < 86400) return `${Math.floor(diff / 86400)}天前`;
+  if (diff < 2592000) return `${Math.floor(diff / 2592000)}个月前`;
+  if (diff < 31536000) return `${Math.floor(diff / 31536000)}年前`;
   return `${Math.floor(diff / 31536000)}年前`;
 }
 
@@ -406,10 +480,8 @@ function CommitGraph({
 
   // ===== 可折叠合并提交状态 =====
   const [collapsedMergeOids, setCollapsedMergeOids] = useState<Set<string>>(new Set());
-  // 默认折叠所有 merge commit
   const [autoCollapse, setAutoCollapse] = useState(true);
 
-  // 初始化时自动折叠
   useEffect(() => {
     if (autoCollapse && commits.length > 0) {
       const mergeOids = new Set<string>();
@@ -437,13 +509,11 @@ function CommitGraph({
     setCollapsedMergeOids(mergeOids);
   }, [commits]);
 
-  // ========== 图计算 ==========
+  // ========== 图计算（使用 Fork 风格算法）==========
   const { graphNodes, edges, graphWidth, totalVisibleRows } = useMemo(() => {
     if (commits.length === 0) return { graphNodes: [] as GraphNode[], edges: [] as EdgeInfo[], graphWidth: GRAPH_MIN_WIDTH, totalVisibleRows: 0 };
 
-    const childMap = buildChildMap(commits);
-    const sorted = temporalTopologicalSort(commits, childMap);
-    const result = assignLanes(sorted, childMap, branches, collapsedMergeOids);
+    const result = assignLanesForkStyle(commits, branches, collapsedMergeOids);
     const w = Math.max(GRAPH_MIN_WIDTH, (result.maxLane + 1) * LANE_WIDTH + 20);
     return { graphNodes: result.nodes, edges: result.edges, graphWidth: w, totalVisibleRows: result.totalVisibleRows };
   }, [commits, branches, collapsedMergeOids]);
@@ -461,7 +531,7 @@ function CommitGraph({
     return () => obs.disconnect();
   }, []);
 
-  // ========== Canvas 绘制 ==========
+  // ========== Canvas 绘制（Fork 风格：直线+分叉贝塞尔）==========
   useEffect(() => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
@@ -509,13 +579,42 @@ function CommitGraph({
 
       ctx.beginPath();
       if (edge.fromLane === edge.toLane) {
+        // 同 lane：纯直线（Fork 核心视觉效果）
         ctx.moveTo(fromX, fromY);
         ctx.lineTo(toX, toY);
       } else {
+        // 跨 lane：Fork 风格分两段
+        // 上半段：从 from 垂直下行一小段
+        // 下半段：贝塞尔曲线平滑过渡到目标 lane
         const dy = toY - fromY;
-        const ctrlOffset = Math.min(Math.abs(dy) * 0.4, 16);
-        ctx.moveTo(fromX, fromY);
-        ctx.bezierCurveTo(fromX, fromY + ctrlOffset, toX, toY - ctrlOffset, toX, toY);
+        const ROW_HALF = ROW_HEIGHT / 2;
+        
+        // 直线段：从 fromY 到分叉点
+        const forkY = edge.isMergeEdge
+          ? fromY + ROW_HALF   // 合并线：从子节点往下半行开始弯
+          : toY - ROW_HALF;    // 分叉线：到父节点上半行结束弯
+        
+        if (edge.isMergeEdge) {
+          // 合并线：先直线向下，再贝塞尔弯入目标 lane
+          ctx.moveTo(fromX, fromY);
+          ctx.lineTo(fromX, forkY);
+          const ctrlOffset = Math.min(Math.abs(toX - fromX) * 0.5, 12);
+          ctx.bezierCurveTo(
+            fromX, forkY + ctrlOffset,
+            toX, toY - ROW_HALF - ctrlOffset,
+            toX, toY - ROW_HALF
+          );
+          ctx.lineTo(toX, toY);
+        } else {
+          // 分叉线：从 from 贝塞尔弯出，再直线到 to
+          ctx.moveTo(fromX, fromY);
+          ctx.bezierCurveTo(
+            fromX, fromY + ROW_HALF * 0.5,
+            toX, forkY - ROW_HALF * 0.5,
+            toX, forkY
+          );
+          ctx.lineTo(toX, toY);
+        }
       }
       ctx.stroke();
       ctx.setLineDash([]);
@@ -614,7 +713,6 @@ function CommitGraph({
         <span className="flex-1">提交</span>
         <span className="w-24 flex-shrink-0 text-right">作者</span>
         <span className="w-20 flex-shrink-0 text-right">日期</span>
-        {/* 折叠控制 */}
         <div className="flex items-center gap-1 ml-2 pl-2 border-l border-[#3c3c3c]">
           <button className="px-1.5 py-0.5 text-[10px] text-gray-500 hover:text-gray-300 hover:bg-[#3c3c3c] rounded" onClick={expandAll} title="展开所有">展开</button>
           <button className="px-1.5 py-0.5 text-[10px] text-gray-500 hover:text-gray-300 hover:bg-[#3c3c3c] rounded" onClick={collapseAll} title="折叠所有">折叠</button>
