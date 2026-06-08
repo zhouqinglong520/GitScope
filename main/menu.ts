@@ -5,14 +5,56 @@
 export {};
 
 const { Menu, app, shell, dialog } = require('electron');
+const Store = require('electron-store');
 
 let mainWindow = null;
+
+// 最近打开的仓库列表（持久化）
+const recentStore = new Store({ name: 'recent-repos', defaults: { repos: [] as Array<{ name: string; path: string }> } });
+
+function getRecentRepos() {
+  return recentStore.get('repos', []) as Array<{ name: string; path: string }>;
+}
+
+function addRecentRepo(name: string, path: string) {
+  let repos = getRecentRepos();
+  // 去重：同路径移到顶部
+  repos = repos.filter(r => r.path !== path);
+  repos.unshift({ name, path });
+  // 最多保留 10 条
+  if (repos.length > 10) repos = repos.slice(0, 10);
+  recentStore.set('repos', repos);
+}
+
+function clearRecentRepos() {
+  recentStore.set('repos', []);
+}
 
 function setMainWindow(win) {
   mainWindow = win;
 }
 
 function createAppMenu() {
+  const menu = Menu.buildFromTemplate(getMenuTemplate());
+  Menu.setApplicationMenu(menu);
+  return menu;
+}
+
+function buildRecentSubmenu() {
+  const repos = getRecentRepos();
+  if (repos.length === 0) {
+    return [{ label: '无最近仓库', enabled: false }];
+  }
+  const items = repos.map((r, i) => ({
+    label: `${i < 9 ? `${i + 1}. ` : ''}${r.name} — ${r.path}`,
+    click: () => mainWindow?.webContents.send('menu:openRepoAtPath', r.path),
+  }));
+  items.push({ type: 'separator' as const });
+  items.push({ label: '清除最近打开', click: () => { clearRecentRepos(); rebuildMenu(); } });
+  return items;
+}
+
+function getMenuTemplate() {
   const template = [
     // 文件
     {
@@ -41,7 +83,7 @@ function createAppMenu() {
         { type: 'separator' },
         {
           label: '最近打开',
-          submenu: [], // 动态填充
+          submenu: buildRecentSubmenu(),
         },
         { type: 'separator' },
         {
@@ -310,7 +352,11 @@ function createAppMenu() {
     },
   ];
 
-  return Menu.buildFromTemplate(template);
+  return template;
 }
 
-module.exports = { createAppMenu, setMainWindow };
+function rebuildMenu() {
+  createAppMenu();
+}
+
+module.exports = { createAppMenu, setMainWindow, addRecentRepo, rebuildMenu };
