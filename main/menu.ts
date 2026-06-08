@@ -192,6 +192,11 @@ function createAppMenu() {
           click: () => mainWindow?.webContents.send('menu:openTerminal'),
         },
         {
+          label: 'Gitee',
+          accelerator: 'CmdOrCtrl+G',
+          click: () => mainWindow?.webContents.send('menu:gitee'),
+        },
+        {
           label: '在资源管理器中打开',
           click: () => mainWindow?.webContents.send('menu:openInExplorer'),
         },
