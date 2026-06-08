@@ -1660,6 +1660,36 @@ function parseNameStatus(output: string): CommitFileChange[] {
     await this.gitCliExec(['am', patchPath]);
   }
 
+  /** 应用补丁到暂存区（行级暂存用） */
+  async applyPatchCached(patchPath: string): Promise<void> {
+    if (!this.dir) throw new Error('仓库未打开');
+    await this.gitCliExec(['apply', '--cached', patchPath]);
+  }
+
+  /** 反向应用补丁（取消暂存行用） */
+  async applyPatchReverse(patchPath: string): Promise<void> {
+    if (!this.dir) throw new Error('仓库未打开');
+    await this.gitCliExec(['apply', '-R', '--cached', patchPath]);
+  }
+
+  /** 读取冲突文件内容 */
+  async readConflictFile(filePath: string): Promise<string> {
+    if (!this.dir) throw new Error('仓库未打开');
+    const fs = await import('fs/promises');
+    const path = await import('path');
+    const fullPath = path.join(this.dir, filePath);
+    return await fs.readFile(fullPath, 'utf-8');
+  }
+
+  /** 写入冲突文件内容 */
+  async writeConflictFile(filePath: string, content: string): Promise<void> {
+    if (!this.dir) throw new Error('仓库未打开');
+    const fs = await import('fs/promises');
+    const path = await import('path');
+    const fullPath = path.join(this.dir, filePath);
+    await fs.writeFile(fullPath, content, 'utf-8');
+  }
+
   /** 列出补丁 */
   async listPatches(): Promise<string[]> {
     if (!this.dir) return [];
