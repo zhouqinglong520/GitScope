@@ -477,8 +477,33 @@ export function MergeBranchDialog({ onClose, sourceBranch: defaultSource }: Merg
   const [showOptions, setShowOptions] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [conflictWarning, setConflictWarning] = useState<string | null>(null);
+  const [checkingConflict, setCheckingConflict] = useState(false);
   const localBranches = useMemo(() => branches.filter(b => !b.remote && !b.current), [branches]);
   const remoteBranches = useMemo(() => branches.filter(b => b.remote), [branches]);
+
+  // 冲突预判 — Fork 风格：选择来源分支后自动检测
+  useEffect(() => {
+    if (!source || !currentBranch) { setConflictWarning(null); return; }
+    setCheckingConflict(true);
+    const timer = setTimeout(async () => {
+      try {
+        // 使用 git merge --no-commit --no-ff 模拟合并来检测冲突
+        const result = await window.electronAPI.git?.checkMergeConflict?.(source);
+        if (result?.hasConflicts) {
+          setConflictWarning(`⚠ 预计 ${result.conflictFiles?.length || '若干'} 个文件可能冲突: ${(result.conflictFiles || []).slice(0, 3).join(', ')}${(result.conflictFiles?.length || 0) > 3 ? '...' : ''}`);
+        } else {
+          setConflictWarning(null);
+        }
+      } catch {
+        // 降级：如果 IPC 不支持，不做冲突预判
+        setConflictWarning(null);
+      } finally {
+        setCheckingConflict(false);
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [source, currentBranch]);
 
   const commandParts = ['git merge'];
   if (noFf) commandParts.push('--no-ff');
@@ -562,6 +587,10 @@ export function MergeBranchDialog({ onClose, sourceBranch: defaultSource }: Merg
             <span style={D.cmdHighlight}>{commandPreview.split(' ')[0]}</span>
             {' ' + commandPreview.split(' ').slice(1).join(' ')}
           </div>
+
+          {/* 冲突预判 — Fork 风格 */}
+          {checkingConflict && <div style={{ fontSize: 12, color: COLOR.textMuted, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}><span className="animate-spin" style={{ display: 'inline-block', width: 12, height: 12, border: '2px solid #484f58', borderTopColor: COLOR.accent, borderRadius: '50%' }} />正在检测冲突...</div>}
+          {conflictWarning && <div style={{ fontSize: 12, color: '#e8a847', marginBottom: 12, padding: '8px 12px', background: '#e8a84715', borderRadius: 6, border: '1px solid #e8a84733' }}>{conflictWarning}</div>}
 
           {error && <div style={D.error}>⚠ {error}</div>}
 
