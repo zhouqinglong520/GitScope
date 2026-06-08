@@ -38,10 +38,10 @@ function Sidebar({ onOpenRepo }: SidebarProps) {
   const isExpanded = (section: SectionType) => expandedSections.has(section);
 
   return (
-    <div className="flex flex-col h-full bg-[#252526] border-r border-[#3c3c3c]">
+    <div className="flex flex-col h-full" style={{ background: 'var(--bg-elevated)', borderRight: '1px solid var(--border-subtle)' }}>
       {/* 仓库标题栏 */}
-      <div className="h-9 flex items-center justify-between px-3 border-b border-[#3c3c3c] bg-[#2d2d30]">
-        <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+      <div className="h-9 flex items-center justify-between px-3" style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--bg-overlay)' }}>
+        <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
           {i18n.sidebar.repositories}
         </span>
         <button
@@ -132,23 +132,32 @@ interface SectionProps {
 
 function Section({ title, expanded, onToggle, icon, children }: SectionProps) {
   return (
-    <div className="border-b border-panel-border">
+    <div style={{ borderBottom: '1px solid var(--border-subtle)' }}>
       <div
         onClick={onToggle}
-        className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-sidebar-hover transition-colors"
+        className="sidebar-section-header"
+        style={{ padding: '6px 12px' }}
       >
         <svg
-          className={`w-3 h-3 text-gray-500 transition-transform ${expanded ? 'rotate-90' : ''}`}
+          className={`w-3 h-3 transition-transform`}
+          style={{ color: 'var(--text-faint)', transitionDuration: 'var(--duration-fast)' }}
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
         >
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
         </svg>
-        {icon}
-        <span className="flex-1 text-xs font-medium text-gray-300">{title}</span>
+        {icon && <span style={{ color: 'var(--text-muted)' }}>{icon}</span>}
+        <span className="sidebar-section-title flex-1">{title}</span>
       </div>
-      {expanded && <div className="pb-1">{children}</div>}
+      <div style={{
+        maxHeight: expanded ? '1000px' : '0',
+        overflow: 'hidden',
+        transition: 'max-height var(--duration-slow) var(--ease-out)',
+        opacity: expanded ? 1 : 0,
+      }}>
+        <div style={{ paddingBottom: 4 }}>{children}</div>
+      </div>
     </div>
   );
 }
@@ -206,10 +215,8 @@ function RepoSection() {
           key={repo.id}
           onClick={() => setActiveRepo(repo.id)}
           onContextMenu={showContextMenu}
-          className={`
-            flex items-center gap-2 px-3 py-1.5 cursor-pointer transition-colors
-            ${activeRepoId === repo.id ? 'bg-sidebar-active' : 'hover:bg-sidebar-hover'}
-          `}
+          className={`sidebar-item ${activeRepoId === repo.id ? 'sidebar-item-active' : ''}`}
+          style={{ paddingLeft: 28 }}
         >
           <svg className="w-4 h-4 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
@@ -336,17 +343,15 @@ function BranchSection() {
           key={branch.name}
           onContextMenu={showContextMenu}
           onDoubleClick={() => checkoutLocalBranch(branch.name)}
-          className={`
-            flex items-center gap-2 px-3 py-1.5 cursor-pointer transition-colors
-            ${branch.current ? 'text-primary-400' : 'hover:bg-sidebar-hover'}
-          `}
+          className={`sidebar-item ${branch.current ? 'sidebar-item-active' : ''}`}
+          style={{ paddingLeft: 28 }}
         >
           <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
           </svg>
           <span className="text-sm truncate flex-1">{branch.name}</span>
           {branch.current && (
-            <span className="text-xs text-primary-500">当前</span>
+            <span className="sidebar-item-meta" style={{ color: 'var(--accent)' }}>●</span>
           )}
         </div>
       ))}
