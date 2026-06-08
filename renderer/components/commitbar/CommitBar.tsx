@@ -32,6 +32,8 @@ function CommitBar({ hasStaged, onCommit, isCommitting = false, stagedCount = 0 
   const [showCoAuthorInput, setShowCoAuthorInput] = useState(false);
   const [aiGenerating, setAiGenerating] = useState(false);
   const [subjectLength] = useState(72);
+  const [recentMessages, setRecentMessages] = useState<string[]>([]);
+  const [showRecentMessages, setShowRecentMessages] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // 自动调整文本框高度
@@ -42,6 +44,21 @@ function CommitBar({ hasStaged, onCommit, isCommitting = false, stagedCount = 0 
       textarea.style.height = `${Math.min(textarea.scrollHeight, 120)}px`;
     }
   }, [message]);
+
+  // 加载最近提交消息 — Fork 风格
+  useEffect(() => {
+    (async () => {
+      try {
+        const log = await window.electronAPI.git.getLog({ depth: 15 });
+        if (log && Array.isArray(log)) {
+          const messages = log.map((c: any) => c.message || '').filter(Boolean);
+          // 去重
+          const unique = [...new Set(messages)];
+          setRecentMessages(unique.slice(0, 10));
+        }
+      } catch {}
+    })();
+  }, [hasStaged]);
 
   // 加载提交模板
   useEffect(() => {
@@ -201,6 +218,36 @@ function CommitBar({ hasStaged, onCommit, isCommitting = false, stagedCount = 0 
             rows={2}
             style={{ minHeight: '60px', maxHeight: '120px' }}
           />
+
+          {/* 最近提交消息 — Fork 风格 */}
+          {recentMessages.length > 0 && (
+            <div style={{ marginTop: 4, maxHeight: showRecentMessages ? 160 : 0, overflow: 'hidden', transition: 'max-height 0.2s ease' }}>
+              <div style={{ background: '#1e1e1e', border: '1px solid #3c3c3c', borderRadius: 4, overflow: 'hidden' }}>
+                <div style={{ padding: '4px 8px', fontSize: 10, color: '#8b949e', borderBottom: '1px solid #3c3c3c', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span>最近提交</span>
+                  <button onClick={() => setShowRecentMessages(false)} style={{ background: 'none', border: 'none', color: '#484f58', cursor: 'pointer', fontSize: 12 }}>✕</button>
+                </div>
+                {recentMessages.slice(0, 8).map((msg, i) => (
+                  <div
+                    key={i}
+                    onClick={() => { setMessage(msg); setShowRecentMessages(false); }}
+                    style={{ padding: '4px 8px', fontSize: 12, color: '#e6edf3', cursor: 'pointer', borderBottom: i < recentMessages.length - 1 ? '1px solid #252b34' : 'none', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = '#252b34')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                    title={msg}
+                  >
+                    {msg.split('\n')[0]}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {!showRecentMessages && recentMessages.length > 0 && (
+            <button onClick={() => setShowRecentMessages(true)} style={{ marginTop: 2, background: 'none', border: 'none', color: '#484f58', cursor: 'pointer', fontSize: 10, padding: '2px 0', display: 'flex', alignItems: 'center', gap: 4 }}>
+              <svg width="10" height="10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              最近提交
+            </button>
+          )}
 
           {/* 主题长度计数器 */}
           <div className="flex items-center justify-between mt-1">
