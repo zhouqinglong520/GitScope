@@ -8,6 +8,7 @@ const { ipcMain, dialog, BrowserWindow, shell } = require('electron');
 const { gitService } = require('../services/git/index');
 const { credentialService } = require('../services/credential/index');
 const { createTerminal, getTerminal, writeTerminal, resizeTerminal, killTerminal, killAllTerminals } = require('../services/terminal/index');
+const giteeService = require('../services/gitee/index');
 
 /**
  * 注册所有 IPC 处理器
@@ -873,6 +874,74 @@ function registerIpcHandlers() {
   ipcMain.handle('terminal:getDefaultShell', () => {
     const { getDefaultShell } = require('../services/terminal/index');
     return getDefaultShell();
+  });
+
+  // ========== Gitee 集成服务 ==========
+
+  /** Gitee OAuth 登录 */
+  ipcMain.handle('gitee:login', async () => {
+    try {
+      return await giteeService.login();
+    } catch (error) {
+      console.error('[Gitee] 登录失败:', error);
+      return { error: error.message };
+    }
+  });
+
+  /** Gitee 登出 */
+  ipcMain.handle('gitee:logout', () => {
+    giteeService.logout();
+  });
+
+  /** 检查 Gitee 登录状态 */
+  ipcMain.handle('gitee:isLoggedIn', () => {
+    return giteeService.isLoggedIn();
+  });
+
+  /** 获取 Gitee 当前用户 */
+  ipcMain.handle('gitee:getCurrentUser', async () => {
+    try { return await giteeService.getCurrentUser(); }
+    catch (error) { return { error: error.message }; }
+  });
+
+  /** 获取 PR/MR 列表 */
+  ipcMain.handle('gitee:listPullRequests', async (_, owner: string, repo: string, state?: string) => {
+    try { return await giteeService.listPullRequests(owner, repo, state); }
+    catch (error) { return { error: error.message }; }
+  });
+
+  /** 获取 PR 详情 */
+  ipcMain.handle('gitee:getPullRequest', async (_, owner: string, repo: string, number: number) => {
+    try { return await giteeService.getPullRequest(owner, repo, number); }
+    catch (error) { return { error: error.message }; }
+  });
+
+  /** 创建 PR */
+  ipcMain.handle('gitee:createPullRequest', async (_, owner: string, repo: string, title: string, body: string, head: string, base: string) => {
+    try { return await giteeService.createPullRequest(owner, repo, title, body, head, base); }
+    catch (error) { return { error: error.message }; }
+  });
+
+  /** 合并 PR */
+  ipcMain.handle('gitee:mergePullRequest', async (_, owner: string, repo: string, number: number) => {
+    try { return await giteeService.mergePullRequest(owner, repo, number); }
+    catch (error) { return { error: error.message }; }
+  });
+
+  /** 获取用户仓库列表 */
+  ipcMain.handle('gitee:listRepos', async (_, page?: number, perPage?: number) => {
+    try { return await giteeService.listRepos(page, perPage); }
+    catch (error) { return { error: error.message }; }
+  });
+
+  /** 从 remote URL 解析 owner/repo */
+  ipcMain.handle('gitee:parseRepoFromRemote', (_, remoteUrl: string) => {
+    return giteeService.parseRepoFromRemote(remoteUrl);
+  });
+
+  /** 设置 OAuth 配置 */
+  ipcMain.handle('gitee:setOAuthConfig', (_, clientId: string, clientSecret: string) => {
+    giteeService.setOAuthConfig(clientId, clientSecret);
   });
 
   console.log('[Majie] 所有 IPC 处理器已注册');
