@@ -30,6 +30,7 @@ function CommitBar({ hasStaged, onCommit, isCommitting = false, stagedCount = 0 
   const [coAuthors, setCoAuthors] = useState<CoAuthor[]>([]);
   const [coAuthorInput, setCoAuthorInput] = useState('');
   const [showCoAuthorInput, setShowCoAuthorInput] = useState(false);
+  const [aiGenerating, setAiGenerating] = useState(false);
   const [subjectLength] = useState(72);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -138,6 +139,29 @@ function CommitBar({ hasStaged, onCommit, isCommitting = false, stagedCount = 0 
     setCoAuthors(prev => prev.filter((_, i) => i !== index));
   }, []);
 
+  // AI 生成 commit message
+  const handleAiGenerate = async () => {
+    setAiGenerating(true);
+    try {
+      // 获取暂存区 diff
+      const diff = await window.electronAPI.git.getStagedDiff?.() || '';
+      if (!diff || diff.trim().length === 0) {
+        setMessage('feat: update files');
+        return;
+      }
+      const result = await window.electronAPI.ai.generateCommitMessage(diff, 'zh');
+      if (result && !result.error) {
+        setMessage(result.trim());
+      } else if (result?.error) {
+        console.error('AI 生成失败:', result.error);
+      }
+    } catch (e) {
+      console.error('AI 生成失败:', e);
+    } finally {
+      setAiGenerating(false);
+    }
+  };
+
   const canCommit = message.trim().length > 0 && hasStaged && !isCommitting;
 
   // 主题长度颜色
@@ -240,6 +264,19 @@ function CommitBar({ hasStaged, onCommit, isCommitting = false, stagedCount = 0 
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
               </svg>
               {i18n.commitDialog.coAuthor}
+            </button>
+
+            {/* AI 生成 */}
+            <button
+              onClick={handleAiGenerate}
+              className="flex items-center gap-1 text-xs text-gray-400 hover:text-[var(--accent,#00d4aa)]"
+              disabled={!hasStaged || aiGenerating}
+              title="AI 生成 Commit Message"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+              {aiGenerating ? '生成中...' : 'AI 生成'}
             </button>
           </div>
 
