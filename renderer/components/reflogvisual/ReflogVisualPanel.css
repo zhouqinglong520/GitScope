@@ -1,0 +1,428 @@
+/* Reflog Visual Timeline — Majie 码界 */
+
+.rvp-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(4px);
+}
+
+.rvp-dialog {
+  width: 720px;
+  max-height: 80vh;
+  background: var(--bg-surface, #0d1117);
+  border: 1px solid var(--border-subtle, #21262d);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+
+.rvp-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border-subtle, #21262d);
+  background: var(--bg-elevated, #161b22);
+}
+
+.rvp-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.rvp-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary, #e6edf3);
+  margin: 0;
+}
+
+.rvp-subtitle {
+  font-size: 11px;
+  color: var(--accent, #00d4aa);
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: rgba(0,212,170,0.1);
+}
+
+.rvp-close {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--text-muted, #8b949e);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.rvp-close:hover {
+  background: var(--bg-hover, #1f2937);
+  color: var(--text-primary, #e6edf3);
+}
+
+/* Toolbar */
+.rvp-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 18px;
+  border-bottom: 1px solid var(--border-subtle, #21262d);
+  flex-wrap: wrap;
+}
+
+.rvp-filter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: var(--bg-base, #0a0e14);
+  border: 1px solid var(--border-subtle, #21262d);
+  flex: 1;
+  min-width: 160px;
+}
+
+.rvp-filter svg { color: var(--text-muted, #8b949e); flex-shrink: 0; }
+
+.rvp-filter-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-primary, #e6edf3);
+  font-size: 12px;
+}
+
+.rvp-filter-input::placeholder { color: var(--text-faint, #484f58); }
+
+.rvp-group-filters {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.rvp-group-btn {
+  padding: 3px 8px;
+  font-size: 11px;
+  border-radius: 4px;
+  border: 1px solid var(--border-subtle, #21262d);
+  background: transparent;
+  color: var(--text-muted, #8b949e);
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.rvp-group-btn:hover {
+  border-color: var(--accent, #00d4aa);
+  color: var(--text-primary, #e6edf3);
+}
+
+.rvp-group-btn.active {
+  background: var(--accent-dim, rgba(0,212,170,0.12));
+  border-color: var(--accent, #00d4aa);
+  color: var(--accent, #00d4aa);
+}
+
+.rvp-toolbar-right {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-left: auto;
+}
+
+.rvp-reset-mode {
+  padding: 3px 8px;
+  font-size: 11px;
+  border-radius: 4px;
+  border: 1px solid var(--border-subtle, #21262d);
+  background: var(--bg-base, #0a0e14);
+  color: var(--text-primary, #e6edf3);
+  outline: none;
+  cursor: pointer;
+}
+
+.rvp-refresh-btn {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--border-subtle, #21262d);
+  color: var(--text-muted, #8b949e);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.rvp-refresh-btn:hover {
+  color: var(--accent, #00d4aa);
+  border-color: var(--accent, #00d4aa);
+}
+
+/* Timeline */
+.rvp-timeline {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 18px;
+}
+
+.rvp-timeline::-webkit-scrollbar { width: 6px; }
+.rvp-timeline::-webkit-scrollbar-thumb { background: var(--border-subtle, #21262d); border-radius: 3px; }
+
+.rvp-group { margin-bottom: 16px; }
+
+.rvp-group-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-faint, #484f58);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 4px 0;
+  margin-bottom: 4px;
+}
+
+/* Entry */
+.rvp-entry {
+  display: flex;
+  gap: 12px;
+  position: relative;
+  padding: 6px 0;
+  border-radius: 6px;
+  transition: background 0.1s;
+}
+
+.rvp-entry:hover { background: var(--bg-hover, rgba(31,41,55,0.5)); }
+.rvp-entry-preview { background: var(--bg-hover, rgba(31,41,55,0.3)); }
+
+.rvp-timeline-line {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 16px;
+  flex-shrink: 0;
+  padding-top: 6px;
+}
+
+.rvp-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  z-index: 1;
+}
+
+.rvp-connector {
+  width: 2px;
+  flex: 1;
+  background: var(--border-subtle, #21262d);
+  margin-top: 4px;
+}
+
+.rvp-entry-content {
+  flex: 1;
+  min-width: 0;
+  padding-bottom: 4px;
+}
+
+.rvp-entry-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+
+.rvp-action-badge {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.rvp-sha {
+  font-size: 11px;
+  font-family: monospace;
+  color: var(--accent, #00d4aa);
+  cursor: pointer;
+}
+
+.rvp-sha:hover { text-decoration: underline; }
+
+.rvp-ref {
+  font-size: 10px;
+  color: var(--text-muted, #8b949e);
+  padding: 1px 5px;
+  background: rgba(139,148,158,0.1);
+  border-radius: 3px;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rvp-time {
+  font-size: 11px;
+  color: var(--text-faint, #484f58);
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.rvp-entry-bottom {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rvp-message {
+  font-size: 12px;
+  color: var(--text-secondary, #c9d1d9);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rvp-date-full {
+  font-size: 10px;
+  color: var(--text-faint, #484f58);
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.rvp-entry-actions {
+  display: flex;
+  gap: 4px;
+  margin-top: 4px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.rvp-entry:hover .rvp-entry-actions { opacity: 1; }
+
+.rvp-action-btn {
+  padding: 2px 8px;
+  font-size: 11px;
+  border: 1px solid var(--border-subtle, #21262d);
+  background: var(--bg-base, #0a0e14);
+  color: var(--text-muted, #8b949e);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.rvp-action-btn:hover {
+  border-color: var(--accent, #00d4aa);
+  color: var(--accent, #00d4aa);
+}
+
+/* Footer */
+.rvp-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 18px;
+  border-top: 1px solid var(--border-subtle, #21262d);
+  background: var(--bg-elevated, #161b22);
+}
+
+.rvp-footer-info { font-size: 11px; color: var(--text-muted, #8b949e); }
+.rvp-footer-hint { font-size: 10px; color: var(--text-faint, #484f58); }
+
+/* Confirm Dialog */
+.rvp-confirm-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.5);
+  z-index: 10;
+}
+
+.rvp-confirm {
+  width: 360px;
+  background: var(--bg-elevated, #161b22);
+  border: 1px solid var(--border-subtle, #21262d);
+  border-radius: 10px;
+  padding: 20px;
+}
+
+.rvp-confirm-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary, #e6edf3);
+  margin-bottom: 12px;
+}
+
+.rvp-confirm-body {
+  font-size: 13px;
+  color: var(--text-secondary, #c9d1d9);
+  margin-bottom: 16px;
+  line-height: 1.6;
+}
+
+.rvp-confirm-body code {
+  font-family: monospace;
+  color: var(--accent, #00d4aa);
+  background: rgba(0,212,170,0.1);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+.rvp-confirm-desc {
+  font-size: 12px;
+  color: var(--text-muted, #8b949e);
+  margin-top: 6px;
+}
+
+.rvp-confirm-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.rvp-btn-cancel, .rvp-btn-confirm {
+  padding: 6px 16px;
+  font-size: 12px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.rvp-btn-cancel {
+  background: var(--bg-base, #0a0e14);
+  color: var(--text-secondary, #c9d1d9);
+  border: 1px solid var(--border-subtle, #21262d);
+}
+
+.rvp-btn-confirm {
+  background: var(--accent, #00d4aa);
+  color: #000;
+}
+
+.rvp-btn-danger {
+  background: #e85d75 !important;
+  color: #fff !important;
+}
+
+.rvp-loading, .rvp-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  color: var(--text-muted, #8b949e);
+  font-size: 13px;
+}
