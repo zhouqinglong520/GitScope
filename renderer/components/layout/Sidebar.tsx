@@ -56,6 +56,11 @@ function Sidebar({ onOpenRepo, onShowDialog }: SidebarProps) {
         </Section>
         <Section title={i18n.branch.local} expanded={isExpanded('branches')} onToggle={() => toggleSection('branches')} icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>}>
           <BranchSection onShowDialog={onShowDialog} pinnedItems={pinnedItems} togglePin={togglePin} />
+          {/* P1: 分支区操作入口 */}
+          <div style={{ display: 'flex', gap: 0, padding: '4px 12px' }}>
+            <button onClick={() => onShowDialog?.('staleBranches')} style={{ flex: 1, padding: '4px 0', fontSize: 10, color: 'var(--text-faint)', background: 'none', border: `1px solid var(--border-subtle)`, borderRadius: 4, cursor: 'pointer', borderRight: 'none' }} title="查询并删除已合并分支">清理陈旧</button>
+            <button onClick={() => onShowDialog?.('gitFlow')} style={{ flex: 1, padding: '4px 0', fontSize: 10, color: 'var(--text-faint)', background: 'none', border: `1px solid var(--border-subtle)`, borderRadius: 4, cursor: 'pointer' }} title="Git Flow 工作流">Git Flow</button>
+          </div>
         </Section>
         {tags && tags.length > 0 && (
           <Section title="标签" expanded={isExpanded('tags')} onToggle={() => toggleSection('tags')} icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z" /></svg>}>
