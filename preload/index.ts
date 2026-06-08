@@ -306,6 +306,29 @@ contextBridge.exposeInMainWorld('electronAPI', {
     openTerminal: (path) => ipcRenderer.invoke('shell:openTerminal', path),
   },
 
+  // ========== AI 服务 ==========
+  ai: {
+    /** 生成 Commit Message */
+    generateCommitMessage: (diff: string, language?: string) =>
+      ipcRenderer.invoke('ai:generateCommitMessage', diff, language),
+    /** 代码审查 */
+    reviewCode: (diff: string, language?: string) =>
+      ipcRenderer.invoke('ai:reviewCode', diff, language),
+    /** 解释代码 */
+    explainCode: (code: string, language?: string) =>
+      ipcRenderer.invoke('ai:explainCode', code, language),
+    /** 获取配置 */
+    getConfig: () => ipcRenderer.invoke('ai:getConfig'),
+    /** 设置配置 */
+    setConfig: (config: any) => ipcRenderer.invoke('ai:setConfig', config),
+    /** 切换 Ollama */
+    useOllama: (model?: string) => ipcRenderer.invoke('ai:useOllama', model),
+    /** 是否已配置 */
+    isConfigured: () => ipcRenderer.invoke('ai:isConfigured'),
+    /** 测试连接 */
+    testConnection: () => ipcRenderer.invoke('ai:testConnection'),
+  },
+
   // ========== Gitee 集成 ==========
   gitee: {
     /** OAuth 登录 */
