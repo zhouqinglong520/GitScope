@@ -15,6 +15,18 @@ interface SidebarProps {
   onShowDialog?: (dialog: string, payload?: string | null) => void;
 }
 
+// P2-3: 分支/标签颜色与提交图匹配
+const BRANCH_COLORS = [
+  '#5b8def', '#e05673', '#68c263', '#c9a73c', '#a06cd5',
+  '#3eb4c6', '#d4844e', '#e86580', '#7ec8e3', '#b5e48c',
+];
+
+function getBranchColor(branchName: string): string {
+  let hash = 0;
+  for (let i = 0; i < branchName.length; i++) hash = ((hash << 5) - hash + branchName.charCodeAt(i)) | 0;
+  return BRANCH_COLORS[Math.abs(hash) % BRANCH_COLORS.length];
+}
+
 type SectionType = 'repositories' | 'branches' | 'tags' | 'stashes';
 
 function Sidebar({ onOpenRepo, onShowDialog }: SidebarProps) {
@@ -212,7 +224,7 @@ function BranchItem({ branch, onDoubleClick, onRefresh, showDialog, isPinned, on
   return (
     <>
       <div onContextMenu={showContextMenu} onDoubleClick={onDoubleClick} className={`sidebar-item ${branch.current ? 'sidebar-item-active' : ''}`} style={{ paddingLeft: 28 }}>
-        <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+        <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke={getBranchColor(branchName)} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
         <span className="text-sm truncate flex-1">{branchName}</span>
         {isPinned && <span style={{ color: '#e8c547', fontSize: 10, marginRight: 4 }} title="已固定">📌</span>}
         {branch.current && <span className="sidebar-item-meta" style={{ color: 'var(--accent)' }}>●</span>}
@@ -259,7 +271,7 @@ function TagItem({ tag, onRefresh, showDialog, isPinned, onTogglePin }: { tag: {
   return (
     <>
       <div onContextMenu={showContextMenu} className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-sidebar-hover transition-colors">
-        <svg className="w-4 h-4 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z" /></svg>
+        <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke={getBranchColor(tagName)} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z" /></svg>
         <span className="text-sm truncate text-gray-300 flex-1">{tagName}</span>
         {isPinned && <span style={{ color: '#e8c547', fontSize: 10 }} title="已固定">📌</span>}
       </div>
@@ -294,15 +306,4 @@ function StashItem({ stash, index, onRefresh }: { stash: { id: string; message: 
   return (
     <>
       <div onContextMenu={showContextMenu} className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-sidebar-hover transition-colors">
-        <svg className="w-4 h-4 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
-        <div className="flex-1 min-w-0">
-          <div className="text-sm truncate">{stash.message || `Stash #${index}`}</div>
-          <div className="text-xs text-gray-500">{stash.date || index === 0 ? '刚刚' : `${index} 分钟前`}</div>
-        </div>
-      </div>
-      {ContextMenuWrapper}
-    </>
-  );
-}
-
-export default Sidebar;
+        <svg className="w-4 h-4 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWid
