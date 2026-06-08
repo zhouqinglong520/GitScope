@@ -306,6 +306,39 @@ contextBridge.exposeInMainWorld('electronAPI', {
     openTerminal: (path) => ipcRenderer.invoke('shell:openTerminal', path),
   },
 
+  // ========== Gitee 集成 ==========
+  gitee: {
+    /** OAuth 登录 */
+    login: () => ipcRenderer.invoke('gitee:login'),
+    /** 登出 */
+    logout: () => ipcRenderer.invoke('gitee:logout'),
+    /** 检查登录状态 */
+    isLoggedIn: () => ipcRenderer.invoke('gitee:isLoggedIn'),
+    /** 获取当前用户 */
+    getCurrentUser: () => ipcRenderer.invoke('gitee:getCurrentUser'),
+    /** 获取 PR/MR 列表 */
+    listPullRequests: (owner: string, repo: string, state?: string) =>
+      ipcRenderer.invoke('gitee:listPullRequests', owner, repo, state),
+    /** 获取 PR 详情 */
+    getPullRequest: (owner: string, repo: string, number: number) =>
+      ipcRenderer.invoke('gitee:getPullRequest', owner, repo, number),
+    /** 创建 PR */
+    createPullRequest: (owner: string, repo: string, title: string, body: string, head: string, base: string) =>
+      ipcRenderer.invoke('gitee:createPullRequest', owner, repo, title, body, head, base),
+    /** 合并 PR */
+    mergePullRequest: (owner: string, repo: string, number: number) =>
+      ipcRenderer.invoke('gitee:mergePullRequest', owner, repo, number),
+    /** 获取仓库列表 */
+    listRepos: (page?: number, perPage?: number) =>
+      ipcRenderer.invoke('gitee:listRepos', page, perPage),
+    /** 从 remote URL 解析 owner/repo */
+    parseRepoFromRemote: (remoteUrl: string) =>
+      ipcRenderer.invoke('gitee:parseRepoFromRemote', remoteUrl),
+    /** 设置 OAuth 配置 */
+    setOAuthConfig: (clientId: string, clientSecret: string) =>
+      ipcRenderer.invoke('gitee:setOAuthConfig', clientId, clientSecret),
+  },
+
   // ========== 终端服务 ==========
   terminal: {
     /** 创建终端 */
