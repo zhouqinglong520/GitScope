@@ -623,6 +623,16 @@ function registerIpcHandlers() {
     await gitService.applyPatch(patchPath);
   });
 
+  /** 应用补丁到暂存区（行级暂存） */
+  ipcMain.handle('git:applyPatchCached', async (_, patchPath: string) => {
+    await gitService.applyPatchCached(patchPath);
+  });
+
+  /** 反向应用补丁（取消暂存行） */
+  ipcMain.handle('git:applyPatchReverse', async (_, patchPath: string) => {
+    await gitService.applyPatchReverse(patchPath);
+  });
+
   /** 列出补丁 */
   ipcMain.handle('git:listPatches', async () => {
     return await gitService.listPatches();
