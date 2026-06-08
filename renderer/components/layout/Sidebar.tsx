@@ -290,7 +290,7 @@ function BranchSection() {
         id: 'checkout',
         label: '切换到此分支',
         onClick: () => {
-          // TODO: 实现切换分支（需要获取右键点击的分支名）
+          await window.electronAPI.git.checkout(branchName);
         },
       },
       { id: 'divider-1', label: '', divider: true },
@@ -298,14 +298,14 @@ function BranchSection() {
         id: 'merge',
         label: '合并到当前分支',
         onClick: () => {
-          // TODO: 实现合并
+          await window.electronAPI.git.merge(branchName);
         },
       },
       {
         id: 'rebase',
         label: '变基到当前分支',
         onClick: () => {
-          // TODO: 实现变基
+          window.dispatchEvent(new CustomEvent('showInteractiveRebase', { detail: { oid: branchName } }));
         },
       },
       { id: 'divider-2', label: '', divider: true },
@@ -313,14 +313,15 @@ function BranchSection() {
         id: 'rename',
         label: '重命名',
         onClick: () => {
-          // TODO: 实现重命名
+          const newName = await window.electronAPI.fs.showInputBox({ title: '重命名分支', prompt: `重命名 ${branchName} 为` });
+          if (newName) await window.electronAPI.git.renameBranch(branchName, newName);
         },
       },
       {
         id: 'delete',
         label: '删除',
         onClick: () => {
-          // TODO: 实现删除
+          await window.electronAPI.git.deleteBranch(branchName, false);
         },
       },
     ];
@@ -387,21 +388,21 @@ function TagsSection() {
         id: 'checkout',
         label: '检出此标签',
         onClick: () => {
-          // TODO: 实现检出标签
+          await window.electronAPI.git.checkout(tagName);
         },
       },
       {
         id: 'push',
         label: '推送标签',
         onClick: () => {
-          // TODO: 实现推送标签
+          await window.electronAPI.git.pushTag(tagName);
         },
       },
       {
         id: 'delete',
         label: '删除标签',
         onClick: () => {
-          // TODO: 实现删除标签
+          await window.electronAPI.git.deleteTag(tagName);
         },
       },
     ];
@@ -437,21 +438,21 @@ function StashSection() {
         id: 'apply',
         label: '应用',
         onClick: () => {
-          // TODO: 实现应用 stash
+          await window.electronAPI.git.stashApply(stashIndex);
         },
       },
       {
         id: 'pop',
         label: '弹出',
         onClick: () => {
-          // TODO: 实现弹出 stash
+          await window.electronAPI.git.stashPop(stashIndex);
         },
       },
       {
         id: 'drop',
         label: '删除',
         onClick: () => {
-          // TODO: 实现删除 stash
+          await window.electronAPI.git.stashDrop(stashIndex);
         },
       },
     ];
