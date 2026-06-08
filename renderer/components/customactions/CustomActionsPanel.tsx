@@ -10,6 +10,8 @@ export interface CustomAction {
   id: string; name: string; command: string; workingDir?: string;
   env?: Record<string, string>; icon?: string; shortcut?: string;
   filePattern?: string; showInContextMenu: boolean; showInToolbar: boolean;
+  /** P2-9: 自定义命令 checkbox — 执行前可选参数 */
+  params?: Array<{ name: string; label: string; type: 'checkbox' | 'input'; defaultValue?: string | boolean; checked?: boolean }>;
 }
 
 interface Props { visible: boolean; onClose: () => void; }
@@ -95,6 +97,44 @@ export const CustomActionsPanel: React.FC<Props> = ({ visible, onClose }) => {
               <label><input type="checkbox" checked={editing.showInContextMenu} onChange={e => setEditing({ ...editing, showInContextMenu: e.target.checked })} />右键菜单</label>
               <label><input type="checkbox" checked={editing.showInToolbar} onChange={e => setEditing({ ...editing, showInToolbar: e.target.checked })} />工具栏</label>
             </div>
+            {/* P2-9: 自定义命令参数（checkbox / input） */}
+            <div className="ca-editor-row" style={{ flexDirection: 'column', gap: 4 }}>
+              <label>执行参数（P2-9）</label>
+              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                {(editing.params || []).map((p, pi) => (
+                  <div key={pi} style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#0d1117', padding: '2px 8px', borderRadius: 4, border: '1px solid #30363d' }}>
+                    {p.type === 'checkbox' ? (
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#8b949e', cursor: 'pointer' }}>
+                        <input type="checkbox" checked={!!p.checked} onChange={e => {
+                          const params = [...(editing.params || [])];
+                          params[pi] = { ...params[pi], checked: e.target.checked };
+                          setEditing({ ...editing, params });
+                        }} />
+                        {p.label}
+                      </label>
+                    ) : (
+                      <input placeholder={p.label} value={p.defaultValue as string || ''} onChange={e => {
+                        const params = [...(editing.params || [])];
+                        params[pi] = { ...params[pi], defaultValue: e.target.value };
+                        setEditing({ ...editing, params });
+                      }} style={{ fontSize: 11, background: '#0d1117', border: 'none', color: '#e6edf3', outline: 'none', width: 80 }} />
+                    )}
+                    <button onClick={() => {
+                      const params = (editing.params || []).filter((_, i) => i !== pi);
+                      setEditing({ ...editing, params });
+                    }} style={{ background: 'none', border: 'none', color: '#f85149', cursor: 'pointer', fontSize: 10 }}>✕</button>
+                  </div>
+                ))}
+                <button onClick={() => {
+                  const params = [...(editing.params || []), { name: `param${(editing.params || []).length}`, label: '参数', type: 'checkbox' as const, checked: false }];
+                  setEditing({ ...editing, params });
+                }} style={{ fontSize: 10, padding: '2px 8px', background: '#21262d', color: '#8b949e', border: '1px solid #30363d', borderRadius: 4, cursor: 'pointer' }}>+ checkbox</button>
+                <button onClick={() => {
+                  const params = [...(editing.params || []), { name: `param${(editing.params || []).length}`, label: '值', type: 'input' as const, defaultValue: '' }];
+                  setEditing({ ...editing, params });
+                }} style={{ fontSize: 10, padding: '2px 8px', background: '#21262d', color: '#8b949e', border: '1px solid #30363d', borderRadius: 4, cursor: 'pointer' }}>+ input</button>
+              </div>
+            </div>
             <div className="ca-editor-actions">
               <button onClick={() => setEditing(null)}>取消</button>
               <button className="btn-primary" onClick={handleSave}>保存</button>
@@ -103,76 +143,4 @@ export const CustomActionsPanel: React.FC<Props> = ({ visible, onClose }) => {
         )}
 
         <div className="ca-list">
-          {loading ? <div className="ca-loading">加载中...</div> :
-           actions.length === 0 ? <div className="ca-empty">暂无自定义操作，点击"新建"创建</div> :
-           actions.map(a => (
-            <div key={a.id} className={`ca-item ${outputLog?.id === a.id ? 'has-output' : ''}`}>
-              <div className="ca-item-info">
-                <span className="ca-name">{a.icon || '⚡'} {a.name}</span>
-                <span className="ca-command">{a.command}</span>
-                <div className="ca-tags">
-                  {a.showInContextMenu && <span className="ca-tag">右键</span>}
-                  {a.showInToolbar && <span className="ca-tag">工具栏</span>}
-                  {a.shortcut && <span className="ca-tag ca-shortcut-tag">{a.shortcut}</span>}
-                </div>
-              </div>
-              <div className="ca-item-actions">
-                <button onClick={() => setEditing({ ...a })} title="编辑">✎</button>
-                <button className="ca-run-btn" onClick={() => handleExecute(a.id)} disabled={executing === a.id} title="执行">
-                  {executing === a.id ? '...' : '▶'}
-                </button>
-                <button className="btn-danger" onClick={() => handleDelete(a.id)} title="删除">✕</button>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* 执行输出 */}
-        {outputLog && (
-          <div className="ca-output">
-            <div className="ca-output-header">
-              <span>执行结果 ({outputLog.exitCode === 0 ? '成功' : `退出码 ${outputLog.exitCode}`})</span>
-              <button onClick={() => setOutputLog(null)}>✕</button>
-            </div>
-            {outputLog.stdout && <pre className="ca-stdout">{outputLog.stdout}</pre>}
-            {outputLog.stderr && <pre className="ca-stderr">{outputLog.stderr}</pre>}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
-
-/**
- * 获取右键菜单中的自定义操作项
- * 供其他组件的 ContextMenu 使用
- */
-export async function getCustomActionMenuItems(
-  filePath?: string
-): Promise<Array<{ id: string; label: string; onClick: () => void }>> {
-  try {
-    const actions: CustomAction[] = await window.electronAPI.git.listCustomActions();
-    const contextActions = actions.filter(a => a.showInContextMenu);
-    // 如果指定了文件路径，按 filePattern 过滤
-    const filtered = filePath
-      ? contextActions.filter(a => !a.filePattern || new RegExp(a.filePattern.replace(/\./g, '\\.').replace(/\*/g, '.*')).test(filePath))
-      : contextActions;
-
-    return filtered.map(a => ({
-      id: `custom-action-${a.id}`,
-      label: `${a.icon || '⚡'} ${a.name}${a.shortcut ? ` (${a.shortcut})` : ''}`,
-      onClick: async () => {
-        try {
-          const result = await window.electronAPI.git.executeCustomAction(a.id);
-          if (result.exitCode !== 0) {
-            alert(`自定义操作失败 (${result.exitCode}): ${result.stderr}`);
-          }
-        } catch (e: any) { alert(e.message); }
-      },
-    }));
-  } catch {
-    return [];
-  }
-}
-
-export default CustomActionsPanel;
+       
