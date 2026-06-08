@@ -1,0 +1,161 @@
+/* Command Preview Dialog — Majie 码界 */
+
+.cpd-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.5);
+  backdrop-filter: blur(3px);
+}
+
+.cpd-dialog {
+  width: 480px;
+  background: var(--bg-surface, #0d1117);
+  border: 1px solid var(--border-subtle, #21262d);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+}
+
+.cpd-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-subtle, #21262d);
+  background: var(--bg-elevated, #161b22);
+}
+
+.cpd-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cpd-risk-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.cpd-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary, #e6edf3);
+}
+
+.cpd-commands {
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cpd-command {
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--bg-base, #0a0e14);
+  border: 1px solid var(--border-subtle, #21262d);
+}
+
+.cpd-command-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.cpd-category {
+  font-size: 10px;
+  color: var(--text-faint, #484f58);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.cpd-risk-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.cpd-command-text {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.cpd-prompt {
+  color: var(--accent, #00d4aa);
+  font-family: monospace;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.cpd-command-text code {
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+  font-size: 13px;
+  color: var(--text-primary, #e6edf3);
+  background: transparent;
+  padding: 0;
+}
+
+.cpd-command-desc {
+  font-size: 11px;
+  color: var(--text-muted, #8b949e);
+  padding-left: 18px;
+}
+
+.cpd-dont-show {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  font-size: 11px;
+  color: var(--text-muted, #8b949e);
+  cursor: pointer;
+}
+
+.cpd-dont-show input {
+  accent-color: var(--accent, #00d4aa);
+}
+
+.cpd-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border-subtle, #21262d);
+}
+
+.cpd-btn-cancel, .cpd-btn-confirm {
+  padding: 6px 18px;
+  font-size: 12px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.cpd-btn-cancel {
+  background: var(--bg-base, #0a0e14);
+  color: var(--text-secondary, #c9d1d9);
+  border: 1px solid var(--border-subtle, #21262d);
+}
+
+.cpd-btn-cancel:hover {
+  background: var(--bg-hover, #1f2937);
+}
+
+.cpd-btn-confirm {
+  color: #000;
+  font-weight: 600;
+}
+
+.cpd-btn-confirm:hover {
+  opacity: 0.9;
+}
