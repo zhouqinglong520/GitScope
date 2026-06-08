@@ -2175,6 +2175,308 @@ function parseNameStatus(output: string): CommitFileChange[] {
     await this.gitCliExec(['submodule', 'sync', '--', subPath]);
   }
 
+  // ========== P1-8: 陈旧分支（已合并分支查询） ==========
+
+  /** 获取已合并到指定分支的分支列表 */
+  async getMergedBranches(targetBranch?: string): Promise<Array<{ name: string; isRemote: boolean; lastCommitDate: string; lastCommitMsg: string }>> {
+    if (!this.dir) return [];
+    try {
+      const args = ['branch', '--merged', targetBranch || 'HEAD', '--format=%(refname:short)|%(upstream:short)|%(committerdate:short)|%(subject)'];
+      const { stdout } = await this.gitCliExec(args);
+      const currentBranch = await git.currentBranch({ fs: isoFs, dir: this.dir, fullname: false }) || '';
+      const lines = stdout.trim().split('\n').filter(Boolean);
+      const result: Array<{ name: string; isRemote: boolean; lastCommitDate: string; lastCommitMsg: string }> = [];
+      for (const line of lines) {
+        const [name, upstream, date, msg] = line.split('|');
+        if (!name || name === currentBranch || name === 'master' || name === 'main' || name === 'develop') continue;
+        const isRemote = name.includes('/');
+        result.push({ name, isRemote, lastCommitDate: date || '', lastCommitMsg: (msg || '').substring(0, 60) });
+      }
+      return result;
+    } catch {
+      return [];
+    }
+  }
+
+  /** 批量删除分支 */
+  async batchDeleteBranches(names: string[], force = false): Promise<Array<{ name: string; success: boolean; error?: string }>> {
+    if (!this.dir) return [];
+    const results: Array<{ name: string; success: boolean; error?: string }> = [];
+    for (const name of names) {
+      try {
+        if (name.includes('/')) {
+          // 远程分支：git push origin --delete <branch>
+          const parts = name.split('/');
+          const remote = parts[0];
+          const branch = parts.slice(1).join('/');
+          await this.gitCliExec(['push', remote, '--delete', branch]);
+        } else {
+          await this.gitCliExec(['branch', force ? '-D' : '-d', name]);
+        }
+        results.push({ name, success: true });
+      } catch (e: any) {
+        results.push({ name, success: false, error: e.message || '删除失败' });
+      }
+    }
+    return results;
+  }
+
+  // ========== P1-7: Git Flow ==========
+
+  /** 初始化 Git Flow（创建 develop 分支和基础配置） */
+  async gitflowInit(options?: { masterBranch?: string; developBranch?: string; featurePrefix?: string; releasePrefix?: string; hotfixPrefix?: string; versionTagPrefix?: string }): Promise<void> {
+    if (!this.dir) throw new Error('仓库未打开');
+    const master = options?.masterBranch || 'main';
+    const develop = options?.developBranch || 'develop';
+    const featurePrefix = options?.featurePrefix || 'feature/';
+    const releasePrefix = options?.releasePrefix || 'release/';
+    const hotfixPrefix = options?.hotfixPrefix || 'hotfix/';
+    const tagPrefix = options?.versionTagPrefix || '';
+
+    // 保存 Git Flow 配置
+    const prefs: Record<string, string> = {
+      'gitflow.branch.master': master,
+      'gitflow.branch.develop': develop,
+      'gitflow.prefix.feature': featurePrefix,
+      'gitflow.prefix.release': releasePrefix,
+      'gitflow.prefix.hotfix': hotfixPrefix,
+      'gitflow.prefix.versiontag': tagPrefix,
+      'gitflow.initialized': 'true',
+    };
+    for (const [key, value] of Object.entries(prefs)) {
+      try { await this.gitCliExec(['config', key, value]); } catch {}
+    }
+    // 确保 develop 分支存在
+    try {
+      const branches = await git.listBranches({ fs: isoFs, dir: this.dir });
+      if (!branches.includes(develop)) {
+        await this.gitCliExec(['branch', develop]);
+      }
+    } catch {}
+  }
+
+  /** 检查 Git Flow 是否已初始化 */
+  async gitflowIsInitialized(): Promise<boolean> {
+    if (!this.dir) return false;
+    try {
+      const { stdout } = await this.gitCliExec(['config', 'gitflow.initialized']);
+      return stdout.trim() === 'true';
+    } catch {
+      return false;
+    }
+  }
+
+  /** 开始 Feature 分支 */
+  async gitflowStartFeature(name: string, base?: string): Promise<string> {
+    if (!this.dir) throw new Error('仓库未打开');
+    let prefix = 'feature/';
+    try { const { stdout } = await this.gitCliExec(['config', 'gitflow.prefix.feature']); prefix = stdout.trim() || 'feature/'; } catch {}
+    const branchName = name.startsWith(prefix) ? name : prefix + name;
+    const startPoint = base || 'develop';
+    await this.gitCliExec(['checkout', '-b', branchName, startPoint]);
+    return branchName;
+  }
+
+  /** 完成 Feature 分支（合并回 develop） */
+  async gitflowFinishFeature(name: string, options?: { noFf?: boolean; squash?: boolean; deleteBranch?: boolean }): Promise<void> {
+    if (!this.dir) throw new Error('仓库未打开');
+    let prefix = 'feature/';
+    try { const { stdout } = await this.gitCliExec(['config', 'gitflow.prefix.feature']); prefix = stdout.trim() || 'feature/'; } catch {}
+    let develop = 'develop';
+    try { const { stdout } = await this.gitCliExec(['config', 'gitflow.branch.develop']); develop = stdout.trim() || 'develop'; } catch {}
+
+    const branchName = name.startsWith(prefix) ? name : prefix + name;
+    // 切换到 develop
+    await this.gitCliExec(['checkout', develop]);
+    // 合并
+    const mergeArgs = ['merge'];
+    if (options?.noFf !== false) mergeArgs.push('--no-ff');
+    if (options?.squash) mergeArgs.push('--squash');
+    mergeArgs.push(branchName);
+    await this.gitCliExec(mergeArgs);
+    // 删除分支
+    if (options?.deleteBranch !== false) {
+      await this.gitCliExec(['branch', '-d', branchName]);
+    }
+  }
+
+  /** 开始 Release 分支 */
+  async gitflowStartRelease(version: string): Promise<string> {
+    if (!this.dir) throw new Error('仓库未打开');
+    let prefix = 'release/';
+    try { const { stdout } = await this.gitCliExec(['config', 'gitflow.prefix.release']); prefix = stdout.trim() || 'release/'; } catch {}
+    const branchName = version.startsWith(prefix) ? version : prefix + version;
+    let develop = 'develop';
+    try { const { stdout } = await this.gitCliExec(['config', 'gitflow.branch.develop']); develop = stdout.trim() || 'develop'; } catch {}
+    await this.gitCliExec(['checkout', '-b', branchName, develop]);
+    return branchName;
+  }
+
+  /** 完成 Release 分支（合并到 main + develop，打标签） */
+  async gitflowFinishRelease(version: string, options?: { tagMessage?: string; deleteBranch?: boolean }): Promise<void> {
+    if (!this.dir) throw new Error('仓库未打开');
+    let prefix = 'release/';
+    try { const { stdout } = await this.gitCliExec(['config', 'gitflow.prefix.release']); prefix = stdout.trim() || 'release/'; } catch {}
+    let master = 'main';
+    try { const { stdout } = await this.gitCliExec(['config', 'gitflow.branch.master']); master = stdout.trim() || 'main'; } catch {}
+    let develop = 'develop';
+    try { const { stdout } = await this.gitCliExec(['config', 'gitflow.branch.develop']); develop = stdout.trim() || 'develop'; } catch {}
+
+    const branchName = version.startsWith(prefix) ? version : prefix + version;
+    // 合并到 master/main
+    await this.gitCliExec(['checkout', master]);
+    await this.gitCliExec(['merge', '--no-ff', branchName]);
+    // 打标签
+    const tagMsg = options?.tagMessage || `Release ${version}`;
+    await this.gitCliExec(['tag', '-a', version, '-m', tagMsg]);
+    // 合并回 develop
+    await this.gitCliExec(['checkout', develop]);
+    await this.gitCliExec(['merge', '--no-ff', branchName]);
+    // 删除分支
+    if (options?.deleteBranch !== false) {
+      await this.gitCliExec(['branch', '-d', branchName]);
+    }
+  }
+
+  /** 开始 Hotfix 分支 */
+  async gitflowStartHotfix(version: string): Promise<string> {
+    if (!this.dir) throw new Error('仓库未打开');
+    let prefix = 'hotfix/';
+    try { const { stdout } = await this.gitCliExec(['config', 'gitflow.prefix.hotfix']); prefix = stdout.trim() || 'hotfix/'; } catch {}
+    let master = 'main';
+    try { const { stdout } = await this.gitCliExec(['config', 'gitflow.branch.master']); master = stdout.trim() || 'main'; } catch {}
+    const branchName = version.startsWith(prefix) ? version : prefix + version;
+    await this.gitCliExec(['checkout', '-b', branchName, master]);
+    return branchName;
+  }
+
+  /** 完成 Hotfix 分支（合并到 main + develop，打标签） */
+  async gitflowFinishHotfix(version: string, options?: { tagMessage?: string; deleteBranch?: boolean }): Promise<void> {
+    if (!this.dir) throw new Error('仓库未打开');
+    let prefix = 'hotfix/';
+    try { const { stdout } = await this.gitCliExec(['config', 'gitflow.prefix.hotfix']); prefix = stdout.trim() || 'hotfix/'; } catch {}
+    let master = 'main';
+    try { const { stdout } = await this.gitCliExec(['config', 'gitflow.branch.master']); master = stdout.trim() || 'main'; } catch {}
+    let develop = 'develop';
+    try { const { stdout } = await this.gitCliExec(['config', 'gitflow.branch.develop']); develop = stdout.trim() || 'develop'; } catch {}
+
+    const branchName = version.startsWith(prefix) ? version : prefix + version;
+    await this.gitCliExec(['checkout', master]);
+    await this.gitCliExec(['merge', '--no-ff', branchName]);
+    const tagMsg = options?.tagMessage || `Hotfix ${version}`;
+    await this.gitCliExec(['tag', '-a', version, '-m', tagMsg]);
+    await this.gitCliExec(['checkout', develop]);
+    await this.gitCliExec(['merge', '--no-ff', branchName]);
+    if (options?.deleteBranch !== false) {
+      await this.gitCliExec(['branch', '-d', branchName]);
+    }
+  }
+
+  /** 获取 Git Flow 配置 */
+  async gitflowGetConfig(): Promise<Record<string, string>> {
+    if (!this.dir) return {};
+    const keys = ['gitflow.branch.master', 'gitflow.branch.develop', 'gitflow.prefix.feature', 'gitflow.prefix.release', 'gitflow.prefix.hotfix', 'gitflow.prefix.versiontag', 'gitflow.initialized'];
+    const config: Record<string, string> = {};
+    for (const key of keys) {
+      try {
+        const { stdout } = await this.gitCliExec(['config', key]);
+        config[key] = stdout.trim();
+      } catch {
+        config[key] = '';
+      }
+    }
+    return config;
+  }
+
+  // ========== P1-9: 外部 Diff/Merge 工具 ==========
+
+  /** 在外部 Merge 工具中打开 */
+  async openInMergeTool(filePath: string): Promise<void> {
+    if (!this.dir) throw new Error('仓库未打开');
+    await this.gitCliExec(['mergetool', filePath]);
+  }
+
+  /** 获取 diff 工具配置 */
+  async getDiffToolConfig(): Promise<{ tool: string; available: string[] }> {
+    if (!this.dir) return { tool: '', available: [] };
+    try {
+      const { stdout } = await this.gitCliExec(['config', 'diff.guitool']);
+      const tool = stdout.trim();
+      // 尝试列出已知工具
+      const known = ['vscode', 'code', 'bcompare', 'beyondcompare4', 'meld', 'kdiff3', 'p4merge', 'diffmerge', 'tkdiff', 'xxdiff', 'araxis', 'vimdiff'];
+      return { tool, available: known };
+    } catch {
+      return { tool: '', available: [] };
+    }
+  }
+
+  /** 设置 diff 工具 */
+  async setDiffTool(tool: string): Promise<void> {
+    if (!this.dir) throw new Error('仓库未打开');
+    await this.gitCliExec(['config', 'diff.guitool', tool]);
+    // 同时设置 difftool.<tool>.cmd（如果是 vscode/code）
+    if (tool === 'vscode' || tool === 'code') {
+      await this.gitCliExec(['config', 'difftool.vscode.cmd', 'code --wait --diff $LOCAL $REMOTE']);
+      await this.gitCliExec(['config', 'difftool.code.cmd', 'code --wait --diff $LOCAL $REMOTE']);
+    }
+  }
+
+  /** 获取 merge 工具配置 */
+  async getMergeToolConfig(): Promise<{ tool: string; available: string[] }> {
+    if (!this.dir) return { tool: '', available: [] };
+    try {
+      const { stdout } = await this.gitCliExec(['config', 'merge.tool']);
+      const tool = stdout.trim();
+      const known = ['vscode', 'code', 'bcompare', 'beyondcompare4', 'meld', 'kdiff3', 'p4merge', 'diffmerge', 'tortoisemerge', 'araxis'];
+      return { tool, available: known };
+    } catch {
+      return { tool: '', available: [] };
+    }
+  }
+
+  /** 设置 merge 工具 */
+  async setMergeTool(tool: string): Promise<void> {
+    if (!this.dir) throw new Error('仓库未打开');
+    await this.gitCliExec(['config', 'merge.tool', tool]);
+    if (tool === 'vscode' || tool === 'code') {
+      await this.gitCliExec(['config', 'mergetool.vscode.cmd', 'code --wait $MERGED']);
+      await this.gitCliExec(['config', 'mergetool.code.cmd', 'code --wait $MERGED']);
+    }
+  }
+
+  // ========== P1-6: GitHub 通知 ==========
+
+  /** 获取 GitHub 通知（通过 GitHub API） */
+  async getGitHubNotifications(token: string): Promise<Array<{ id: string; subject: { title: string; type: string; url: string }; repository: { name: string; full_name: string }; reason: string; updated_at: string; unread: boolean }>> {
+    try {
+      const https = require('https');
+      return await new Promise((resolve, reject) => {
+        const options = {
+          hostname: 'api.github.com',
+          path: '/notifications',
+          method: 'GET',
+          headers: {
+            'Authorization': `token ${token}`,
+            'User-Agent': 'Majie-Git-Client',
+            'Accept': 'application/vnd.github.v3+json',
+          },
+        };
+        const req = https.request(options, (res: any) => {
+          let data = '';
+          res.on('data', (chunk: string) => { data += chunk; });
+          res.on('end', () => {
+            try { resolve(JSON.parse(data)); } catch { resolve([]); }
+          });
+        });
+        req.on('error', () => resolve([]));
+        req.setTimeout(10000, () => { req.destroy(); resolve([]); });
+        req.end();
+      });
+    } catch {
+      return [];
+    }
+  }
+
 }
 
 
