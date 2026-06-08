@@ -257,16 +257,16 @@ function App() {
   }, []);
 
   return (
-    <div className="h-screen flex flex-col bg-[#1e1e1e] text-white overflow-hidden">
+    <div className="h-screen flex flex-col bg-[#10141a] text-white overflow-hidden">
       {/* 简化标题栏 */}
-      <header className="h-9 bg-[#323233] flex items-center justify-between px-3 drag-region border-b border-[#3c3c3c]">
+      <header className="h-9 bg-[#1e2229] flex items-center justify-between px-3 drag-region border-b border-[#252b34]">
         <div className="flex items-center gap-3">
           {/* Logo */}
           <div className="flex items-center gap-2 no-drag">
             <svg className="w-4 h-4 text-[var(--accent)]" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
             </svg>
-            <span className="font-semibold text-sm text-gradient">GitScope</span>
+            <span className="font-semibold text-sm text-gradient">Majie</span>
           </div>
         </div>
 
@@ -274,14 +274,14 @@ function App() {
         <div className="flex items-center no-drag">
           <button
             onClick={() => window.electronAPI.window.minimize()}
-            className="w-10 h-7 flex items-center justify-center hover:bg-[#3c3c3c] transition-colors"
+            className="w-10 h-7 flex items-center justify-center hover:bg-[#252b34] transition-colors"
             title={i18n.window.minimize}
           >
             <span className="text-xs">─</span>
           </button>
           <button
             onClick={() => window.electronAPI.window.maximize()}
-            className="w-10 h-7 flex items-center justify-center hover:bg-[#3c3c3c] transition-colors"
+            className="w-10 h-7 flex items-center justify-center hover:bg-[#252b34] transition-colors"
             title={i18n.window.maximize}
           >
             <span className="text-xs">□</span>
@@ -298,7 +298,7 @@ function App() {
 
       {/* 多仓库 Tab 标签页 */}
       {repos.length > 0 && (
-        <div className="h-9 bg-[#252526] flex items-center border-b border-[#3c3c3c]">
+        <div className="h-9 bg-[#171b22] flex items-center border-b border-[#252b34]">
           {/* Tab 列表 */}
           <div className="flex-1 flex items-center overflow-x-auto">
             {repos.map((repo) => (
@@ -306,10 +306,10 @@ function App() {
                 key={repo.id}
                 onClick={() => setActiveRepo(repo.id)}
                 className={`
-                  group relative flex items-center gap-2 px-4 h-full cursor-pointer border-r border-[#3c3c3c]
+                  group relative flex items-center gap-2 px-4 h-full cursor-pointer border-r border-[#252b34]
                   ${activeRepoId === repo.id
-                    ? 'bg-[#1e1e1e] text-white border-b-2 border-b-primary-500'
-                    : 'bg-[#2d2d30] text-gray-400 hover:text-white hover:bg-[#333337]'
+                    ? 'bg-[#10141a] text-white border-b-2 border-b-primary-500'
+                    : 'bg-[#1e2229] text-gray-400 hover:text-white hover:bg-[#333337]'
                   }
                 `}
               >
@@ -321,7 +321,7 @@ function App() {
                 {/* 关闭按钮 */}
                 <button
                   onClick={(e) => handleCloseRepo(repo.id, e)}
-                  className="ml-1 w-5 h-5 flex items-center justify-center rounded hover:bg-[#3c3c3c] opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="ml-1 w-5 h-5 flex items-center justify-center rounded hover:bg-[#252b34] opacity-0 group-hover:opacity-100 transition-opacity"
                 >
                   <span className="text-xs">✕</span>
                 </button>
@@ -339,7 +339,7 @@ function App() {
           {/* 添加仓库按钮 */}
           <button
             onClick={handleOpenRepo}
-            className="flex-shrink-0 w-9 h-full flex items-center justify-center hover:bg-[#3c3c3c] transition-colors"
+            className="flex-shrink-0 w-9 h-full flex items-center justify-center hover:bg-[#252b34] transition-colors"
             title={i18n.toolbar.openRepo}
           >
             <span className="text-lg">+</span>
@@ -349,7 +349,7 @@ function App() {
 
       {/* 工具栏 */}
       {currentRepo && (
-        <div className="h-10 bg-[#252526] flex items-center justify-between px-3 border-b border-panel-border">
+        <div className="h-10 bg-[#171b22] flex items-center justify-between px-3 border-b border-panel-border">
           <div className="flex items-center gap-1">
             {/* Fetch */}
             <button
@@ -427,7 +427,7 @@ function App() {
               )}
             </button>
 
-            <div className="h-5 w-px bg-[#3c3c3c] mx-2" />
+            <div className="h-5 w-px bg-[#252b34] mx-2" />
 
             {/* Stash */}
             <button
@@ -457,7 +457,7 @@ function App() {
               <span className="text-xs">Stash</span>
             </button>
 
-            <div className="h-5 w-px bg-[#3c3c3c] mx-2" />
+            <div className="h-5 w-px bg-[#252b34] mx-2" />
 
             {/* 分支选择器 */}
             <button
@@ -495,13 +495,13 @@ function App() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowQuickLaunch(true)}
-              className="flex items-center gap-2 px-3 py-1.5 bg-[#3c3c3c] hover:bg-[#4f4f4f] rounded text-xs text-gray-400 transition-colors"
+              className="flex items-center gap-2 px-3 py-1.5 bg-[#252b34] hover:bg-[#2f353e] rounded text-xs text-gray-400 transition-colors"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
               <span>Quick Launch</span>
-              <kbd className="px-1.5 py-0.5 bg-[#252526] rounded text-[10px]">Ctrl+K</kbd>
+              <kbd className="px-1.5 py-0.5 bg-[#171b22] rounded text-[10px]">Ctrl+K</kbd>
             </button>
           </div>
         </div>
