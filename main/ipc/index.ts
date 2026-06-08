@@ -160,8 +160,38 @@ function registerIpcHandlers() {
   });
 
   /** 合并分支 */
-  ipcMain.handle('git:merge', async (_, branch: string) => {
-    return await gitService.merge(branch);
+  ipcMain.handle('git:merge', async (_, branch: string, options?: any) => {
+    return await gitService.merge(branch, options);
+  });
+
+  /** 冲突预判 — Fork 风格：merge 前模拟检测 */
+  ipcMain.handle('git:checkMergeConflict', async (_, branch: string) => {
+    try {
+      const { exec } = require('child_process');
+      const repoPath = gitService.getRepoPath?.();
+      if (!repoPath) return { hasConflicts: false };
+      return await new Promise((resolve) => {
+        exec('git merge --no-commit --no-ff ' + JSON.stringify(branch), { cwd: repoPath, timeout: 10000 }, (err: any, _stdout: string, stderr: string) => {
+          // 无论成功失败，先中止模拟合并
+          exec('git merge --abort', { cwd: repoPath, timeout: 5000 }, () => {});
+          if (err || stderr.includes('CONFLICT')) {
+            const conflictFiles: string[] = [];
+            const match = stderr.match(/CONFLICT.*:\s+(.+)/g);
+            if (match) {
+              match.forEach((line: string) => {
+                const fm = line.match(/Merge conflict in (.+)/);
+                if (fm) conflictFiles.push(fm[1]);
+              });
+            }
+            resolve({ hasConflicts: true, conflictFiles });
+          } else {
+            resolve({ hasConflicts: false });
+          }
+        });
+      });
+    } catch {
+      return { hasConflicts: false };
+    }
   });
 
   /** 获取标签列表 */
