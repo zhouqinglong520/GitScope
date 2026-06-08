@@ -248,7 +248,7 @@ class GitService {
   /**
    * 获取文件差异（使用 git CLI 获取精确 diff）
    */
-  async diff(filePath?: string, commitOid?: string): Promise<GitDiff[]> {
+  async diff(filePath?: string, commitOid?: string, algorithm?: 'myers' | 'patience' | 'histogram'): Promise<GitDiff[]> {
     if (!this.dir) throw new Error('仓库未打开');
 
     try {
@@ -295,7 +295,7 @@ class GitService {
   /**
    * 获取暂存区 diff
    */
-  async stagedDiff(filePath?: string): Promise<GitDiff[]> {
+  async stagedDiff(filePath?: string, algorithm?: 'myers' | 'patience' | 'histogram'): Promise<GitDiff[]> {
     if (!this.dir) throw new Error('仓库未打开');
 
     try {
@@ -1786,6 +1786,125 @@ function parseNameStatus(output: string): CommitFileChange[] {
     }
     
     return entries;
+  }
+
+  /**
+   * Blame 上一版本（Fork/GitKraken 功能）
+   * 获取指定行所在提交的上一版本的 blame
+   */
+  async blamePreviousRevision(filePath: string, lineCommitOid: string): Promise<{
+    filePath: string;
+    lines: Array<{
+      lineNumber: number;
+      content: string;
+      commit: string;
+      shortCommit: string;
+      author: string;
+      authorEmail: string;
+      date: number;
+      commitMessage: string;
+    }>;
+    authors: string[];
+    dateRange: { oldest: number; newest: number };
+  } | null> {
+    if (!this.dir) throw new Error('仓库未打开');
+    
+    try {
+      // git blame commit^ -- file — 对该提交的上一版本做 blame
+      const stdout = await this.gitCliExec([
+        'blame', `${lineCommitOid}^`, '--porcelain', '--', filePath,
+      ]);
+      
+      return this.parseBlameOutput(stdout, filePath);
+    } catch (error) {
+      console.warn('blamePreviousRevision failed:', error);
+      return null;
+    }
+  }
+
+  /**
+   * 解析 git blame --porcelain 输出
+   */
+  private parseBlameOutput(stdout: string, filePath: string): {
+    filePath: string;
+    lines: Array<{
+      lineNumber: number;
+      content: string;
+      commit: string;
+      shortCommit: string;
+      author: string;
+      authorEmail: string;
+      date: number;
+      commitMessage: string;
+    }>;
+    authors: string[];
+    dateRange: { oldest: number; newest: number };
+  } {
+    const lines = stdout.split('
+');
+    const blameLines: Array<{
+      lineNumber: number;
+      content: string;
+      commit: string;
+      shortCommit: string;
+      author: string;
+      authorEmail: string;
+      date: number;
+      commitMessage: string;
+    }> = [];
+    
+    // 简化解析：提取每个 blame 行的关键信息
+    let currentCommit = '';
+    let currentAuthor = '';
+    let currentEmail = '';
+    let currentDate = 0;
+    let currentMessage = '';
+    let lineNumber = 0;
+    const authorSet = new Set<string>();
+    let oldestDate = Infinity;
+    let newestDate = 0;
+    
+    for (const line of lines) {
+      if (line.startsWith('author ')) currentAuthor = line.slice(7);
+      else if (line.startsWith('author-mail ')) currentEmail = line.slice(12).replace(/[<>]/g, '');
+      else if (line.startsWith('author-time ')) {
+        currentDate = parseInt(line.slice(12), 10);
+        if (currentDate > 0) {
+          oldestDate = Math.min(oldestDate, currentDate);
+          newestDate = Math.max(newestDate, currentDate);
+        }
+      }
+      else if (line.startsWith('summary ')) currentMessage = line.slice(8);
+      else if (line.startsWith('	')) {
+        // 实际代码行
+        lineNumber++;
+        const shortOid = currentCommit.substring(0, 7);
+        blameLines.push({
+          lineNumber,
+          content: line.slice(1),
+          commit: currentCommit,
+          shortCommit: shortOid,
+          author: currentAuthor,
+          authorEmail: currentEmail,
+          date: currentDate,
+          commitMessage: currentMessage,
+        });
+        authorSet.add(currentAuthor);
+        // Reset for next line
+        currentMessage = '';
+      }
+      else if (line.length >= 40 && /^[0-9a-f]{40}/.test(line)) {
+        // 新的 commit SHA 行（blame 输出第一行格式: sha origLine resultLine [group]）
+        currentCommit = line.substring(0, 40);
+      }
+    }
+    
+    return {
+      filePath,
+      lines: blameLines,
+      authors: [...authorSet].sort(),
+      dateRange: { oldest: oldestDate === Infinity ? 0 : oldestDate, newest: newestDate },
+    };
   }
 
   /** 列出补丁 */
