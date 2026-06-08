@@ -553,7 +553,7 @@ function DiffView({ commitOid, filePath, isStaged, onRefresh }: DiffViewProps) {
       const patch = diffHeader + '\n' + patchLines.join('\n') + '\n';
       
       // 写入临时文件并通过 git apply
-      const tmpPath = `/tmp/gitscope-patch-${Date.now()}.patch`;
+      const tmpPath = `/tmp/majie-patch-${Date.now()}.patch`;
       await window.electronAPI.fs.writeFile(tmpPath, patch);
       
       if (isStaged) {
