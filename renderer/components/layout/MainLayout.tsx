@@ -22,9 +22,14 @@ import BlameView from '../blame/BlameView';
 import ConflictResolutionPanel from '../conflict/ConflictResolutionPanel';
 import ConflictWarningDialog from '../conflict/ConflictWarningDialog';
 import ReflogPanel from '../reflog/ReflogPanel';
+import ReflogVisualPanel from '../reflogvisual/ReflogVisualPanel';
 import TerminalPanel from '../terminal/TerminalPanel';
 import GiteePanel from '../gitee/GiteePanel';
 import TagPanel from '../branch/TagPanel';
+import DiffFileTree from '../difftree/DiffFileTree';
+import CommandPreviewDialog, { getGitCommandPreview, shouldShowPreview } from '../commandpreview/CommandPreviewDialog';
+import ShortcutsDialog from '../shortcuts/ShortcutsDialog';
+import { DragDropProvider } from '../dragdrop/DragDropContext';
 import { useRepoStore } from '../../stores/repoStore';
 import { useI18 } from '../../i18n';
 
@@ -48,6 +53,12 @@ function MainLayout() {
   const [showReflog, setShowReflog] = useState(false);
   const [showTerminal, setShowTerminal] = useState(false);
   const [showGitee, setShowGitee] = useState(false);
+  const [showReflogVisual, setShowReflogVisual] = useState(false);
+  const [showShortcuts, setShowShortcuts] = useState(false);
+  const [showCmdPreview, setShowCmdPreview] = useState(false);
+  const [pendingCmdAction, setPendingCmdAction] = useState<(() => void) | null>(null);
+  const [cmdPreviewCommands, setCmdPreviewCommands] = useState<any[]>([]);
+  const [autoFetchInterval, setAutoFetchInterval] = useState<ReturnType<typeof setInterval> | null>(null);
   const {
     commits,
     filteredCommits,
@@ -253,6 +264,56 @@ function MainLayout() {
   }, []);
 
 
+  // 自动 Fetch（每 5 分钟）
+  useEffect(() => {
+    if (currentRepo) {
+      const interval = setInterval(async () => {
+        try { await window.electronAPI.git.fetch(); } catch (e) { /* silent */ }
+      }, 5 * 60 * 1000);
+      setAutoFetchInterval(interval);
+      return () => clearInterval(interval);
+    } else {
+      if (autoFetchInterval) clearInterval(autoFetchInterval);
+    }
+  }, [currentRepo]);
+
+  // 快捷键 ? 弹出速查表
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === '?' && !e.ctrlKey && !e.altKey && !e.metaKey) {
+        const target = e.target as HTMLElement;
+        if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
+        e.preventDefault();
+        setShowShortcuts(true);
+      }
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, []);
+
+  // 执行 Git 操作（带命令预览）
+  const executeGitAction = useCallback((action: string, params: Record<string, any>, callback: () => void) => {
+    const commands = getGitCommandPreview(action, params);
+    if (commands.length > 0 && shouldShowPreview(commands[0].category)) {
+      setCmdPreviewCommands(commands);
+      setPendingCmdAction(() => callback);
+      setShowCmdPreview(true);
+    } else {
+      callback();
+    }
+  }, []);
+
+  // Amend Last Commit
+  const handleAmendCommit = useCallback(async () => {
+    const callback = async () => {
+      try {
+        await window.electronAPI.git.commit('', { amend: true });
+        await refresh();
+      } catch (e: any) { alert('Amend 失败: ' + e.message); }
+    };
+    executeGitAction('commit_amend', {}, callback);
+  }, [refresh, executeGitAction]);
+
   // 监听 CustomEvent 显示面板
   useEffect(() => {
     const handlers: Record<string, EventListener> = {
@@ -266,10 +327,13 @@ function MainLayout() {
       showSubmodulesManager: () => {},  // TODO: add SubmodulePanel
       showBranchSelector: () => {},  // TODO: add BranchSelector
       showGitignoreEditor: () => {},  // TODO: add gitignore editor
-      showShortcuts: () => {},  // TODO: add shortcuts dialog
+      showShortcuts: () => setShowShortcuts(true),
+      showReflogVisual: () => setShowReflogVisual(true),
       toggleTerminal: () => setShowTerminal(prev => !prev),
       'menu:toggleTerminal': () => setShowTerminal(prev => !prev),
       'menu:gitee': () => setShowGitee(true),
+      'menu:amendCommit': () => handleAmendCommit(),
+      'menu:reflogVisual': () => setShowReflogVisual(true),
     };
     for (const [event, handler] of Object.entries(handlers)) {
       window.addEventListener(event, handler);
@@ -281,6 +345,13 @@ function MainLayout() {
     };
   }, []);
   return (
+    <DragDropProvider
+      onMerge={async (source, target) => { try { await window.electronAPI.git.checkout(target); await window.electronAPI.git.merge(source); await refresh(); } catch (e: any) { alert('合并失败: ' + e.message); } }}
+      onRebase={async (source, onto) => { try { await window.electronAPI.git.checkout(source); await window.electronAPI.git.rebaseInteractive?.(onto, ''); await refresh(); } catch (e: any) { alert('变基失败: ' + e.message); } }}
+      onCherryPick={async (oid, targetBranch) => { setCherryPickOid(oid); setShowCherryPick(true); }}
+      onCompare={async (source, target) => { /* TODO: branch compare view */ }}
+      onReset={async (oid, targetBranch) => { try { await window.electronAPI.git.checkout(targetBranch); await window.electronAPI.git.resetTo(oid, 'mixed'); await refresh(); } catch (e: any) { alert('重置失败: ' + e.message); } }}
+    >
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* 主内容区域（可拖拽分栏） */}
       <div
@@ -543,7 +614,33 @@ function MainLayout() {
         onClose={() => setShowGitee(false)}
         repoPath={currentRepo?.path}
       />
+      {/* Reflog 可视化时间线 */}
+      <ReflogVisualPanel
+        visible={showReflogVisual}
+        onClose={() => setShowReflogVisual(false)}
+        onRefresh={refresh}
+      />
+      {/* 快捷键速查表 */}
+      <ShortcutsDialog
+        visible={showShortcuts}
+        onClose={() => setShowShortcuts(false)}
+      />
+      {/* Git 命令预览 */}
+      <CommandPreviewDialog
+        visible={showCmdPreview}
+        commands={cmdPreviewCommands}
+        onConfirm={() => {
+          setShowCmdPreview(false);
+          if (pendingCmdAction) pendingCmdAction();
+          setPendingCmdAction(null);
+        }}
+        onCancel={() => {
+          setShowCmdPreview(false);
+          setPendingCmdAction(null);
+        }}
+      />
     </div>
+    </DragDropProvider>
   );
 }
 
