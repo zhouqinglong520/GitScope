@@ -3,15 +3,11 @@
  * 快速定位引入 Bug 的提交 + 自动检出 + 进度条 + 结果高亮
  */
 import React, { useState, useEffect } from 'react';
+import type { BisectState } from '../../../shared/types/git';
 import './BisectPanel.css';
 
 interface MarkedCommit { ref: string; result: string; }
-interface BisectState {
-  isActive: boolean; goodRef?: string; badRef?: string;
-  currentRef?: string; stepsRemaining?: number; totalSteps?: number;
-  markedCommits: MarkedCommit[];
-  foundRef?: string; foundMessage?: string;
-}
+// BisectState imported from shared
 
 interface Props { visible: boolean; onClose: () => void; onRefresh: () => void; }
 
