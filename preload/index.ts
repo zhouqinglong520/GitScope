@@ -180,6 +180,83 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
     /** 获取 ahead/behind 数量 */
     getAheadBehind: () => ipcRenderer.invoke('git:getAheadBehind'),
+
+    // ========== 冲突解决 ==========
+    abortMerge: () => ipcRenderer.invoke('git:abortMerge'),
+    continueMerge: () => ipcRenderer.invoke('git:continueMerge'),
+    abortRebase: () => ipcRenderer.invoke('git:abortRebase'),
+    continueRebase: () => ipcRenderer.invoke('git:continueRebase'),
+    abortCherryPick: () => ipcRenderer.invoke('git:abortCherryPick'),
+    continueCherryPick: () => ipcRenderer.invoke('git:continueCherryPick'),
+    getConflictedFiles: () => ipcRenderer.invoke('git:getConflictedFiles'),
+    resolveConflictUseOurs: (filePath) => ipcRenderer.invoke('git:resolveConflictUseOurs', filePath),
+    resolveConflictUseTheirs: (filePath) => ipcRenderer.invoke('git:resolveConflictUseTheirs', filePath),
+    resolveAllConflicts: (strategy) => ipcRenderer.invoke('git:resolveAllConflicts', strategy),
+    checkMergeConflict: (branch) => ipcRenderer.invoke('git:checkMergeConflict', branch),
+    checkRebaseConflict: (onto) => ipcRenderer.invoke('git:checkRebaseConflict', onto),
+    checkCherryPickConflict: (oid) => ipcRenderer.invoke('git:checkCherryPickConflict', oid),
+
+    // ========== Bisect ==========
+    bisectStart: (goodRef, badRef) => ipcRenderer.invoke('git:bisectStart', goodRef, badRef),
+    bisectMark: (ref, kind) => ipcRenderer.invoke('git:bisectMark', ref, kind),
+    bisectSkip: () => ipcRenderer.invoke('git:bisectSkip'),
+    bisectReset: () => ipcRenderer.invoke('git:bisectReset'),
+    getBisectState: () => ipcRenderer.invoke('git:getBisectState'),
+
+    // ========== LFS ==========
+    getLfsStatus: () => ipcRenderer.invoke('git:getLfsStatus'),
+    installLfs: () => ipcRenderer.invoke('git:installLfs'),
+    lfsTrack: (pattern) => ipcRenderer.invoke('git:lfsTrack', pattern),
+    lfsUntrack: (pattern) => ipcRenderer.invoke('git:lfsUntrack', pattern),
+    lfsLock: (filePath) => ipcRenderer.invoke('git:lfsLock', filePath),
+    lfsUnlock: (filePath) => ipcRenderer.invoke('git:lfsUnlock', filePath),
+    lfsPull: () => ipcRenderer.invoke('git:lfsPull'),
+    lfsPush: () => ipcRenderer.invoke('git:lfsPush'),
+    lfsPrune: () => ipcRenderer.invoke('git:lfsPrune'),
+
+    // ========== 交互式变基 ==========
+    getRebaseActions: (onto) => ipcRenderer.invoke('git:getRebaseActions', onto),
+    executeRebasePlan: (plan, onto) => ipcRenderer.invoke('git:executeRebasePlan', plan, onto),
+
+    // ========== Worktree ==========
+    listWorktrees: () => ipcRenderer.invoke('git:listWorktrees'),
+    createWorktree: (path, ref, newBranch) => ipcRenderer.invoke('git:createWorktree', path, ref, newBranch),
+    removeWorktree: (path, force) => ipcRenderer.invoke('git:removeWorktree', path, force),
+
+    // ========== Patch ==========
+    createPatch: (oids, outputPath) => ipcRenderer.invoke('git:createPatch', oids, outputPath),
+    applyPatch: (patchPath) => ipcRenderer.invoke('git:applyPatch', patchPath),
+    listPatches: () => ipcRenderer.invoke('git:listPatches'),
+
+    // ========== 设置 ==========
+    getPreferences: () => ipcRenderer.invoke('git:getPreferences'),
+    savePreferences: (prefs) => ipcRenderer.invoke('git:savePreferences', prefs),
+
+    // ========== 自定义操作 ==========
+    listCustomActions: () => ipcRenderer.invoke('git:listCustomActions'),
+    saveCustomAction: (action) => ipcRenderer.invoke('git:saveCustomAction', action),
+    deleteCustomAction: (id) => ipcRenderer.invoke('git:deleteCustomAction', id),
+    executeCustomAction: (id) => ipcRenderer.invoke('git:executeCustomAction', id),
+
+    // ========== 其他 ==========
+    getFileDiff: (oid, filePath) => ipcRenderer.invoke('git:getFileDiff', oid, filePath),
+    getFileHistoryEnhanced: (filePath, options) => ipcRenderer.invoke('git:getFileHistoryEnhanced', filePath, options),
+    openInDiffTool: (filePath, oldOid, newOid) => ipcRenderer.invoke('git:openInDiffTool', filePath, oldOid, newOid),
+    getRepoStats: () => ipcRenderer.invoke('git:getRepoStats'),
+    getPullRequests: (remote) => ipcRenderer.invoke('git:getPullRequests', remote),
+    verifyCommitSignature: (oid) => ipcRenderer.invoke('git:verifyCommitSignature', oid),
+    deleteUntrackedFile: (filePath) => ipcRenderer.invoke('git:deleteUntrackedFile', filePath),
+    discardChanges: (filePath) => ipcRenderer.invoke('git:discardChanges', filePath),
+    getCommitTemplate: () => ipcRenderer.invoke('git:getCommitTemplate'),
+    pushTag: (name, remote) => ipcRenderer.invoke('git:pushTag', name, remote),
+    pushAllTags: (remote) => ipcRenderer.invoke('git:pushAllTags', remote),
+    listSubmodulesEnhanced: () => ipcRenderer.invoke('git:listSubmodulesEnhanced'),
+    syncSubmodule: (subPath) => ipcRenderer.invoke('git:syncSubmodule', subPath),
+    getReflog: () => ipcRenderer.invoke('git:getReflog'),
+    stage: (files) => ipcRenderer.invoke('git:stage', files),
+    stageAll: () => ipcRenderer.invoke('git:stageAll'),
+    unstage: (files) => ipcRenderer.invoke('git:unstage', files),
+    unstageAll: () => ipcRenderer.invoke('git:unstageAll'),
   },
 
   // ========== 凭证服务 ==========
