@@ -874,6 +874,83 @@ function DiffView({ commitOid, filePath, isStaged, onRefresh }: DiffViewProps) {
     );
   };
 
+  // ===== P2-1: Diff Minimap 数据 =====
+  const [showMinimap, setShowMinimap] = useState(() => {
+    if (typeof window !== 'undefined') return localStorage.getItem('majie-diff-minimap') !== 'false';
+    return true;
+  });
+
+  const minimapData = useMemo(() => {
+    const markers: Array<{ lineIndex: number; type: 'add' | 'delete' | 'context' | 'conflict' }> = [];
+    let idx = 0;
+    diff.forEach(fileDiff => {
+      fileDiff.hunks.forEach(hunk => {
+        hunk.lines.forEach(line => {
+          if (line.type === 'add') markers.push({ lineIndex: idx, type: 'add' });
+          else if (line.type === 'delete') markers.push({ lineIndex: idx, type: 'delete' });
+          else if (line.type === 'conflict') markers.push({ lineIndex: idx, type: 'conflict' });
+          else markers.push({ lineIndex: idx, type: 'context' });
+          idx++;
+        });
+      });
+    });
+    return { totalLines: idx, markers };
+  }, [diff]);
+
+  // P2-2: 滚动条冲突/变更标记
+  const scrollbarMarkers = useMemo(() => {
+    if (!contentRef.current || minimapData.totalLines === 0) return [];
+    const markers: Array<{ top: number; height: number; color: string }> = [];
+    let idx = 0;
+    diff.forEach(fileDiff => {
+      fileDiff.hunks.forEach(hunk => {
+        let hunkStart = idx;
+        let addCount = 0, delCount = 0, conflictCount = 0;
+        hunk.lines.forEach(line => {
+          if (line.type === 'add') addCount++;
+          else if (line.type === 'delete') delCount++;
+          else if ((line as any).type === 'conflict') conflictCount++;
+          idx++;
+        });
+        const hunkLen = idx - hunkStart;
+        if (conflictCount > 0) {
+          markers.push({ top: hunkStart / minimapData.totalLines * 100, height: Math.max(hunkLen / minimapData.totalLines * 100, 0.5), color: '#e8a847' });
+        } else if (addCount > 0 || delCount > 0) {
+          markers.push({ top: hunkStart / minimapData.totalLines * 100, height: Math.max(hunkLen / minimapData.totalLines * 100, 0.3), color: addCount > delCount ? '#3fb95044' : '#f8514944' });
+        }
+      });
+    });
+    return markers;
+  }, [diff, minimapData.totalLines]);
+
+  const handleMinimapClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!contentRef.current || minimapData.totalLines === 0) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const y = e.clientY - rect.top;
+    const fraction = y / rect.height;
+    contentRef.current.scrollTop = fraction * contentRef.current.scrollHeight;
+  }, [minimapData.totalLines]);
+
+  // ===== P2-4: ↩︎ 段落级修改标记 =====
+  const paragraphMarkers = useMemo(() => {
+    // 标记连续删除+新增块之间插入 ↩︎ 标记
+    const markers: Array<{ lineIndex: number; label: string }> = [];
+    let idx = 0;
+    diff.forEach(fileDiff => {
+      fileDiff.hunks.forEach(hunk => {
+        const groups = groupDiffLines(hunk.lines);
+        for (const group of groups) {
+          if (group.type === 'modify') {
+            markers.push({ lineIndex: idx + group.deleteLines.length, label: '↩' });
+          }
+          idx += group.deleteLines.length + group.addLines.length;
+          if (group.type === 'context') idx++;
+        }
+      });
+    });
+    return markers;
+  }, [diff]);
+
   // ===== 主渲染 =====
   
   if (loading) {
@@ -927,6 +1004,12 @@ function DiffView({ commitOid, filePath, isStaged, onRefresh }: DiffViewProps) {
         <button className={`p-1.5 rounded transition-colors ${syntaxHighlight ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
           onClick={() => setSyntaxHighlight(!syntaxHighlight)} title="Syntax Highlight">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" /></svg>
+        </button>
+
+        {/* P2-1: Minimap 开关 */}
+        <button className={`p-1.5 rounded transition-colors ${showMinimap ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
+          onClick={() => { setShowMinimap(!showMinimap); localStorage.setItem('majie-diff-minimap', String(!showMinimap)); }} title="Toggle Minimap">
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
         </button>
 
         {/* Diff 算法选择 */}
@@ -1005,9 +1088,48 @@ function DiffView({ commitOid, filePath, isStaged, onRefresh }: DiffViewProps) {
         </div>
       )}
 
-      {/* Diff 内容 */}
-      <div ref={contentRef} className="flex-1 overflow-auto">
-        {viewMode === 'unified' ? renderUnifiedView() : renderSideBySideView()}
+      {/* Diff 内容 + P2-1 Minimap + P2-2 Scrollbar Markers */}
+      <div className="flex-1 overflow-hidden flex">
+        {/* P2-2: 滚动条冲突/变更标记（左侧窄条） */}
+        <div style={{ position: 'relative', width: 6, background: '#1a1a2e', flexShrink: 0, cursor: 'pointer' }}
+          onClick={(e) => {
+            if (!contentRef.current || minimapData.totalLines === 0) return;
+            const rect = e.currentTarget.getBoundingClientRect();
+            const fraction = (e.clientY - rect.top) / rect.height;
+            contentRef.current.scrollTop = fraction * contentRef.current.scrollHeight;
+          }}
+        >
+          {scrollbarMarkers.map((m, i) => (
+            <div key={i} style={{ position: 'absolute', top: `${m.top}%`, height: `${Math.max(m.height, 0.3)}%`, left: 0, right: 0, background: m.color, borderRadius: 1 }} />
+          ))}
+        </div>
+
+        {/* 主 Diff 内容 */}
+        <div ref={contentRef} className="flex-1 overflow-auto">
+          {viewMode === 'unified' ? renderUnifiedView() : renderSideBySideView()}
+        </div>
+
+        {/* P2-1: Diff Minimap（右侧迷你地图） */}
+        {showMinimap && minimapData.totalLines > 0 && (
+          <canvas
+            width={40}
+            height={Math.min(minimapData.totalLines * 2, 600)}
+            onClick={handleMinimapClick}
+            style={{ width: 40, flexShrink: 0, background: '#0d1117', borderLeft: '1px solid #21262d', cursor: 'pointer', alignSelf: 'stretch' }}
+            ref={(canvas) => {
+              if (!canvas) return;
+              const ctx = canvas.getContext('2d');
+              if (!ctx) return;
+              ctx.clearRect(0, 0, canvas.width, canvas.height);
+              const lineH = canvas.height / minimapData.totalLines;
+              minimapData.markers.forEach(m => {
+                const y = m.lineIndex * lineH;
+                ctx.fillStyle = m.type === 'add' ? '#3fb95066' : m.type === 'delete' ? '#f8514966' : m.type === 'conflict' ? '#e8a84788' : '#30363d44';
+                ctx.fillRect(0, y, canvas.width, Math.max(lineH, 0.5));
+              });
+            }}
+          />
+        )}
       </div>
     </div>
   );
