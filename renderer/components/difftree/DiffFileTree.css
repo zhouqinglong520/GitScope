@@ -1,0 +1,271 @@
+/* Diff File Tree Styles — Majie 码界 */
+
+.dft-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg-surface, #0d1117);
+}
+
+.dft-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border-subtle, #21262d);
+  background: var(--bg-elevated, #161b22);
+}
+
+.dft-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dft-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-primary, #e6edf3);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.dft-badge {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 10px;
+  background: var(--accent-dim, rgba(0,212,170,0.15));
+  color: var(--accent, #00d4aa);
+  font-weight: 600;
+}
+
+.dft-stats-total {
+  font-size: 11px;
+  font-family: monospace;
+}
+
+.dft-header-right {
+  display: flex;
+  gap: 2px;
+}
+
+.dft-mode-btn {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--text-muted, #8b949e);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.dft-mode-btn:hover {
+  background: var(--bg-hover, #1f2937);
+  color: var(--text-primary, #e6edf3);
+}
+
+.dft-mode-btn.active {
+  background: var(--accent-dim, rgba(0,212,170,0.15));
+  color: var(--accent, #00d4aa);
+}
+
+/* Filter */
+.dft-filter {
+  display: flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border-subtle, #21262d);
+  gap: 6px;
+}
+
+.dft-filter-icon {
+  color: var(--text-muted, #8b949e);
+  flex-shrink: 0;
+}
+
+.dft-filter-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-primary, #e6edf3);
+  font-size: 12px;
+  font-family: inherit;
+}
+
+.dft-filter-input::placeholder {
+  color: var(--text-faint, #484f58);
+}
+
+.dft-filter-clear {
+  background: none;
+  border: none;
+  color: var(--text-muted, #8b949e);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 0 2px;
+}
+
+.dft-filter-clear:hover {
+  color: var(--text-primary, #e6edf3);
+}
+
+/* Content */
+.dft-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.dft-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.dft-content::-webkit-scrollbar-thumb {
+  background: var(--border-subtle, #21262d);
+  border-radius: 3px;
+}
+
+/* Directory */
+.dft-dir-header {
+  display: flex;
+  align-items: center;
+  height: 24px;
+  cursor: pointer;
+  gap: 4px;
+  user-select: none;
+  transition: background 0.1s;
+}
+
+.dft-dir-header:hover {
+  background: var(--bg-hover, #1f2937);
+}
+
+.dft-arrow {
+  color: var(--text-muted, #8b949e);
+  transition: transform 0.15s;
+  flex-shrink: 0;
+}
+
+.dft-arrow-open {
+  transform: rotate(90deg);
+}
+
+.dft-icon {
+  flex-shrink: 0;
+}
+
+.dft-icon-dir {
+  color: #e2a855;
+}
+
+.dft-icon-file {
+  color: #6cc644;
+  opacity: 0.7;
+}
+
+.dft-name {
+  flex: 1;
+  font-size: 12px;
+  color: var(--text-primary, #e6edf3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dft-count {
+  font-size: 10px;
+  color: var(--text-faint, #484f58);
+  padding-right: 8px;
+}
+
+/* File */
+.dft-file {
+  display: flex;
+  align-items: center;
+  height: 24px;
+  cursor: pointer;
+  gap: 4px;
+  transition: background 0.1s;
+  padding-right: 8px;
+}
+
+.dft-file:hover {
+  background: var(--bg-hover, #1f2937);
+}
+
+.dft-file-selected {
+  background: var(--accent-dim, rgba(0,212,170,0.12)) !important;
+  border-left: 2px solid var(--accent, #00d4aa);
+}
+
+.dft-file-spacer {
+  width: 10px;
+  flex-shrink: 0;
+}
+
+.dft-status-badge {
+  font-size: 11px;
+  font-weight: 700;
+  font-family: monospace;
+  width: 14px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.dft-file-stats {
+  display: flex;
+  gap: 4px;
+  font-size: 10px;
+  font-family: monospace;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.dft-stat-add { color: #6cc644; }
+.dft-stat-del { color: #e85d75; }
+
+.dft-file-actions {
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.dft-file:hover .dft-file-actions {
+  opacity: 1;
+}
+
+.dft-action-btn {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--text-muted, #8b949e);
+  border-radius: 3px;
+  cursor: pointer;
+  padding: 0;
+}
+
+.dft-action-btn:hover {
+  background: var(--bg-hover, #1f2937);
+  color: var(--accent, #00d4aa);
+}
+
+/* Empty */
+.dft-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-muted, #8b949e);
+  font-size: 13px;
+}
