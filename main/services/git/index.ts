@@ -1111,45 +1111,6 @@ class GitService {
   }
 
   /**
-   * 获取当前分支与远程分支的 ahead/behind 数量
-   */
-  async getAheadBehind(): Promise<{ ahead: number; behind: number }> {
-    if (!this.dir) return { ahead: 0, behind: 0 };
-
-    try {
-      // 使用 git rev-list 来统计 ahead 和 behind 的提交数
-      const currentBranch = await this.currentBranch();
-      if (!currentBranch) return { ahead: 0, behind: 0 };
-
-      // 获取远程分支名（假设是 origin/<branch>）
-      const remoteBranch = `origin/${currentBranch}`;
-
-      // 统计本地领先远程的提交数
-      let ahead = 0;
-      try {
-        const { stdout: aheadStdout } = await this.gitCliExec(['rev-list', '--count', `${remoteBranch}..HEAD`]);
-        ahead = parseInt(aheadStdout.trim()) || 0;
-      } catch (e) {
-        // 可能远程分支不存在
-      }
-
-      // 统计远程领先本地的提交数
-      let behind = 0;
-      try {
-        const { stdout: behindStdout } = await this.gitCliExec(['rev-list', '--count', `HEAD..${remoteBranch}`]);
-        behind = parseInt(behindStdout.trim()) || 0;
-      } catch (e) {
-        // 可能远程分支不存在
-      }
-
-      return { ahead, behind };
-    } catch (error) {
-      console.error('[GitService] 获取 ahead/behind 失败:', error);
-      return { ahead: 0, behind: 0 };
-    }
-  }
-
-  /**
    * 获取当前分支名
    */
   private async currentBranch(): Promise<string | null> {
@@ -1379,8 +1340,592 @@ function parseNameStatus(output: string): CommitFileChange[] {
   }
 
   return files;
+  // ========== 冲突解决 ==========
+
+  /** 中止合并 */
+  async abortMerge(): Promise<void> {
+    if (!this.dir) throw new Error('仓库未打开');
+    await this.gitCliExec(['merge', '--abort']);
+  }
+
+  /** 继续合并 */
+  async continueMerge(): Promise<void> {
+    if (!this.dir) throw new Error('仓库未打开');
+    await this.gitCliExec(['merge', '--continue']);
+  }
+
+  /** 中止变基 */
+  async abortRebase(): Promise<void> {
+    if (!this.dir) throw new Error('仓库未打开');
+    await this.gitCliExec(['rebase', '--abort']);
+  }
+
+  /** 继续变基 */
+  async continueRebase(): Promise<void> {
+    if (!this.dir) throw new Error('仓库未打开');
+    await this.gitCliExec(['rebase', '--continue']);
+  }
+
+  /** 中止拣选 */
+  async abortCherryPick(): Promise<void> {
+    if (!this.dir) throw new Error('仓库未打开');
+    await this.gitCliExec(['cherry-pick', '--abort']);
+  }
+
+  /** 继续拣选 */
+  async continueCherryPick(): Promise<void> {
+    if (!this.dir) throw new Error('仓库未打开');
+    await this.gitCliExec(['cherry-pick', '--continue']);
+  }
+
+  /** 获取冲突文件列表 */
+  async getConflictedFiles(): Promise<string[]> {
+    if (!this.dir) return [];
+    try {
+      const { stdout } = await this.gitCliExec(['diff', '--name-only', '--diff-filter=U']);
+      return stdout.trim().split('\n').filter(Boolean);
+    } catch {
+      return [];
+    }
+  }
+
+  /** 使用我们的版本解决冲突 */
+  async resolveConflictUseOurs(filePath: string): Promise<void> {
+    if (!this.dir) throw new Error('仓库未打开');
+    await this.gitCliExec(['checkout', '--ours', filePath]);
+    await this.gitCliExec(['add', filePath]);
+  }
+
+  /** 使用他们的版本解决冲突 */
+  async resolveConflictUseTheirs(filePath: string): Promise<void> {
+    if (!this.dir) throw new Error('仓库未打开');
+    await this.gitCliExec(['checkout', '--theirs', filePath]);
+    await this.gitCliExec(['add', filePath]);
+  }
+
+  /** 用指定策略解决所有冲突 */
+  async resolveAllConflicts(strategy: 'ours' | 'theirs'): Promise<void> {
+    if (!this.dir) throw new Error('仓库未打开');
+    const conflicts = await this.getConflictedFiles();
+    for (const file of conflicts) {
+      if (strategy === 'ours') {
+        await this.resolveConflictUseOurs(file);
+      } else {
+        await this.resolveConflictUseTheirs(file);
+      }
+    }
+  }
+
+  /** 预检合并是否会产生冲突 */
+  async checkMergeConflict(branch: string): Promise<{ hasConflict: boolean; files: string[] }> {
+    if (!this.dir) return { hasConflict: false, files: [] };
+    try {
+      const mergeBase = (await this.gitCliExec(['merge-base', 'HEAD', branch])).stdout.trim();
+      const { stdout } = await this.gitCliExec(['merge-tree', mergeBase, 'HEAD', branch]);
+      const files: string[] = [];
+      for (const line of stdout.split('\n')) {
+        if (line.includes('changed in both') || line.includes('CONFLICT')) {
+          const match = line.match(/:(\d+):(\d+): (.*)/);
+          if (match) files.push(match[3]);
+        }
+      }
+      return { hasConflict: files.length > 0, files };
+    } catch {
+      return { hasConflict: false, files: [] };
+    }
+  }
+
+  /** 预检变基是否会产生冲突 */
+  async checkRebaseConflict(onto: string): Promise<{ hasConflict: boolean; files: string[] }> {
+    if (!this.dir) return { hasConflict: false, files: [] };
+    try {
+      const { stdout } = await this.gitCliExec(['diff', '--name-only', '--diff-filter=U', onto + '...HEAD']);
+      const files = stdout.trim().split('\n').filter(Boolean);
+      return { hasConflict: files.length > 0, files };
+    } catch {
+      return { hasConflict: false, files: [] };
+    }
+  }
+
+  /** 预检拣选是否会产生冲突 */
+  async checkCherryPickConflict(oid: string): Promise<{ hasConflict: boolean; files: string[] }> {
+    if (!this.dir) return { hasConflict: false, files: [] };
+    try {
+      const { stdout } = await this.gitCliExec(['cherry-pick', '--no-commit', oid]);
+      const conflicts = await this.getConflictedFiles();
+      await this.gitCliExec(['cherry-pick', '--abort']);
+      return { hasConflict: conflicts.length > 0, files: conflicts };
+    } catch {
+      return { hasConflict: false, files: [] };
+    }
+  }
+
+  // ========== Bisect 二分查找 ==========
+
+  /** 开始 bisect */
+  async bisectStart(goodRef?: string, badRef?: string): Promise<void> {
+    if (!this.dir) throw new Error('仓库未打开');
+    const args = ['bisect', 'start'];
+    if (badRef) args.push(badRef);
+    if (goodRef) args.push(goodRef);
+    await this.gitCliExec(args);
+  }
+
+  /** 标记 bisect 提交 */
+  async bisectMark(ref: string, kind: 'good' | 'bad'): Promise<void> {
+    if (!this.dir) throw new Error('仓库未打开');
+    await this.gitCliExec(['bisect', kind, ref]);
+  }
+
+  /** 跳过当前 bisect 提交 */
+  async bisectSkip(): Promise<void> {
+    if (!this.dir) throw new Error('仓库未打开');
+    await this.gitCliExec(['bisect', 'skip']);
+  }
+
+  /** 重置 bisect */
+  async bisectReset(): Promise<void> {
+    if (!this.dir) throw new Error('仓库未打开');
+    await this.gitCliExec(['bisect', 'reset']);
+  }
+
+  /** 获取 bisect 状态 */
+  async getBisectState(): Promise<{ active: boolean; goodRef?: string; badRef?: string; remaining?: number }> {
+    if (!this.dir) return { active: false };
+    try {
+      const { stdout } = await this.gitCliExec(['bisect', 'log']);
+      const isActive = stdout.trim().length > 0;
+      return { active: isActive };
+    } catch {
+      return { active: false };
+    }
+  }
+
+  // ========== LFS 大文件存储 ==========
+
+  /** 获取 LFS 状态 */
+  async getLfsStatus(): Promise<{ tracked: string[]; locked: string[]; pointers: string[] }> {
+    if (!this.dir) return { tracked: [], locked: [], pointers: [] };
+    try {
+      const { stdout: trackOut } = await this.gitCliExec(['lfs', 'track']);
+      const tracked = trackOut.trim().split('\n').filter(l => l && !l.startsWith('Listing')).map(l => l.split(' ')[0]).filter(Boolean);
+      const { stdout: lockOut } = await this.gitCliExec(['lfs', 'locks']);
+      const locked = lockOut.trim().split('\n').filter(Boolean).map(l => l.split('\t')[0]);
+      return { tracked, locked, pointers: [] };
+    } catch {
+      return { tracked: [], locked: [], pointers: [] };
+    }
+  }
+
+  /** 安装 LFS */
+  async installLfs(): Promise<void> {
+    if (!this.dir) throw new Error('仓库未打开');
+    await this.gitCliExec(['lfs', 'install']);
+  }
+
+  /** LFS 追踪 */
+  async lfsTrack(pattern: string): Promise<void> {
+    if (!this.dir) throw new Error('仓库未打开');
+    await this.gitCliExec(['lfs', 'track', pattern]);
+  }
+
+  /** LFS 取消追踪 */
+  async lfsUntrack(pattern: string): Promise<void> {
+    if (!this.dir) throw new Error('仓库未打开');
+    await this.gitCliExec(['lfs', 'untrack', pattern]);
+  }
+
+  /** LFS 锁定文件 */
+  async lfsLock(filePath: string): Promise<void> {
+    if (!this.dir) throw new Error('仓库未打开');
+    await this.gitCliExec(['lfs', 'lock', filePath]);
+  }
+
+  /** LFS 解锁文件 */
+  async lfsUnlock(filePath: string): Promise<void> {
+    if (!this.dir) throw new Error('仓库未打开');
+    await this.gitCliExec(['lfs', 'unlock', filePath]);
+  }
+
+  /** LFS 拉取 */
+  async lfsPull(): Promise<void> {
+    if (!this.dir) throw new Error('仓库未打开');
+    await this.gitCliExec(['lfs', 'pull']);
+  }
+
+  /** LFS 推送 */
+  async lfsPush(): Promise<void> {
+    if (!this.dir) throw new Error('仓库未打开');
+    await this.gitCliExec(['lfs', 'push', '--all', 'origin']);
+  }
+
+  /** LFS 清理 */
+  async lfsPrune(): Promise<void> {
+    if (!this.dir) throw new Error('仓库未打开');
+    await this.gitCliExec(['lfs', 'prune']);
+  }
+
+  // ========== 交互式变基 ==========
+
+  /** 获取变基操作列表 */
+  async getRebaseActions(onto: string): Promise<Array<{ action: string; oid: string; message: string }>> {
+    if (!this.dir) return [];
+    try {
+      const { stdout } = await this.gitCliExec(['log', '--oneline', onto + '..HEAD']);
+      return stdout.trim().split('\n').filter(Boolean).map(line => {
+        const [oid, ...msgParts] = line.split(' ');
+        return { action: 'pick', oid, message: msgParts.join(' ') };
+      });
+    } catch {
+      return [];
+    }
+  }
+
+  /** 执行变基计划 */
+  async executeRebasePlan(plan: Array<{ action: string; oid: string }>, onto: string): Promise<void> {
+    if (!this.dir) throw new Error('仓库未打开');
+    const todo = plan.map(p => p.action + ' ' + p.oid).join('\n');
+    await this.gitCliExec(['rebase', '--onto', onto, '--interactive'], undefined, todo);
+  }
+
+  /** 交互式变基 */
+  async rebaseInteractive(onto: string, todoContent?: string): Promise<void> {
+    if (!this.dir) throw new Error('仓库未打开');
+    await this.gitCliExec(['rebase', '-i', onto], undefined, todoContent);
+  }
+
+  // ========== Worktree 工作树 ==========
+
+  /** 列出工作树 */
+  async listWorktrees(): Promise<Array<{ path: string; branch: string; isMain: boolean }>> {
+    if (!this.dir) return [];
+    try {
+      const { stdout } = await this.gitCliExec(['worktree', 'list', '--porcelain']);
+      const worktrees: Array<{ path: string; branch: string; isMain: boolean }> = [];
+      let current: Partial<{ path: string; branch: string; isMain: boolean }> = {};
+      for (const line of stdout.split('\n')) {
+        if (line.startsWith('worktree ')) {
+          if (current.path) worktrees.push(current as any);
+          current = { path: line.substring(9), isMain: worktrees.length === 0 };
+        } else if (line.startsWith('branch ')) {
+          current.branch = line.substring(7).replace('refs/heads/', '');
+        }
+      }
+      if (current.path) worktrees.push(current as any);
+      return worktrees;
+    } catch {
+      return [];
+    }
+  }
+
+  /** 创建工作树 */
+  async createWorktree(path: string, ref: string, newBranch?: string): Promise<void> {
+    if (!this.dir) throw new Error('仓库未打开');
+    const args = ['worktree', 'add', path];
+    if (newBranch) args.push('-b', newBranch);
+    args.push(ref);
+    await this.gitCliExec(args);
+  }
+
+  /** 移除工作树 */
+  async removeWorktree(path: string, force?: boolean): Promise<void> {
+    if (!this.dir) throw new Error('仓库未打开');
+    const args = ['worktree', 'remove', path];
+    if (force) args.push('--force');
+    await this.gitCliExec(args);
+  }
+
+  // ========== Patch 补丁 ==========
+
+  /** 创建补丁 */
+  async createPatch(oids: string[], outputPath?: string): Promise<string> {
+    if (!this.dir) throw new Error('仓库未打开');
+    const args = ['format-patch', '--stdout'];
+    if (oids.length === 1) {
+      args.push(oids[0] + '^..' + oids[0]);
+    } else {
+      args.push('-' + oids.length.toString());
+    }
+    const { stdout } = await this.gitCliExec(args);
+    if (outputPath) {
+      const fs = await import('fs/promises');
+      await fs.writeFile(outputPath, stdout, 'utf-8');
+    }
+    return stdout;
+  }
+
+  /** 应用补丁 */
+  async applyPatch(patchPath: string): Promise<void> {
+    if (!this.dir) throw new Error('仓库未打开');
+    await this.gitCliExec(['am', patchPath]);
+  }
+
+  /** 列出补丁 */
+  async listPatches(): Promise<string[]> {
+    if (!this.dir) return [];
+    try {
+      const fs = await import('fs/promises');
+      const path = await import('path');
+      const patchDir = path.join(this.dir, '.git', 'patches');
+      const files = await fs.readdir(patchDir);
+      return files.filter(f => f.endsWith('.patch'));
+    } catch {
+      return [];
+    }
+  }
+
+  // ========== 设置/偏好 ==========
+
+  /** 获取偏好设置 */
+  async getPreferences(): Promise<Record<string, any>> {
+    if (!this.dir) return {};
+    try {
+      const fs = await import('fs/promises');
+      const path = await import('path');
+      const prefsPath = path.join(this.dir, '.git', 'gitscope.json');
+      const data = await fs.readFile(prefsPath, 'utf-8');
+      return JSON.parse(data);
+    } catch {
+      return {};
+    }
+  }
+
+  /** 保存偏好设置 */
+  async savePreferences(prefs: Record<string, any>): Promise<void> {
+    if (!this.dir) throw new Error('仓库未打开');
+    const fs = await import('fs/promises');
+    const path = await import('path');
+    const prefsPath = path.join(this.dir, '.git', 'gitscope.json');
+    let existing: Record<string, any> = {};
+    try {
+      const data = await fs.readFile(prefsPath, 'utf-8');
+      existing = JSON.parse(data);
+    } catch {}
+    const merged = { ...existing, ...prefs };
+    await fs.writeFile(prefsPath, JSON.stringify(merged, null, 2), 'utf-8');
+  }
+
+  // ========== 自定义操作 ==========
+
+  /** 列出自定义操作 */
+  async listCustomActions(): Promise<Array<{ id: string; name: string; command: string; workingDir?: string; shortcut?: string; filePattern?: string }>> {
+    const prefs = await this.getPreferences();
+    return prefs.customActions || [];
+  }
+
+  /** 保存自定义操作 */
+  async saveCustomAction(action: { name: string; command: string; workingDir?: string; shortcut?: string; filePattern?: string }): Promise<string> {
+    const prefs = await this.getPreferences();
+    const actions = prefs.customActions || [];
+    const id = 'action_' + Date.now();
+    actions.push({ id, ...action });
+    await this.savePreferences({ customActions: actions });
+    return id;
+  }
+
+  /** 删除自定义操作 */
+  async deleteCustomAction(id: string): Promise<void> {
+    const prefs = await this.getPreferences();
+    const actions = (prefs.customActions || []).filter((a: any) => a.id !== id);
+    await this.savePreferences({ customActions: actions });
+  }
+
+  /** 执行自定义操作 */
+  async executeCustomAction(id: string): Promise<{ success: boolean; output: string }> {
+    const prefs = await this.getPreferences();
+    const action = (prefs.customActions || []).find((a: any) => a.id === id);
+    if (!action) throw new Error('自定义操作不存在');
+    try {
+      const { stdout } = await this.gitCliExec(action.command.split(' '), action.workingDir);
+      return { success: true, output: stdout };
+    } catch (error: any) {
+      return { success: false, output: error.message || '执行失败' };
+    }
+  }
+
+  // ========== 其他功能 ==========
+
+  /** Blame 追踪 */
+  async blame(filePath: string): Promise<Array<{ oid: string; line: number; author: string; date: string; content: string }>> {
+    if (!this.dir) return [];
+    try {
+      const { stdout } = await this.gitCliExec(['blame', '--porcelain', filePath]);
+      const results: Array<{ oid: string; line: number; author: string; date: string; content: string }> = [];
+      let current: Partial<{ oid: string; line: number; author: string; date: string; content: string }> = {};
+      for (const line of stdout.split('\n')) {
+        const headerMatch = line.match(/^([0-9a-f]{40})\s+(\d+)\s+(\d+)/);
+        if (headerMatch) {
+          if (current.oid && current.line) results.push(current as any);
+          current = { oid: headerMatch[1], line: parseInt(headerMatch[3]) };
+        } else if (line.startsWith('author ')) {
+          current.author = line.substring(7);
+        } else if (line.startsWith('author-time ')) {
+          current.date = new Date(parseInt(line.substring(12)) * 1000).toISOString();
+        } else if (line.startsWith('\t')) {
+          current.content = line.substring(1);
+        }
+      }
+      if (current.oid && current.line) results.push(current as any);
+      return results;
+    } catch {
+      return [];
+    }
+  }
+
+  /** 重置到指定引用 */
+  async resetTo(ref: string, mode: 'soft' | 'mixed' | 'hard'): Promise<void> {
+    if (!this.dir) throw new Error('仓库未打开');
+    await this.gitCliExec(['reset', '--' + mode, ref]);
+  }
+
+  /** 获取提交中指定文件的差异 */
+  async getFileDiff(oid: string, filePath: string): Promise<GitDiff[]> {
+    if (!this.dir) return [];
+    try {
+      const { stdout } = await this.gitCliExec(['diff', oid + '^..' + oid, '--', filePath]);
+      return parseDiffOutput(stdout);
+    } catch {
+      return [];
+    }
+  }
+
+  /** 增强版文件历史 */
+  async getFileHistoryEnhanced(filePath: string, options?: { maxCount?: number; skip?: number }): Promise<Array<{ oid: string; message: string; author: string; date: string; additions: number; deletions: number }>> {
+    if (!this.dir) return [];
+    try {
+      const args = ['log', '--format=%H|%s|%an|%aI', '--numstat', '--', filePath];
+      if (options?.maxCount) args.push('--max-count=' + options.maxCount.toString());
+      if (options?.skip) args.push('--skip=' + options.skip.toString());
+      const { stdout } = await this.gitCliExec(args);
+      const results: Array<{ oid: string; message: string; author: string; date: string; additions: number; deletions: number }> = [];
+      let current: Partial<typeof results[0]> | null = null;
+      for (const line of stdout.split('\n')) {
+        if (line.includes('|')) {
+          if (current) results.push(current as any);
+          const [oid, message, author, date] = line.split('|');
+          current = { oid, message, author, date, additions: 0, deletions: 0 };
+        } else if (current && line.trim()) {
+          const parts = line.trim().split('\t');
+          if (parts.length >= 2) {
+            current.additions = (current.additions || 0) + (parseInt(parts[0]) || 0);
+            current.deletions = (current.deletions || 0) + (parseInt(parts[1]) || 0);
+          }
+        }
+      }
+      if (current) results.push(current as any);
+      return results;
+    } catch {
+      return [];
+    }
+  }
+
+  /** 在外部 Diff 工具中打开 */
+  async openInDiffTool(filePath: string, oldOid?: string, newOid?: string): Promise<void> {
+    if (!this.dir) throw new Error('仓库未打开');
+    await this.gitCliExec(['difftool', filePath]);
+  }
+
+  /** 获取仓库统计 */
+  async getRepoStats(): Promise<{ totalCommits: number; totalAuthors: number; totalFiles: number; repoSize: string }> {
+    if (!this.dir) return { totalCommits: 0, totalAuthors: 0, totalFiles: 0, repoSize: '0' };
+    try {
+      const { stdout: logOut } = await this.gitCliExec(['log', '--oneline']);
+      const totalCommits = logOut.trim().split('\n').filter(Boolean).length;
+      const { stdout: shortLog } = await this.gitCliExec(['shortlog', '-sn']);
+      const totalAuthors = shortLog.trim().split('\n').filter(Boolean).length;
+      const { stdout: lsOut } = await this.gitCliExec(['ls-files']);
+      const totalFiles = lsOut.trim().split('\n').filter(Boolean).length;
+      return { totalCommits, totalAuthors, totalFiles, repoSize: 'N/A' };
+    } catch {
+      return { totalCommits: 0, totalAuthors: 0, totalFiles: 0, repoSize: '0' };
+    }
+  }
+
+  /** 获取 Pull Requests（Gitee/GitHub） */
+  async getPullRequests(remote?: string): Promise<Array<{ id: number; title: string; state: string; url: string }>> {
+    // 需要集成 Gitee/GitHub API，暂返回空
+    return [];
+  }
+
+  /** 验证提交签名 */
+  async verifyCommitSignature(oid: string): Promise<{ verified: boolean; key: string; signer: string }> {
+    if (!this.dir) return { verified: false, key: '', signer: '' };
+    try {
+      const { stdout } = await this.gitCliExec(['verify-commit', '--raw', oid]);
+      return { verified: stdout.includes('GOODSIG'), key: '', signer: '' };
+    } catch {
+      return { verified: false, key: '', signer: '' };
+    }
+  }
+
+  /** 删除未追踪文件 */
+  async deleteUntrackedFile(filePath: string): Promise<void> {
+    if (!this.dir) throw new Error('仓库未打开');
+    const fs = await import('fs/promises');
+    const path = await import('path');
+    await fs.rm(path.join(this.dir, filePath), { recursive: true, force: true });
+  }
+
+  /** 丢弃文件修改 */
+  async discardChanges(filePath: string): Promise<void> {
+    if (!this.dir) throw new Error('仓库未打开');
+    await this.gitCliExec(['checkout', '--', filePath]);
+  }
+
+  /** 获取提交模板 */
+  async getCommitTemplate(): Promise<string> {
+    if (!this.dir) return '';
+    try {
+      const { stdout } = await this.gitCliExec(['config', 'commit.template']);
+      if (stdout.trim()) {
+        const fs = await import('fs/promises');
+        return await fs.readFile(stdout.trim(), 'utf-8');
+      }
+    } catch {}
+    return '';
+  }
+
+  /** 推送标签 */
+  async pushTag(name: string, remote?: string): Promise<void> {
+    if (!this.dir) throw new Error('仓库未打开');
+    await this.gitCliExec(['push', remote || 'origin', name]);
+  }
+
+  /** 推送所有标签 */
+  async pushAllTags(remote?: string): Promise<void> {
+    if (!this.dir) throw new Error('仓库未打开');
+    await this.gitCliExec(['push', remote || 'origin', '--tags']);
+  }
+
+  /** 增强版子模块列表 */
+  async listSubmodulesEnhanced(): Promise<Array<{ name: string; path: string; url: string; branch: string; status: string }>> {
+    if (!this.dir) return [];
+    try {
+      const { stdout } = await this.gitCliExec(['submodule', 'status', '--recursive']);
+      const results: Array<{ name: string; path: string; url: string; branch: string; status: string }> = [];
+      for (const line of stdout.trim().split('\n').filter(Boolean)) {
+        const match = line.match(/^[+\-U ]([0-9a-f]+)\s+(\S+)/);
+        if (match) {
+          const prefix = line[0];
+          const status = prefix === '+' ? 'modified' : prefix === '-' ? 'not initialized' : prefix === 'U' ? 'conflict' : 'clean';
+          results.push({ name: match[2].split('/').pop() || match[2], path: match[2], url: '', branch: '', status });
+        }
+      }
+      return results;
+    } catch {
+      return [];
+    }
+  }
+
+  /** 同步子模块 */
+  async syncSubmodule(subPath: string): Promise<void> {
+    if (!this.dir) throw new Error('仓库未打开');
+    await this.gitCliExec(['submodule', 'sync', '--', subPath]);
+  }
+
 }
+
 
 // 导出单例
 const gitService = new GitService();
-module.exports = { GitService, gitService };
+export const gitService = new GitService();
