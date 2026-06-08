@@ -22,6 +22,7 @@ import BlameView from '../blame/BlameView';
 import ConflictResolutionPanel from '../conflict/ConflictResolutionPanel';
 import ConflictWarningDialog from '../conflict/ConflictWarningDialog';
 import ReflogPanel from '../reflog/ReflogPanel';
+import TerminalPanel from '../terminal/TerminalPanel';
 import TagPanel from '../branch/TagPanel';
 import { useRepoStore } from '../../stores/repoStore';
 import { useI18 } from '../../i18n';
@@ -44,6 +45,7 @@ function MainLayout() {
   const [showConflictWarning, setShowConflictWarning] = useState(false);
   const [conflictWarningData, setConflictWarningData] = useState<{ type: string; branch: string; files: string[] }>({ type: '', branch: '', files: [] });
   const [showReflog, setShowReflog] = useState(false);
+  const [showTerminal, setShowTerminal] = useState(false);
   const {
     commits,
     filteredCommits,
@@ -263,6 +265,8 @@ function MainLayout() {
       showBranchSelector: () => {},  // TODO: add BranchSelector
       showGitignoreEditor: () => {},  // TODO: add gitignore editor
       showShortcuts: () => {},  // TODO: add shortcuts dialog
+      toggleTerminal: () => setShowTerminal(prev => !prev),
+      'menu:toggleTerminal': () => setShowTerminal(prev => !prev),
     };
     for (const [event, handler] of Object.entries(handlers)) {
       window.addEventListener(event, handler);
@@ -523,6 +527,12 @@ function MainLayout() {
         visible={showTagPanel}
         onClose={() => setShowTagPanel(false)}
         onRefresh={refresh}
+      />
+      {/* 内置终端面板 */}
+      <TerminalPanel
+        visible={showTerminal}
+        onClose={() => setShowTerminal(false)}
+        cwd={currentRepo?.path}
       />
     </div>
   );
