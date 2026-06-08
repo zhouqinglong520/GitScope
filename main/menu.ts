@@ -1,6 +1,6 @@
 /**
  * 应用菜单配置
- * 参考 Fork 的菜单结构，适配 GitScope 已有功能
+ * 参考 Fork 的菜单结构，适配 Majie 已有功能
  */
 export {};
 
@@ -252,17 +252,17 @@ function createAppMenu() {
       label: '帮助',
       submenu: [
         {
-          label: 'GitScope 官网',
-          click: () => shell.openExternal('https://github.com/zhouqinglong520/GitScope'),
+          label: 'Majie 官网',
+          click: () => shell.openExternal('https://github.com/zhouqinglong520/Majie'),
         },
         {
           label: '查看文档',
-          click: () => shell.openExternal('https://github.com/zhouqinglong520/GitScope/blob/main/README.md'),
+          click: () => shell.openExternal('https://github.com/zhouqinglong520/Majie/blob/main/README.md'),
         },
         { type: 'separator' },
         {
           label: '报告问题',
-          click: () => shell.openExternal('https://github.com/zhouqinglong520/GitScope/issues'),
+          click: () => shell.openExternal('https://github.com/zhouqinglong520/Majie/issues'),
         },
         { type: 'separator' },
         {
@@ -272,13 +272,13 @@ function createAppMenu() {
         },
         { type: 'separator' },
         {
-          label: '关于 GitScope',
+          label: '关于 Majie',
           click: () => {
             dialog.showMessageBox(mainWindow, {
               type: 'info',
-              title: '关于 GitScope',
-              message: 'GitScope 码界',
-              detail: `版本: ${app.getVersion()}\n面向国内开发者的现代 Git 图形化客户端\n\nElectron + React + TypeScript\nhttps://github.com/zhouqinglong520/GitScope`,
+              title: '关于 Majie',
+              message: 'Majie 码界',
+              detail: `版本: ${app.getVersion()}\n面向国内开发者的现代 Git 图形化客户端\n\nElectron + React + TypeScript\nhttps://github.com/zhouqinglong520/Majie`,
               buttons: ['确定'],
             });
           },
