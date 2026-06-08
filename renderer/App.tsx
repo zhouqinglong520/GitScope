@@ -242,6 +242,13 @@ function App() {
         e.preventDefault();
         toggleSidebar();
       }
+
+      // Ctrl+`: 切换终端面板
+      if (e.ctrlKey && e.key === '`') {
+        e.preventDefault();
+        // 通过 CustomEvent 通知 MainLayout 切换终端
+        window.dispatchEvent(new CustomEvent('toggleTerminal'));
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
