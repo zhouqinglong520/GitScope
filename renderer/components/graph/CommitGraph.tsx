@@ -473,6 +473,7 @@ function CommitGraph({
   const store = useRepoStore();
   const commits = externalCommits || store.commits;
   const branches = externalBranches || store.branches;
+  const stashes = store.stashes; // Stash 列表 — Fork 风格在提交图中渲染
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
@@ -515,8 +516,36 @@ function CommitGraph({
 
     const result = assignLanesForkStyle(commits, branches, collapsedMergeOids);
     const w = Math.max(GRAPH_MIN_WIDTH, (result.maxLane + 1) * LANE_WIDTH + 20);
-    return { graphNodes: result.nodes, edges: result.edges, graphWidth: w, totalVisibleRows: result.totalVisibleRows };
-  }, [commits, branches, collapsedMergeOids]);
+
+    // Fork 风格：在提交图顶部插入 Stash 节点
+    const stashNodes: GraphNode[] = (stashes || []).map((stash, i) => ({
+      commit: {
+        oid: stash.id || `stash-${i}`,
+        shortOid: `stash@{${i}}`,
+        message: stash.message || `Stash #${i}`,
+        author: { name: '', email: '', timestamp: 0 },
+        parentIds: [],
+        date: stash.date || '',
+      } as any,
+      lane: 0,
+      color: '#e8c547', // 金色 — Stash 专属
+      row: i,
+      isMainBranch: false,
+      branchNames: [`stash@{${i}}`],
+      isMergeCommit: false,
+      collapsedCommitCount: 0,
+      isCollapsed: false,
+      collapseParentOid: null,
+    }));
+
+    // 合并：Stash 在上 → commits 在下，commit rows 下移
+    const shiftedCommitNodes = result.nodes.map(n => ({ ...n, row: n.row + stashNodes.length }));
+    const shiftedEdges = result.edges.map(e => ({ ...e, fromRow: e.fromRow + stashNodes.length, toRow: e.toRow + stashNodes.length }));
+
+    const allNodes = [...stashNodes, ...shiftedCommitNodes];
+
+    return { graphNodes: allNodes, edges: shiftedEdges, graphWidth: w, totalVisibleRows: result.totalVisibleRows + stashNodes.length };
+  }, [commits, branches, collapsedMergeOids, stashes]);
 
   const totalHeight = totalVisibleRows * ROW_HEIGHT;
 
@@ -731,20 +760,30 @@ function CommitGraph({
           {graphNodes.slice(firstVisibleRow, lastVisibleRow + 1).map((node) => {
             const isSelected = selectedCommit === node.commit.oid;
             const isCollapsed = collapsedMergeOids.has(node.commit.oid);
+            const isStash = node.commit.oid.startsWith('stash-') || node.commit.shortOid.startsWith('stash@');
 
             return (
               <div
                 key={node.commit.oid}
-                onClick={() => onCommitSelect?.(node.commit.oid)}
-                onContextMenu={(e) => handleContextMenu(e, node.commit.oid)}
+                onClick={() => !isStash && onCommitSelect?.(node.commit.oid)}
+                onContextMenu={(e) => !isStash && handleContextMenu(e, node.commit.oid)}
                 className={`absolute left-0 right-0 flex items-center px-3 cursor-pointer transition-colors ${
-                  isSelected ? 'bg-[#2d2d30]' : 'hover:bg-[#2a2d2e]'
+                  isSelected ? 'bg-[#2d2d30]' : isStash ? 'bg-[#2a2518]' : 'hover:bg-[#2a2d2e]'
                 }`}
                 style={{ top: node.row * ROW_HEIGHT, height: ROW_HEIGHT, paddingLeft: graphWidth + 12, paddingRight: 12 }}
               >
-                <span className="font-mono text-xs text-[#61afef] flex-shrink-0 mr-3" style={{ minWidth: 55 }}>
-                  {node.commit.shortOid}
-                </span>
+                {isStash ? (
+                  /* ===== Stash 行 — Fork 风格金色 ===== */
+                  <>
+                    <span className="font-mono text-xs flex-shrink-0 mr-3" style={{ minWidth: 55, color: '#e8c547' }}>
+                      {node.commit.shortOid}
+                    </span>
+                    <svg className="w-4 h-4 flex-shrink-0 mr-1.5" fill="none" stroke="#e8c547" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
+                    <span className="text-sm truncate" style={{ color: '#e8c547' }}>
+                      {node.commit.message}
+                    </span>
+                  </>
+                ) : (
 
                 {/* 折叠指示器 */}
                 {node.isMergeCommit && (
@@ -797,6 +836,7 @@ function CommitGraph({
                 <span className="text-xs text-gray-500 flex-shrink-0">
                   {formatRelativeTime(node.commit.authorTimestamp)}
                 </span>
+                )}
               </div>
             );
           })}
