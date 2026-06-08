@@ -15,6 +15,13 @@ import CommitFilterBar from '../filter/CommitFilterBar';
 import CommitDetailPanel from '../commitdetail/CommitDetailPanel';
 import FileHistory from '../filehistory/FileHistory';
 import CherryPickDialog from '../operations/CherryPickDialog';
+import PushPullDialog from '../operations/PushPullDialog';
+import InteractiveRebaseDialog from '../rebase/InteractiveRebaseDialog';
+import StashDialog from '../stash/StashDialog';
+import BlameView from '../blame/BlameView';
+import ConflictResolutionPanel from '../conflict/ConflictResolutionPanel';
+import ConflictWarningDialog from '../conflict/ConflictWarningDialog';
+import ReflogPanel from '../reflog/ReflogPanel';
 import TagPanel from '../branch/TagPanel';
 import { useRepoStore } from '../../stores/repoStore';
 import { useI18 } from '../../i18n';
@@ -26,6 +33,17 @@ function MainLayout() {
   const [showCherryPick, setShowCherryPick] = useState(false);
   const [cherryPickOid, setCherryPickOid] = useState<string | undefined>();
   const [showTagPanel, setShowTagPanel] = useState(false);
+  const [showPushPull, setShowPushPull] = useState<'push' | 'pull' | 'fetch' | null>(null);
+  const [showRebase, setShowRebase] = useState(false);
+  const [rebaseOid, setRebaseOid] = useState<string>();
+  const [showStashDialog, setShowStashDialog] = useState(false);
+  const [showBlame, setShowBlame] = useState(false);
+  const [blameFilePath, setBlameFilePath] = useState<string>();
+  const [showConflict, setShowConflict] = useState(false);
+  const [conflictType, setConflictType] = useState<'merge' | 'rebase' | 'cherry-pick'>('merge');
+  const [showConflictWarning, setShowConflictWarning] = useState(false);
+  const [conflictWarningData, setConflictWarningData] = useState<{ type: string; branch: string; files: string[] }>({ type: '', branch: '', files: [] });
+  const [showReflog, setShowReflog] = useState(false);
   const {
     commits,
     filteredCommits,
@@ -205,8 +223,12 @@ function MainLayout() {
 
   // 右键菜单回调 - Revert
   const handleRevert = useCallback(async (oid: string) => {
-    // 简化实现
-    console.log('Revert commit:', oid);
+    try {
+      await window.electronAPI.git.revert(oid);
+      await refresh();
+    } catch (err) {
+      console.error('Revert failed:', err);
+    }
   }, []);
 
   // 右键菜单回调 - 保存为 Patch
@@ -222,9 +244,35 @@ function MainLayout() {
     oid: string,
     action: 'reword' | 'squash' | 'fixup' | 'drop'
   ) => {
-    console.log('Interactive rebase:', oid, action);
+    setRebaseOid(oid);
+    setShowRebase(true);
   }, []);
 
+
+  // 监听 CustomEvent 显示面板
+  useEffect(() => {
+    const handlers: Record<string, EventListener> = {
+      showRemotesManager: () => setShowPushPull('fetch'),
+      showInteractiveRebase: (e: Event) => {
+        const detail = (e as CustomEvent).detail;
+        if (detail?.oid) { setRebaseOid(detail.oid); }
+        setShowRebase(true);
+      },
+      showReflog: () => setShowReflog(true),
+      showSubmodulesManager: () => {},  // TODO: add SubmodulePanel
+      showBranchSelector: () => {},  // TODO: add BranchSelector
+      showGitignoreEditor: () => {},  // TODO: add gitignore editor
+      showShortcuts: () => {},  // TODO: add shortcuts dialog
+    };
+    for (const [event, handler] of Object.entries(handlers)) {
+      window.addEventListener(event, handler);
+    }
+    return () => {
+      for (const [event, handler] of Object.entries(handlers)) {
+        window.removeEventListener(event, handler);
+      }
+    };
+  }, []);
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* 主内容区域（可拖拽分栏） */}
@@ -410,6 +458,69 @@ function MainLayout() {
         onRefresh={refresh}
       />
 
+
+      {/* Push/Pull 对话框 */}
+      {showPushPull && (
+        <PushPullDialog
+          mode={showPushPull}
+          visible={true}
+          onClose={() => setShowPushPull(null)}
+          onRefresh={refresh}
+        />
+      )}
+
+      {/* 交互式变基对话框 */}
+      {showRebase && rebaseOid && (
+        <InteractiveRebaseDialog
+          visible={showRebase}
+          onto={rebaseOid}
+          onClose={() => { setShowRebase(false); setRebaseOid(undefined); }}
+          onRefresh={refresh}
+        />
+      )}
+
+      {/* Stash 管理对话框 */}
+      <StashDialog
+        visible={showStashDialog}
+        onClose={() => setShowStashDialog(false)}
+        onRefresh={refresh}
+      />
+
+      {/* Blame 视图 */}
+      {showBlame && blameFilePath && (
+        <BlameView
+          visible={showBlame}
+          filePath={blameFilePath}
+          onClose={() => { setShowBlame(false); setBlameFilePath(undefined); }}
+        />
+      )}
+
+      {/* 冲突解决面板 */}
+      <ConflictResolutionPanel
+        visible={showConflict}
+        conflictType={conflictType}
+        onClose={() => setShowConflict(false)}
+        onRefresh={refresh}
+      />
+
+      {/* 冲突预警对话框 */}
+      <ConflictWarningDialog
+        visible={showConflictWarning}
+        type={conflictWarningData.type}
+        branch={conflictWarningData.branch}
+        files={conflictWarningData.files}
+        onConfirm={async () => {
+          setShowConflictWarning(false);
+          // 执行实际操作由调用方处理
+        }}
+        onCancel={() => setShowConflictWarning(false)}
+      />
+
+      {/* Reflog 面板 */}
+      <ReflogPanel
+        visible={showReflog}
+        onClose={() => setShowReflog(false)}
+      />
       {/* 标签管理面板 */}
       <TagPanel
         visible={showTagPanel}
