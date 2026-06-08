@@ -713,6 +713,11 @@ function registerIpcHandlers() {
     await gitService.pushAllTags(remote);
   });
 
+  /** 列出子模块 */
+  ipcMain.handle('git:listSubmodules', async () => {
+    return await gitService.listSubmodules();
+  });
+
   /** 增强版子模块列表 */
   ipcMain.handle('git:listSubmodulesEnhanced', async () => {
     return await gitService.listSubmodulesEnhanced();
