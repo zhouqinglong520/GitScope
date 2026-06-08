@@ -13,7 +13,10 @@
     "build:main": "tsc -p tsconfig.preload.json && tsc -p tsconfig.main.json",
     "build:renderer": "vite build",
     "package": "npm run build && electron-builder",
-    "start": "electron ."
+    "start": "electron .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "chokidar": "^3.6.0",
@@ -24,6 +27,8 @@
     "zustand": "^5.0.1"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
     "@types/jest": "^30.0.0",
     "@types/node": "^22.10.0",
     "@types/react": "^19.0.0",
@@ -33,6 +38,7 @@
     "concurrently": "^9.1.0",
     "electron": "^33.2.1",
     "electron-builder": "^25.1.8",
+    "jsdom": "^29.1.1",
     "postcss": "^8.4.49",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
