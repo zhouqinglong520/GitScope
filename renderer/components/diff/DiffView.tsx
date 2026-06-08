@@ -290,6 +290,11 @@ function DiffView({ commitOid, filePath, isStaged, onRefresh }: DiffViewProps) {
   const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
   const searchInputRef = useRef<HTMLInputElement>(null);
   
+  const [diffAlgorithm, setDiffAlgorithm] = useState<'myers' | 'patience' | 'histogram'>(() => {
+    if (typeof window !== 'undefined') return (localStorage.getItem('gitgui-diff-algorithm') as any) || 'myers';
+    return 'myers';
+  });
+
   const [showWhitespace, setShowWhitespace] = useState(() => {
     if (typeof window !== 'undefined') return localStorage.getItem(DIFF_SHOW_WHITESPACE_KEY) === 'true';
     return false;
@@ -342,9 +347,9 @@ function DiffView({ commitOid, filePath, isStaged, onRefresh }: DiffViewProps) {
         if (commitOid) {
           result = await window.electronAPI.git.getFileDiff(commitOid, filePath || undefined);
         } else if (isStaged) {
-          result = await window.electronAPI.git.getStagedDiff(filePath || undefined);
+          result = await window.electronAPI.git.getStagedDiff(filePath || undefined, diffAlgorithm);
         } else {
-          result = await window.electronAPI.git.getDiff(filePath || undefined);
+          result = await window.electronAPI.git.getDiff(filePath || undefined, undefined, diffAlgorithm);
         }
         setDiff(result || []);
       } catch (error) {
@@ -355,7 +360,7 @@ function DiffView({ commitOid, filePath, isStaged, onRefresh }: DiffViewProps) {
       }
     };
     loadDiff();
-  }, [commitOid, filePath, isStaged]);
+  }, [commitOid, filePath, isStaged, diffAlgorithm]);
 
   // 暂存后恢复滚动位置
   useEffect(() => {
@@ -923,6 +928,18 @@ function DiffView({ commitOid, filePath, isStaged, onRefresh }: DiffViewProps) {
           onClick={() => setSyntaxHighlight(!syntaxHighlight)} title="Syntax Highlight">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" /></svg>
         </button>
+
+        {/* Diff 算法选择 */}
+        <select
+          className="text-xs bg-gray-700 text-gray-300 border border-gray-600 rounded px-1 py-1 outline-none"
+          value={diffAlgorithm}
+          onChange={(e) => { setDiffAlgorithm(e.target.value as any); localStorage.setItem('gitgui-diff-algorithm', e.target.value); }}
+          title="Diff Algorithm"
+        >
+          <option value="myers">Myers</option>
+          <option value="patience">Patience</option>
+          <option value="histogram">Histogram</option>
+        </select>
 
         {/* 外部工具 */}
         <button className="p-1.5 rounded bg-gray-700 text-gray-300 hover:bg-gray-600 transition-colors"
