@@ -16,6 +16,189 @@ function useI18n() {
   return zhCN;
 }
 
+// ===== 克隆仓库弹窗（Fork 风格） =====
+type CloneProtocol = 'https' | 'ssh';
+interface CloneProgress { stage: string; message: string; percent: number; }
+
+function CloneDialog({ onClose, onCloned }: { onClose: () => void; onCloned: (path: string) => void }) {
+  const [cloneUrl, setCloneUrl] = useState('');
+  const [cloneProtocol, setCloneProtocol] = useState<CloneProtocol>('https');
+  const [clonePath, setClonePath] = useState('');
+  const [cloneBranch, setCloneBranch] = useState('');
+  const [cloneDepth, setCloneDepth] = useState('');
+  const [cloneSingleBranch, setCloneSingleBranch] = useState(false);
+  const [cloneSubmodules, setCloneSubmodules] = useState(false);
+  const [cloneProgress, setCloneProgress] = useState<CloneProgress>({ stage: 'idle', message: '', percent: 0 });
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [clipboardHint, setClipboardHint] = useState('');
+
+  useEffect(() => {
+    // 恢复上次路径
+    try {
+      const last = localStorage.getItem('majie_last_clone_path');
+      if (last) setClonePath(last);
+    } catch {}
+    // 检测剪贴板
+    (async () => {
+      try {
+        const text = await navigator.clipboard.readText();
+        if (text && (text.includes('github.com') || text.includes('gitee.com') || text.includes('gitlab.com') || text.endsWith('.git'))) {
+          setClipboardHint(text.trim());
+        }
+      } catch {}
+    })();
+  }, []);
+
+  const handleBrowsePath = async () => {
+    const folder = await window.electronAPI.fs.selectFolder();
+    if (folder) {
+      setClonePath(folder);
+      try { localStorage.setItem('majie_last_clone_path', folder); } catch {}
+    }
+  };
+
+  const getRepoNameFromUrl = (url: string): string => {
+    const match = url.match(/\/([^\/]+?)(\.git)?$/);
+    return match ? match[1] : '';
+  };
+
+  const buildCloneUrl = (): string => {
+    if (!cloneUrl) return '';
+    if (cloneUrl.startsWith('https://') || cloneUrl.startsWith('git@') || cloneUrl.startsWith('ssh://')) {
+      if (cloneProtocol === 'ssh' && cloneUrl.startsWith('https://')) {
+        const match = cloneUrl.match(/https:\/\/([^\/]+)\/(.+)/);
+        if (match) return `git@${match[1]}:${match[2]}`;
+      }
+      if (cloneProtocol === 'https' && cloneUrl.startsWith('git@')) {
+        const match = cloneUrl.match(/git@([^:]+):(.+)/);
+        if (match) return `https://${match[1]}/${match[2]}`;
+      }
+      return cloneUrl;
+    }
+    if (cloneUrl.includes('/') && !cloneUrl.includes(' ')) {
+      return cloneProtocol === 'ssh' ? `git@github.com:${cloneUrl}` : `https://github.com/${cloneUrl}`;
+    }
+    return cloneUrl;
+  };
+
+  const handleClone = async () => {
+    const url = buildCloneUrl();
+    if (!url || !clonePath) return;
+    setCloneProgress({ stage: 'resolving', message: '正在解析仓库地址...', percent: 5 });
+    try {
+      const repoName = getRepoNameFromUrl(url);
+      const targetPath = clonePath + (clonePath.endsWith('/') || clonePath.endsWith('\\') ? '' : '/') + (repoName || 'repo');
+      setCloneProgress({ stage: 'downloading', message: '正在下载对象...', percent: 40 });
+      const options: any = { url, path: targetPath };
+      if (cloneBranch) options.branch = cloneBranch;
+      if (cloneDepth && Number(cloneDepth) > 0) options.depth = Number(cloneDepth);
+      if (cloneSingleBranch) options.singleBranch = true;
+      await window.electronAPI.git.clone(options);
+      setCloneProgress({ stage: 'done', message: '克隆完成！', percent: 100 });
+      setTimeout(() => onCloned(targetPath), 800);
+    } catch (e: any) {
+      setCloneProgress({ stage: 'error', message: e.message || '克隆失败', percent: 0 });
+    }
+  };
+
+  const isCloning = !['idle', 'error', 'done'].includes(cloneProgress.stage);
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
+      <div style={{ width: 520, background: '#252526', border: '1px solid #3c3c3c', borderRadius: 10, overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
+        {/* 标题 */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid #3c3c3c' }}>
+          <h3 style={{ margin: 0, fontSize: 15, color: '#e0e0e0' }}>克隆仓库</h3>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: 16 }}>✕</button>
+        </div>
+
+        <div style={{ padding: '16px 20px' }}>
+          {/* 协议选择 */}
+          <div style={{ marginBottom: 14, display: 'flex', alignItems: 'center' }}>
+            <label style={{ width: 80, flexShrink: 0, fontSize: 12, color: '#aaa' }}>协议</label>
+            <div style={{ display: 'flex', background: '#1e1e1e', borderRadius: 6, overflow: 'hidden', border: '1px solid #3c3c3c' }}>
+              <button style={{ padding: '4px 20px', fontSize: 12, border: 'none', cursor: 'pointer', background: cloneProtocol === 'https' ? '#00d4aa' : 'transparent', color: cloneProtocol === 'https' ? '#0a0e14' : '#888', fontWeight: cloneProtocol === 'https' ? 600 : 400 }} onClick={() => setCloneProtocol('https')}>HTTPS</button>
+              <button style={{ padding: '4px 20px', fontSize: 12, border: 'none', cursor: 'pointer', background: cloneProtocol === 'ssh' ? '#00d4aa' : 'transparent', color: cloneProtocol === 'ssh' ? '#0a0e14' : '#888', fontWeight: cloneProtocol === 'ssh' ? 600 : 400 }} onClick={() => setCloneProtocol('ssh')}>SSH</button>
+            </div>
+          </div>
+
+          {/* 仓库 URL */}
+          <div style={{ marginBottom: 14, display: 'flex', alignItems: 'center' }}>
+            <label style={{ width: 80, flexShrink: 0, fontSize: 12, color: '#aaa' }}>仓库 URL</label>
+            <div style={{ flex: 1, position: 'relative' }}>
+              <input placeholder={cloneProtocol === 'https' ? 'https://github.com/user/repo.git' : 'git@github.com:user/repo.git'} value={cloneUrl} onChange={e => { setCloneUrl(e.target.value); setClipboardHint(''); }} style={{ width: '100%', background: '#1e1e1e', border: '1px solid #3c3c3c', borderRadius: 4, padding: '6px 10px', color: '#e0e0e0', fontSize: 13, outline: 'none', paddingRight: clipboardHint ? 70 : 10 }} />
+              {clipboardHint && !cloneUrl && (
+                <button onClick={() => { setCloneUrl(clipboardHint); setClipboardHint(''); }} style={{ position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)', padding: '2px 8px', fontSize: 10, background: '#00d4aa22', color: '#00d4aa', border: '1px solid #00d4aa55', borderRadius: 4, cursor: 'pointer' }}>粘贴</button>
+              )}
+            </div>
+          </div>
+
+          {/* 本地路径 */}
+          <div style={{ marginBottom: 14, display: 'flex', alignItems: 'center' }}>
+            <label style={{ width: 80, flexShrink: 0, fontSize: 12, color: '#aaa' }}>本地路径</label>
+            <div style={{ flex: 1, display: 'flex', gap: 8 }}>
+              <input placeholder="选择本地存储路径" value={clonePath} onChange={e => setClonePath(e.target.value)} style={{ flex: 1, background: '#1e1e1e', border: '1px solid #3c3c3c', borderRadius: 4, padding: '6px 10px', color: '#e0e0e0', fontSize: 13, outline: 'none' }} />
+              <button onClick={handleBrowsePath} style={{ padding: '6px 14px', fontSize: 12, background: '#3c3c3c', color: '#ccc', border: '1px solid #555', borderRadius: 4, cursor: 'pointer', whiteSpace: 'nowrap' }}>浏览...</button>
+            </div>
+          </div>
+
+          {/* 目标预览 */}
+          {clonePath && cloneUrl && (
+            <div style={{ marginLeft: 80, marginBottom: 10, fontSize: 11, color: '#888' }}>
+              将克隆到: <span style={{ color: '#00d4aa' }}>{clonePath}{clonePath.endsWith('/') ? '' : '/'}{getRepoNameFromUrl(buildCloneUrl()) || 'repo'}</span>
+            </div>
+          )}
+
+          {/* 高级选项 */}
+          <div style={{ marginBottom: 8 }}>
+            <button onClick={() => setShowAdvanced(!showAdvanced)} style={{ background: 'none', border: 'none', color: '#888', fontSize: 12, cursor: 'pointer', padding: '2px 0', display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ transition: 'transform 0.2s', transform: showAdvanced ? 'rotate(90deg)' : 'rotate(0deg)' }}>▶</span> 高级选项
+            </button>
+          </div>
+          {showAdvanced && (
+            <div style={{ marginLeft: 80, marginBottom: 12, display: 'flex', flexWrap: 'wrap', gap: '12px 20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <label style={{ fontSize: 12, color: '#aaa', width: 48 }}>分支</label>
+                <input placeholder="默认" value={cloneBranch} onChange={e => setCloneBranch(e.target.value)} style={{ width: 100, fontSize: 12, padding: '3px 8px', background: '#1e1e1e', border: '1px solid #3c3c3c', borderRadius: 4, color: '#e0e0e0', outline: 'none' }} />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <label style={{ fontSize: 12, color: '#aaa', width: 60 }}>克隆深度</label>
+                <input placeholder="完整" value={cloneDepth} onChange={e => setCloneDepth(e.target.value.replace(/\D/g, ''))} style={{ width: 60, fontSize: 12, padding: '3px 8px', background: '#1e1e1e', border: '1px solid #3c3c3c', borderRadius: 4, color: '#e0e0e0', outline: 'none' }} />
+              </div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#aaa', cursor: 'pointer' }}>
+                <input type="checkbox" checked={cloneSingleBranch} onChange={e => setCloneSingleBranch(e.target.checked)} /> 单分支
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#aaa', cursor: 'pointer' }}>
+                <input type="checkbox" checked={cloneSubmodules} onChange={e => setCloneSubmodules(e.target.checked)} /> 递归子模块
+              </label>
+            </div>
+          )}
+
+          {/* 进度条 */}
+          {isCloning && (
+            <div style={{ marginLeft: 80, marginBottom: 12 }}>
+              <div style={{ fontSize: 11, color: '#aaa', marginBottom: 4 }}>{cloneProgress.message}</div>
+              <div style={{ height: 4, background: '#1e1e1e', borderRadius: 2, overflow: 'hidden' }}>
+                <div style={{ height: '100%', background: '#00d4aa', borderRadius: 2, width: `${cloneProgress.percent}%`, transition: 'width 0.3s' }} />
+              </div>
+            </div>
+          )}
+          {cloneProgress.stage === 'error' && <div style={{ marginLeft: 80, marginBottom: 8, fontSize: 12, color: '#e05673' }}>{cloneProgress.message}</div>}
+          {cloneProgress.stage === 'done' && <div style={{ marginLeft: 80, marginBottom: 8, fontSize: 12, color: '#00d4aa' }}>✓ {cloneProgress.message}</div>}
+
+          {/* 操作按钮 */}
+          <div style={{ marginLeft: 80, display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 }}>
+            <button onClick={onClose} style={{ padding: '6px 18px', fontSize: 13, background: '#3c3c3c', color: '#ccc', border: '1px solid #555', borderRadius: 6, cursor: 'pointer' }}>取消</button>
+            <button onClick={handleClone} disabled={isCloning || !cloneUrl || !clonePath} style={{ padding: '6px 22px', fontSize: 13, background: (isCloning || !cloneUrl || !clonePath) ? '#333' : '#00d4aa', color: (isCloning || !cloneUrl || !clonePath) ? '#666' : '#0a0e14', border: 'none', borderRadius: 6, cursor: (isCloning || !cloneUrl || !clonePath) ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
+              {isCloning ? '克隆中...' : '开始克隆'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const i18n = useI18n();
 
@@ -39,6 +222,7 @@ function App() {
 
   const [showQuickLaunch, setShowQuickLaunch] = useState(false);
   const [sidebarWidth] = useState(220);
+  const [showCloneDialog, setShowCloneDialog] = useState(false);
 
   // 处理打开仓库
   const handleOpenRepo = async () => {
@@ -63,14 +247,7 @@ function App() {
       category: '仓库',
       shortcut: 'Ctrl+Shift+O',
       action: async () => {
-        const url = await window.electronAPI.fs.showInputBox({
-          title: '克隆仓库',
-          prompt: '请输入仓库 URL',
-        });
-        if (url) {
-          // TODO: 实现克隆功能
-          console.log('Clone:', url);
-        }
+        setShowCloneDialog(true);
       },
     },
     {
@@ -609,13 +786,23 @@ function App() {
                 ) : (
                   <p className="text-[var(--text-muted)] text-sm mb-6">打开一个 Git 仓库开始工作</p>
                 )}
-                <button
-                  onClick={handleOpenRepo}
-                  className="btn btn-primary px-6"
-                  disabled={isLoading}
-                >
-                  {i18n.toolbar.openRepo}
-                </button>
+                <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
+                  <button
+                    onClick={handleOpenRepo}
+                    className="btn btn-primary px-6"
+                    disabled={isLoading}
+                  >
+                    {i18n.toolbar.openRepo}
+                  </button>
+                  <button
+                    onClick={() => setShowCloneDialog(true)}
+                    className="btn px-6"
+                    style={{ background: '#2a2d2e', color: '#00d4aa', border: '1px solid #00d4aa44' }}
+                    disabled={isLoading}
+                  >
+                    克隆仓库
+                  </button>
+                </div>
               </div>
             </div>
           )}
