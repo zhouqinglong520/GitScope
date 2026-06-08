@@ -7,6 +7,7 @@
 import React from 'react';
 import type { CommitDetail as CommitDetailType } from '@shared/types/git';
 import { useI18, formatDate } from '../../i18n';
+import DiffFileTree from '../difftree/DiffFileTree';
 
 interface CommitDetailPanelProps {
   /** 提交详情 */
@@ -114,85 +115,21 @@ function CommitDetailPanel({
                 </div>
               </div>
 
-              {/* 文件列表 */}
-              <div>
-                <h4 className="text-xs font-medium text-gray-500 mb-2">
-                  {t('commitDetail.fileChanges')} ({files.length})
-                </h4>
-                <div className="bg-[#1e1e1e] rounded max-h-[200px] overflow-y-auto">
-                  <table className="w-full text-sm">
-                    <thead className="sticky top-0 bg-[#1e1e1e]">
-                      <tr className="text-xs text-gray-500 border-b border-[#3c3c3c]">
-                        <th className="text-left px-3 py-2 w-8">{t('commitDetail.status')}</th>
-                        <th className="text-left px-3 py-2">{t('commitDetail.path')}</th>
-                        <th className="text-right px-3 py-2 w-20">{t('commitDetail.stats')}</th>
-                        <th className="px-3 py-2 w-16"></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {files.map((file, index) => (
-                        <tr
-                          key={`${file.path}-${index}`}
-                          className="border-b border-[#2a2a2a] last:border-b-0 hover:bg-[#2a2d2e] transition-colors cursor-pointer"
-                          onClick={() => onViewFileDiff?.(commit.oid, file.path)}
-                        >
-                          <td className="px-3 py-2">
-                            <span
-                              className="font-bold text-sm"
-                              style={{ color: STATUS_COLORS[file.status] }}
-                            >
-                              {STATUS_LABELS[file.status]}
-                            </span>
-                          </td>
-                          <td className="px-3 py-2">
-                            <span className="text-gray-300 font-mono text-xs truncate block max-w-[400px]">
-                              {file.oldPath && (
-                                <span className="text-gray-500 line-through mr-2">
-                                  {file.oldPath}
-                                </span>
-                              )}
-                              {file.path}
-                            </span>
-                          </td>
-                          <td className="px-3 py-2 text-right">
-                            <div className="flex items-center justify-end gap-2 text-xs">
-                              <span className="text-[#6cc644]">+{file.additions}</span>
-                              <span className="text-[#e85d75]">-{file.deletions}</span>
-                            </div>
-                          </td>
-                          <td className="px-3 py-2">
-                            <div className="flex items-center justify-end gap-1">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  onViewFileDiff?.(commit.oid, file.path);
-                                }}
-                                className="p-1 text-gray-500 hover:text-gray-300 hover:bg-[#3c3c3c] rounded transition-colors"
-                                title={t('commitDetail.viewDiff')}
-                              >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                </svg>
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  onViewFileHistory?.(file.path);
-                                }}
-                                className="p-1 text-gray-500 hover:text-gray-300 hover:bg-[#3c3c3c] rounded transition-colors"
-                                title={t('commitDetail.viewHistory')}
-                              >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+              {/* 文件树 */}
+              <div className="mt-2" style={{ height: '240px' }}>
+                <DiffFileTree
+                  files={files.map(f => ({
+                    path: f.path,
+                    oldPath: f.oldPath,
+                    status: f.status,
+                    additions: f.additions,
+                    deletions: f.deletions,
+                  }))}
+                  onFileSelect={(path) => onViewFileDiff?.(commit.oid, path)}
+                  onViewDiff={(oid, path) => onViewFileDiff?.(oid || commit.oid, path)}
+                  onViewHistory={onViewFileHistory}
+                  commitOid={commit.oid}
+                />
               </div>
             </div>
 
