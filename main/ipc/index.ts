@@ -15,12 +15,22 @@ const aiService = require('../services/ai/index');
  * 注册所有 IPC 处理器
  */
 function registerIpcHandlers() {
+  // ========== 最近打开仓库记录 ==========
+  const { addRecentRepo, rebuildMenu } = require('../menu');
+
   // ========== Git 服务 ==========
 
   /** 打开仓库 */
   ipcMain.handle('git:openRepository', async (_, repoPath: string) => {
     try {
-      return await gitService.open(repoPath);
+      const result = await gitService.open(repoPath);
+      // 记录到最近打开
+      if (result) {
+        const repoName = repoPath.split(/[\\/]/).pop() || repoPath;
+        addRecentRepo(repoName, repoPath);
+        rebuildMenu();
+      }
+      return result;
     } catch (error) {
       console.error('打开仓库失败:', error);
       return null;
