@@ -28,6 +28,12 @@ export interface DialogState {
   gitFlow: boolean;              // P1-7: Git Flow 工作流
   externalTools: boolean;        // P1-9: 外部 Diff/Merge 工具设置
   githubNotifications: boolean;  // P1-6: GitHub 通知
+  // P2 新增弹窗
+  treemap: boolean;              // P2-7: 仓库磁盘占用 Treemap
+  activityManager: boolean;      // P2-8: 操作活动管理器
+  pastePatch: boolean;           // P2-6: 粘贴 Patch
+  partialStash: boolean;         // P2-10: 部分 Stash
+  rebaseUpdateRefs: boolean;     // P2-5: Rebase --update-refs
 }
 
 export const initialDialogState: DialogState = {
@@ -48,6 +54,11 @@ export const initialDialogState: DialogState = {
   gitFlow: false,
   externalTools: false,
   githubNotifications: false,
+  treemap: false,
+  activityManager: false,
+  pastePatch: false,
+  partialStash: false,
+  rebaseUpdateRefs: false,
 };
 
 export type DialogAction =
@@ -237,22 +248,10 @@ export function useMenuEvents(dispatch: (action: DialogAction) => void) {
         dispatch({ type: 'SHOW', dialog: 'githubNotifications' });
       },
 
-      'menu:openRepoAtPath': async (_: any, path: string) => {
-        if (path) await openRepo(path);
+      // P2: 新增菜单事件
+      'menu:treemap': () => {
+        dispatch({ type: 'SHOW', dialog: 'treemap' });
       },
-    };
 
-    // 注册所有菜单事件监听
-    const cleanupFns: (() => void)[] = [];
-
-    for (const [channel, handler] of Object.entries(handlers)) {
-      const listener = (...args: any[]) => handler(...args);
-      window.electronAPI.ipc.on(channel, listener);
-      cleanupFns.push(() => window.electronAPI.ipc.removeListener(channel, listener));
-    }
-
-    return () => {
-      cleanupFns.forEach(fn => fn());
-    };
-  }, [currentRepo, activeRepoId, openRepo, closeRepo, toggleSidebar, dispatch]);
-}
+      'menu:activityManager': () => {
+        dispa
