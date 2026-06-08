@@ -3,17 +3,13 @@
  * 追踪模式管理、文件锁定、对象统计（明细+存储占比+Prune预览）
  */
 import React, { useState, useEffect } from 'react';
+import type { LfsTrackPattern, LfsLock, LfsStatus } from '../../../shared/types/git';
 import './LfsPanel.css';
 
-interface LfsTrackPattern { pattern: string; lockable: boolean; size?: number; fileCount?: number; }
-interface LfsLock { path: string; owner: string; lockedAt: number; id: string; }
+// LfsTrackPattern imported from shared
+// LfsLock imported from shared
 interface LfsStats { totalSize: number; totalFiles: number; localSize: number; localFiles: number; }
-interface LfsStatus {
-  isInstalled: boolean; version?: string;
-  trackPatterns: LfsTrackPattern[];
-  locks: LfsLock[];
-  stats: LfsStats;
-}
+// LfsStatus imported from shared
 
 interface Props { visible: boolean; onClose: () => void; }
 
