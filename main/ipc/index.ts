@@ -7,17 +7,30 @@ export {};
 const { ipcMain, dialog, BrowserWindow, shell } = require('electron');
 const { gitService } = require('../services/git/index');
 const { credentialService } = require('../services/credential/index');
+const { createTerminal, getTerminal, writeTerminal, resizeTerminal, killTerminal, killAllTerminals } = require('../services/terminal/index');
+const giteeService = require('../services/gitee/index');
+const aiService = require('../services/ai/index');
 
 /**
  * 注册所有 IPC 处理器
  */
 function registerIpcHandlers() {
+  // ========== 最近打开仓库记录 ==========
+  const { addRecentRepo, rebuildMenu } = require('../menu');
+
   // ========== Git 服务 ==========
 
   /** 打开仓库 */
   ipcMain.handle('git:openRepository', async (_, repoPath: string) => {
     try {
-      return await gitService.open(repoPath);
+      const result = await gitService.open(repoPath);
+      // 记录到最近打开
+      if (result) {
+        const repoName = repoPath.split(/[\\/]/).pop() || repoPath;
+        addRecentRepo(repoName, repoPath);
+        rebuildMenu();
+      }
+      return result;
     } catch (error) {
       console.error('打开仓库失败:', error);
       return null;
@@ -50,13 +63,13 @@ function registerIpcHandlers() {
   });
 
   /** 获取文件差异 */
-  ipcMain.handle('git:getDiff', async (_, filePath?: string, commitOid?: string) => {
-    return await gitService.diff(filePath, commitOid);
+  ipcMain.handle('git:getDiff', async (_, filePath?: string, commitOid?: string, algorithm?: string) => {
+    return await gitService.diff(filePath, commitOid, algorithm as any);
   });
 
   /** 获取暂存区差异 */
-  ipcMain.handle('git:getStagedDiff', async (_, filePath?: string) => {
-    return await gitService.stagedDiff(filePath);
+  ipcMain.handle('git:getStagedDiff', async (_, filePath?: string, algorithm?: string) => {
+    return await gitService.stagedDiff(filePath, algorithm as any);
   });
 
   /** 暂存文件 */
@@ -147,8 +160,38 @@ function registerIpcHandlers() {
   });
 
   /** 合并分支 */
-  ipcMain.handle('git:merge', async (_, branch: string) => {
-    return await gitService.merge(branch);
+  ipcMain.handle('git:merge', async (_, branch: string, options?: any) => {
+    return await gitService.merge(branch, options);
+  });
+
+  /** 冲突预判 — Fork 风格：merge 前模拟检测 */
+  ipcMain.handle('git:checkMergeConflict', async (_, branch: string) => {
+    try {
+      const { exec } = require('child_process');
+      const repoPath = gitService.getRepoPath?.();
+      if (!repoPath) return { hasConflicts: false };
+      return await new Promise((resolve) => {
+        exec('git merge --no-commit --no-ff ' + JSON.stringify(branch), { cwd: repoPath, timeout: 10000 }, (err: any, _stdout: string, stderr: string) => {
+          // 无论成功失败，先中止模拟合并
+          exec('git merge --abort', { cwd: repoPath, timeout: 5000 }, () => {});
+          if (err || stderr.includes('CONFLICT')) {
+            const conflictFiles: string[] = [];
+            const match = stderr.match(/CONFLICT.*:\s+(.+)/g);
+            if (match) {
+              match.forEach((line: string) => {
+                const fm = line.match(/Merge conflict in (.+)/);
+                if (fm) conflictFiles.push(fm[1]);
+              });
+            }
+            resolve({ hasConflicts: true, conflictFiles });
+          } else {
+            resolve({ hasConflicts: false });
+          }
+        });
+      });
+    } catch {
+      return { hasConflicts: false };
+    }
   });
 
   /** 获取标签列表 */
@@ -452,6 +495,409 @@ function registerIpcHandlers() {
     }
   });
 
+
+  /** 中止合并 */
+  ipcMain.handle('git:abortMerge', async () => {
+    await gitService.abortMerge();
+  });
+
+  /** 继续合并 */
+  ipcMain.handle('git:continueMerge', async () => {
+    await gitService.continueMerge();
+  });
+
+  /** 中止变基 */
+  ipcMain.handle('git:abortRebase', async () => {
+    await gitService.abortRebase();
+  });
+
+  /** 继续变基 */
+  ipcMain.handle('git:continueRebase', async () => {
+    await gitService.continueRebase();
+  });
+
+  /** 中止拣选 */
+  ipcMain.handle('git:abortCherryPick', async () => {
+    await gitService.abortCherryPick();
+  });
+
+  /** 继续拣选 */
+  ipcMain.handle('git:continueCherryPick', async () => {
+    await gitService.continueCherryPick();
+  });
+
+  /** 获取冲突文件列表 */
+  ipcMain.handle('git:getConflictedFiles', async () => {
+    return await gitService.getConflictedFiles();
+  });
+
+  /** 使用我们的版本解决冲突 */
+  ipcMain.handle('git:resolveConflictUseOurs', async (_, filePath: string) => {
+    await gitService.resolveConflictUseOurs(filePath);
+  });
+
+  /** 使用他们的版本解决冲突 */
+  ipcMain.handle('git:resolveConflictUseTheirs', async (_, filePath: string) => {
+    await gitService.resolveConflictUseTheirs(filePath);
+  });
+
+  /** 用指定策略解决所有冲突 */
+  ipcMain.handle('git:resolveAllConflicts', async (_, strategy: 'ours' | 'theirs') => {
+    await gitService.resolveAllConflicts(strategy);
+  });
+
+  /** 预检合并冲突 */
+  ipcMain.handle('git:checkMergeConflict', async (_, branch: string) => {
+    return await gitService.checkMergeConflict(branch);
+  });
+
+  /** 预检变基冲突 */
+  ipcMain.handle('git:checkRebaseConflict', async (_, onto: string) => {
+    return await gitService.checkRebaseConflict(onto);
+  });
+
+  /** 预检拣选冲突 */
+  ipcMain.handle('git:checkCherryPickConflict', async (_, oid: string) => {
+    return await gitService.checkCherryPickConflict(oid);
+  });
+
+  /** 开始 bisect */
+  ipcMain.handle('git:bisectStart', async (_, goodRef?: string, badRef?: string) => {
+    await gitService.bisectStart(goodRef, badRef);
+  });
+
+  /** 标记 bisect 提交 */
+  ipcMain.handle('git:bisectMark', async (_, ref: string, kind: 'good' | 'bad') => {
+    await gitService.bisectMark(ref, kind);
+  });
+
+  /** 跳过 bisect */
+  ipcMain.handle('git:bisectSkip', async () => {
+    await gitService.bisectSkip();
+  });
+
+  /** 重置 bisect */
+  ipcMain.handle('git:bisectReset', async () => {
+    await gitService.bisectReset();
+  });
+
+  /** 获取 bisect 状态 */
+  ipcMain.handle('git:getBisectState', async () => {
+    return await gitService.getBisectState();
+  });
+
+  /** 获取 LFS 状态 */
+  ipcMain.handle('git:getLfsStatus', async () => {
+    return await gitService.getLfsStatus();
+  });
+
+  /** 安装 LFS */
+  ipcMain.handle('git:installLfs', async () => {
+    await gitService.installLfs();
+  });
+
+  /** LFS 追踪 */
+  ipcMain.handle('git:lfsTrack', async (_, pattern: string) => {
+    await gitService.lfsTrack(pattern);
+  });
+
+  /** LFS 取消追踪 */
+  ipcMain.handle('git:lfsUntrack', async (_, pattern: string) => {
+    await gitService.lfsUntrack(pattern);
+  });
+
+  /** LFS 锁定 */
+  ipcMain.handle('git:lfsLock', async (_, filePath: string) => {
+    await gitService.lfsLock(filePath);
+  });
+
+  /** LFS 解锁 */
+  ipcMain.handle('git:lfsUnlock', async (_, filePath: string) => {
+    await gitService.lfsUnlock(filePath);
+  });
+
+  /** LFS 拉取 */
+  ipcMain.handle('git:lfsPull', async () => {
+    await gitService.lfsPull();
+  });
+
+  /** LFS 推送 */
+  ipcMain.handle('git:lfsPush', async () => {
+    await gitService.lfsPush();
+  });
+
+  /** LFS 清理 */
+  ipcMain.handle('git:lfsPrune', async () => {
+    await gitService.lfsPrune();
+  });
+
+  /** 获取变基操作列表 */
+  ipcMain.handle('git:getRebaseActions', async (_, onto: string) => {
+    return await gitService.getRebaseActions(onto);
+  });
+
+  /** 执行变基计划 */
+  ipcMain.handle('git:executeRebasePlan', async (_, plan: any[], onto: string) => {
+    await gitService.executeRebasePlan(plan, onto);
+  });
+
+  /** 列出工作树 */
+  ipcMain.handle('git:listWorktrees', async () => {
+    return await gitService.listWorktrees();
+  });
+
+  /** 创建工作树 */
+  ipcMain.handle('git:createWorktree', async (_, path: string, ref: string, newBranch?: string) => {
+    await gitService.createWorktree(path, ref, newBranch);
+  });
+
+  /** 移除工作树 */
+  ipcMain.handle('git:removeWorktree', async (_, path: string, force?: boolean) => {
+    await gitService.removeWorktree(path, force);
+  });
+
+  /** 创建补丁 */
+  ipcMain.handle('git:createPatch', async (_, oids: string[], outputPath?: string) => {
+    return await gitService.createPatch(oids, outputPath);
+  });
+
+  /** 应用补丁 */
+  ipcMain.handle('git:applyPatch', async (_, patchPath: string) => {
+    await gitService.applyPatch(patchPath);
+  });
+
+  /** 应用补丁到暂存区（行级暂存） */
+  ipcMain.handle('git:applyPatchCached', async (_, patchPath: string) => {
+    await gitService.applyPatchCached(patchPath);
+  });
+
+  /** 反向应用补丁（取消暂存行） */
+  ipcMain.handle('git:applyPatchReverse', async (_, patchPath: string) => {
+    await gitService.applyPatchReverse(patchPath);
+  });
+
+  /** 获取选中代码的历史 */
+  ipcMain.handle('git:getCodeHistory', async (_, options: any) => {
+    return await gitService.getCodeHistory(options);
+  });
+
+  /** Blame 上一版本 */
+  ipcMain.handle('git:blamePreviousRevision', async (_, filePath: string, commitOid: string) => {
+    return await gitService.blamePreviousRevision(filePath, commitOid);
+  });
+
+  /** 列出补丁 */
+  ipcMain.handle('git:listPatches', async () => {
+    return await gitService.listPatches();
+  });
+
+  /** 获取偏好设置 */
+  ipcMain.handle('git:getPreferences', async () => {
+    return await gitService.getPreferences();
+  });
+
+  /** 保存偏好设置 */
+  ipcMain.handle('git:savePreferences', async (_, prefs: Record<string, any>) => {
+    await gitService.savePreferences(prefs);
+  });
+
+  /** 列出自定义操作 */
+  ipcMain.handle('git:listCustomActions', async () => {
+    return await gitService.listCustomActions();
+  });
+
+  /** 保存自定义操作 */
+  ipcMain.handle('git:saveCustomAction', async (_, action: any) => {
+    return await gitService.saveCustomAction(action);
+  });
+
+  /** 删除自定义操作 */
+  ipcMain.handle('git:deleteCustomAction', async (_, id: string) => {
+    await gitService.deleteCustomAction(id);
+  });
+
+  /** 执行自定义操作 */
+  ipcMain.handle('git:executeCustomAction', async (_, id: string) => {
+    return await gitService.executeCustomAction(id);
+  });
+
+  /** 重置到指定引用 */
+  ipcMain.handle('git:resetTo', async (_, ref: string, mode: 'soft' | 'mixed' | 'hard') => {
+    await gitService.resetTo(ref, mode);
+  });
+
+  /** 获取增强版文件历史 */
+  ipcMain.handle('git:getFileHistoryEnhanced', async (_, filePath: string, options?: any) => {
+    return await gitService.getFileHistoryEnhanced(filePath, options);
+  });
+
+  /** 在外部 Diff 工具中打开 */
+  ipcMain.handle('git:openInDiffTool', async (_, filePath: string, oldOid?: string, newOid?: string) => {
+    await gitService.openInDiffTool(filePath, oldOid, newOid);
+  });
+
+  /** 获取仓库统计 */
+  ipcMain.handle('git:getRepoStats', async () => {
+    return await gitService.getRepoStats();
+  });
+
+  /** 获取 Pull Requests */
+  ipcMain.handle('git:getPullRequests', async (_, remote?: string) => {
+    return await gitService.getPullRequests(remote);
+  });
+
+  /** 验证提交签名 */
+  ipcMain.handle('git:verifyCommitSignature', async (_, oid: string) => {
+    return await gitService.verifyCommitSignature(oid);
+  });
+
+  /** 删除未追踪文件 */
+  ipcMain.handle('git:deleteUntrackedFile', async (_, filePath: string) => {
+    await gitService.deleteUntrackedFile(filePath);
+  });
+
+  /** 丢弃文件修改 */
+  ipcMain.handle('git:discardChanges', async (_, filePath: string) => {
+    await gitService.discardChanges(filePath);
+  });
+
+  /** 获取提交模板 */
+  ipcMain.handle('git:getCommitTemplate', async () => {
+    return await gitService.getCommitTemplate();
+  });
+
+  /** 推送标签 */
+  ipcMain.handle('git:pushTag', async (_, name: string, remote?: string) => {
+    await gitService.pushTag(name, remote);
+  });
+
+  /** 推送所有标签 */
+  ipcMain.handle('git:pushAllTags', async (_, remote?: string) => {
+    await gitService.pushAllTags(remote);
+  });
+
+  /** 列出子模块 */
+  ipcMain.handle('git:listSubmodules', async () => {
+    return await gitService.listSubmodules();
+  });
+
+  /** 增强版子模块列表 */
+  ipcMain.handle('git:listSubmodulesEnhanced', async () => {
+    return await gitService.listSubmodulesEnhanced();
+  });
+
+  /** 同步子模块 */
+  ipcMain.handle('git:syncSubmodule', async (_, subPath: string) => {
+    await gitService.syncSubmodule(subPath);
+  });
+
+  // ========== P1-8: 陈旧分支 ==========
+
+  /** 获取已合并分支列表 */
+  ipcMain.handle('git:getMergedBranches', async (_, targetBranch?: string) => {
+    return await gitService.getMergedBranches(targetBranch);
+  });
+
+  /** 批量删除分支 */
+  ipcMain.handle('git:batchDeleteBranches', async (_, names: string[], force?: boolean) => {
+    return await gitService.batchDeleteBranches(names, force);
+  });
+
+  // ========== P1-7: Git Flow ==========
+
+  ipcMain.handle('git:gitflowInit', async (_, options?: any) => {
+    await gitService.gitflowInit(options);
+  });
+  ipcMain.handle('git:gitflowIsInitialized', async () => {
+    return await gitService.gitflowIsInitialized();
+  });
+  ipcMain.handle('git:gitflowStartFeature', async (_, name: string, base?: string) => {
+    return await gitService.gitflowStartFeature(name, base);
+  });
+  ipcMain.handle('git:gitflowFinishFeature', async (_, name: string, options?: any) => {
+    await gitService.gitflowFinishFeature(name, options);
+  });
+  ipcMain.handle('git:gitflowStartRelease', async (_, version: string) => {
+    return await gitService.gitflowStartRelease(version);
+  });
+  ipcMain.handle('git:gitflowFinishRelease', async (_, version: string, options?: any) => {
+    await gitService.gitflowFinishRelease(version, options);
+  });
+  ipcMain.handle('git:gitflowStartHotfix', async (_, version: string) => {
+    return await gitService.gitflowStartHotfix(version);
+  });
+  ipcMain.handle('git:gitflowFinishHotfix', async (_, version: string, options?: any) => {
+    await gitService.gitflowFinishHotfix(version, options);
+  });
+  ipcMain.handle('git:gitflowGetConfig', async () => {
+    return await gitService.gitflowGetConfig();
+  });
+
+  // ========== P1-9: 外部 Diff/Merge 工具 ==========
+
+  ipcMain.handle('git:openInMergeTool', async (_, filePath: string) => {
+    await gitService.openInMergeTool(filePath);
+  });
+  ipcMain.handle('git:getDiffToolConfig', async () => {
+    return await gitService.getDiffToolConfig();
+  });
+  ipcMain.handle('git:setDiffTool', async (_, tool: string) => {
+    await gitService.setDiffTool(tool);
+  });
+  ipcMain.handle('git:getMergeToolConfig', async () => {
+    return await gitService.getMergeToolConfig();
+  });
+  ipcMain.handle('git:setMergeTool', async (_, tool: string) => {
+    await gitService.setMergeTool(tool);
+  });
+
+  // ========== P1-6: GitHub 通知 ==========
+
+  ipcMain.handle('git:getGitHubNotifications', async (_, token: string) => {
+    return await gitService.getGitHubNotifications(token);
+  });
+
+  /** Blame 追踪 */
+  ipcMain.handle('git:blame', async (_, filePath: string) => {
+    return await gitService.blame(filePath);
+  });
+
+  /** 交互式变基 */
+  ipcMain.handle('git:rebaseInteractive', async (_, onto: string, todoContent?: string) => {
+    await gitService.rebaseInteractive(onto, todoContent);
+  });
+
+  /** 获取 Reflog */
+  ipcMain.handle('git:getReflog', async () => {
+    return await gitService.reflog();
+  });
+
+  /** 添加子模块 */
+  ipcMain.handle('git:addSubmodule', async (_, url: string, subPath: string) => {
+    await gitService.gitCliExec(['submodule', 'add', url, subPath]);
+  });
+
+  /** 初始化子模块 */
+  ipcMain.handle('git:initSubmodule', async (_, subPath: string) => {
+    await gitService.gitCliExec(['submodule', 'update', '--init', '--', subPath]);
+  });
+
+  /** 更新子模块 */
+  ipcMain.handle('git:updateSubmodule', async (_, subPath: string) => {
+    await gitService.gitCliExec(['submodule', 'update', '--remote', '--', subPath]);
+  });
+
+  /** 删除子模块 */
+  ipcMain.handle('git:removeSubmodule', async (_, subPath: string) => {
+    await gitService.gitCliExec(['submodule', 'deinit', '-f', subPath]);
+    await gitService.gitCliExec(['rm', '-f', subPath]);
+  });
+
+  /** 获取指定文件的 diff */
+  ipcMain.handle('git:getFileDiff', async (_, oid: string, filePath: string) => {
+    return await gitService.getFileDiff(oid, filePath);
+  });
+
   // ========== 窗口服务 ==========
 
   /** 最小化窗口 */
@@ -482,7 +928,214 @@ function registerIpcHandlers() {
     return win?.isMaximized() ?? false;
   });
 
-  console.log('[GitGUI] 所有 IPC 处理器已注册');
+  // ========== 终端服务 ==========
+
+  /** 创建终端 */
+  ipcMain.handle('terminal:create', async (event, id: string, cwd?: string) => {
+    try {
+      const instance = createTerminal(id, cwd);
+      const sender = event.sender;
+
+      // 转发终端输出到渲染进程
+      instance.pty.onData((data: string) => {
+        try {
+          if (!sender.isDestroyed()) {
+            sender.send('terminal:data', id, data);
+          }
+        } catch {}
+      });
+
+      // 终端退出通知
+      instance.pty.onExit(({ exitCode }: { exitCode: number }) => {
+        try {
+          if (!sender.isDestroyed()) {
+            sender.send('terminal:exit', id, exitCode);
+          }
+        } catch {}
+        killTerminal(id);
+      });
+
+      return { id: instance.id, shell: instance.shell, cwd: instance.cwd };
+    } catch (error) {
+      console.error('[Terminal] 创建失败:', error);
+      return null;
+    }
+  });
+
+  /** 向终端写入数据 */
+  ipcMain.on('terminal:write', (_, id: string, data: string) => {
+    writeTerminal(id, data);
+  });
+
+  /** 调整终端尺寸 */
+  ipcMain.on('terminal:resize', (_, id: string, cols: number, rows: number) => {
+    resizeTerminal(id, cols, rows);
+  });
+
+  /** 关闭终端 */
+  ipcMain.on('terminal:kill', (_, id: string) => {
+    killTerminal(id);
+  });
+
+  /** 获取默认 shell */
+  ipcMain.handle('terminal:getDefaultShell', () => {
+    const { getDefaultShell } = require('../services/terminal/index');
+    return getDefaultShell();
+  });
+
+  // ========== Gitee 集成服务 ==========
+
+  /** Gitee OAuth 登录 */
+  ipcMain.handle('gitee:login', async () => {
+    try {
+      return await giteeService.login();
+    } catch (error) {
+      console.error('[Gitee] 登录失败:', error);
+      return { error: error.message };
+    }
+  });
+
+  /** Gitee 登出 */
+  ipcMain.handle('gitee:logout', () => {
+    giteeService.logout();
+  });
+
+  /** 检查 Gitee 登录状态 */
+  ipcMain.handle('gitee:isLoggedIn', () => {
+    return giteeService.isLoggedIn();
+  });
+
+  /** 获取 Gitee 当前用户 */
+  ipcMain.handle('gitee:getCurrentUser', async () => {
+    try { return await giteeService.getCurrentUser(); }
+    catch (error) { return { error: error.message }; }
+  });
+
+  /** 获取 PR/MR 列表 */
+  ipcMain.handle('gitee:listPullRequests', async (_, owner: string, repo: string, state?: string) => {
+    try { return await giteeService.listPullRequests(owner, repo, state); }
+    catch (error) { return { error: error.message }; }
+  });
+
+  /** 获取 PR 详情 */
+  ipcMain.handle('gitee:getPullRequest', async (_, owner: string, repo: string, number: number) => {
+    try { return await giteeService.getPullRequest(owner, repo, number); }
+    catch (error) { return { error: error.message }; }
+  });
+
+  /** 创建 PR */
+  ipcMain.handle('gitee:createPullRequest', async (_, owner: string, repo: string, title: string, body: string, head: string, base: string) => {
+    try { return await giteeService.createPullRequest(owner, repo, title, body, head, base); }
+    catch (error) { return { error: error.message }; }
+  });
+
+  /** 合并 PR */
+  ipcMain.handle('gitee:mergePullRequest', async (_, owner: string, repo: string, number: number) => {
+    try { return await giteeService.mergePullRequest(owner, repo, number); }
+    catch (error) { return { error: error.message }; }
+  });
+
+  /** 获取用户仓库列表 */
+  ipcMain.handle('gitee:listRepos', async (_, page?: number, perPage?: number) => {
+    try { return await giteeService.listRepos(page, perPage); }
+    catch (error) { return { error: error.message }; }
+  });
+
+  /** 从 remote URL 解析 owner/repo */
+  ipcMain.handle('gitee:parseRepoFromRemote', (_, remoteUrl: string) => {
+    return giteeService.parseRepoFromRemote(remoteUrl);
+  });
+
+  /** 设置 OAuth 配置 */
+  ipcMain.handle('gitee:setOAuthConfig', (_, clientId: string, clientSecret: string) => {
+    giteeService.setOAuthConfig(clientId, clientSecret);
+  });
+
+  // ========== AI 服务 ==========
+
+  /** AI 生成 Commit Message */
+  ipcMain.handle('ai:generateCommitMessage', async (_, diff: string, language?: string) => {
+    try { return await aiService.generateCommitMessage(diff, language); }
+    catch (error) { return { error: error.message }; }
+  });
+
+  /** AI 代码审查 */
+  ipcMain.handle('ai:reviewCode', async (_, diff: string, language?: string) => {
+    try { return await aiService.reviewCode(diff, language); }
+    catch (error) { return { error: error.message }; }
+  });
+
+  /** AI 解释代码 */
+  ipcMain.handle('ai:explainCode', async (_, code: string, language?: string) => {
+    try { return await aiService.explainCode(code, language); }
+    catch (error) { return { error: error.message }; }
+  });
+
+  /** 获取 AI 配置 */
+  ipcMain.handle('ai:getConfig', () => {
+    return aiService.getConfig();
+  });
+
+  /** 设置 AI 配置 */
+  ipcMain.handle('ai:setConfig', (_, config) => {
+    aiService.setConfig(config);
+  });
+
+  /** 切换到 Ollama 本地模式 */
+  ipcMain.handle('ai:useOllama', (_, model?: string) => {
+    aiService.useOllama(model);
+  });
+
+  /** 检查 AI 是否配置 */
+  ipcMain.handle('ai:isConfigured', () => {
+    return aiService.isConfigured();
+  });
+
+  /** 测试 AI 连接 */
+  ipcMain.handle('ai:testConnection', async () => {
+    return await aiService.testConnection();
+  });
+
+  // ========== P2: 增强功能 ==========
+
+  /** P2-5: Rebase with --update-refs */
+  ipcMain.handle('git:rebaseWithUpdateRefs', async (_, onto: string, updateRefs: boolean) => {
+    return await gitService.rebaseWithUpdateRefs(onto, updateRefs);
+  });
+
+  /** P2-6: 从剪贴板内容应用 Patch */
+  ipcMain.handle('git:applyPatchFromContent', async (_, patchContent: string, options?: { check?: boolean; cached?: boolean; reject?: boolean }) => {
+    return await gitService.applyPatchFromContent(patchContent, options);
+  });
+
+  /** P2-7: 仓库磁盘占用统计 */
+  ipcMain.handle('git:getRepoDiskUsage', async () => {
+    return await gitService.getRepoDiskUsage();
+  });
+
+  /** P2-8: 操作活动日志 */
+  ipcMain.handle('git:getActivityLog', async (_, limit?: number) => {
+    return gitService.getActivityLog(limit);
+  });
+
+  ipcMain.handle('git:clearActivityLog', async () => {
+    gitService.clearActivityLog();
+  });
+
+  ipcMain.handle('git:logActivity', async (_, action: string, detail: string, status?: string) => {
+    return gitService.logActivity(action, detail, status as any);
+  });
+
+  ipcMain.handle('git:updateActivity', async (_, id: string, status: string, detail?: string) => {
+    gitService.updateActivity(id, status as any, detail);
+  });
+
+  /** P2-10: 部分 Stash (git stash push -p) */
+  ipcMain.handle('git:stashPartial', async (_, options?: { message?: string }) => {
+    return await gitService.stashPartial(options);
+  });
+
+  console.log('[Majie] 所有 IPC 处理器已注册');
 }
 
 module.exports = { registerIpcHandlers };

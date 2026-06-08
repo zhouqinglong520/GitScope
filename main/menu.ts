@@ -1,18 +1,60 @@
 /**
  * 应用菜单配置
- * 参考 Fork 的菜单结构，适配 GitScope 已有功能
+ * 参考 Fork 的菜单结构，适配 Majie 已有功能
  */
 export {};
 
 const { Menu, app, shell, dialog } = require('electron');
+const Store = require('electron-store');
 
 let mainWindow = null;
+
+// 最近打开的仓库列表（持久化）
+const recentStore = new Store({ name: 'recent-repos', defaults: { repos: [] as Array<{ name: string; path: string }> } });
+
+function getRecentRepos() {
+  return recentStore.get('repos', []) as Array<{ name: string; path: string }>;
+}
+
+function addRecentRepo(name: string, path: string) {
+  let repos = getRecentRepos();
+  // 去重：同路径移到顶部
+  repos = repos.filter(r => r.path !== path);
+  repos.unshift({ name, path });
+  // 最多保留 10 条
+  if (repos.length > 10) repos = repos.slice(0, 10);
+  recentStore.set('repos', repos);
+}
+
+function clearRecentRepos() {
+  recentStore.set('repos', []);
+}
 
 function setMainWindow(win) {
   mainWindow = win;
 }
 
 function createAppMenu() {
+  const menu = Menu.buildFromTemplate(getMenuTemplate());
+  Menu.setApplicationMenu(menu);
+  return menu;
+}
+
+function buildRecentSubmenu() {
+  const repos = getRecentRepos();
+  if (repos.length === 0) {
+    return [{ label: '无最近仓库', enabled: false }];
+  }
+  const items = repos.map((r, i) => ({
+    label: `${i < 9 ? `${i + 1}. ` : ''}${r.name} — ${r.path}`,
+    click: () => mainWindow?.webContents.send('menu:openRepoAtPath', r.path),
+  }));
+  items.push({ type: 'separator' as const });
+  items.push({ label: '清除最近打开', click: () => { clearRecentRepos(); rebuildMenu(); } });
+  return items;
+}
+
+function getMenuTemplate() {
   const template = [
     // 文件
     {
@@ -41,7 +83,7 @@ function createAppMenu() {
         { type: 'separator' },
         {
           label: '最近打开',
-          submenu: [], // 动态填充
+          submenu: buildRecentSubmenu(),
         },
         { type: 'separator' },
         {
@@ -114,6 +156,10 @@ function createAppMenu() {
           accelerator: 'CmdOrCtrl+K',
           click: () => mainWindow?.webContents.send('menu:quickLaunch'),
         },
+        {
+          label: '快捷键速查表',
+          click: () => mainWindow?.webContents.send('menu:shortcuts'),
+        },
         { type: 'separator' },
         { role: 'toggleDevTools', label: '开发者工具' },
         { role: 'togglefullscreen', label: '全屏' },
@@ -183,9 +229,53 @@ function createAppMenu() {
           click: () => mainWindow?.webContents.send('menu:reflog'),
         },
         {
-          label: '在终端中打开',
+          label: '操作时间线（可视化 Reflog）',
+          click: () => mainWindow?.webContents.send('menu:reflogVisual'),
+        },
+        { type: 'separator' },
+        {
+          label: 'Amend Last Commit',
+          accelerator: 'CmdOrCtrl+Shift+Enter',
+          click: () => mainWindow?.webContents.send('menu:amendCommit'),
+        },
+        {
+          label: '内置终端',
           accelerator: 'CmdOrCtrl+`',
+          click: () => mainWindow?.webContents.send('menu:toggleTerminal'),
+        },
+        {
+          label: '在外部终端中打开',
           click: () => mainWindow?.webContents.send('menu:openTerminal'),
+        },
+        {
+          label: 'Gitee',
+          accelerator: 'CmdOrCtrl+G',
+          click: () => mainWindow?.webContents.send('menu:gitee'),
+        },
+        {
+          label: 'GitHub 通知...',
+          click: () => mainWindow?.webContents.send('menu:githubNotifications'),
+        },
+        {
+          label: '外部工具设置...',
+          click: () => mainWindow?.webContents.send('menu:externalTools'),
+        },
+        { type: 'separator' },
+        {
+          label: '仓库磁盘占用...',
+          click: () => mainWindow?.webContents.send('menu:treemap'),
+        },
+        {
+          label: '操作活动管理器...',
+          click: () => mainWindow?.webContents.send('menu:activityManager'),
+        },
+        {
+          label: '粘贴 Patch...',
+          click: () => mainWindow?.webContents.send('menu:pastePatch'),
+        },
+        {
+          label: '部分 Stash...',
+          click: () => mainWindow?.webContents.send('menu:partialStash'),
         },
         {
           label: '在资源管理器中打开',
@@ -216,6 +306,10 @@ function createAppMenu() {
           label: '交互式 Rebase...',
           click: () => mainWindow?.webContents.send('menu:interactiveRebase'),
         },
+        {
+          label: 'Rebase --update-refs...',
+          click: () => mainWindow?.webContents.send('menu:rebaseUpdateRefs'),
+        },
         { type: 'separator' },
         {
           label: '重命名分支...',
@@ -224,6 +318,15 @@ function createAppMenu() {
         {
           label: '删除分支...',
           click: () => mainWindow?.webContents.send('menu:deleteBranch'),
+        },
+        { type: 'separator' },
+        {
+          label: '清理陈旧分支...',
+          click: () => mainWindow?.webContents.send('menu:staleBranches'),
+        },
+        {
+          label: 'Git Flow...',
+          click: () => mainWindow?.webContents.send('menu:gitFlow'),
         },
       ],
     },
@@ -252,17 +355,17 @@ function createAppMenu() {
       label: '帮助',
       submenu: [
         {
-          label: 'GitScope 官网',
-          click: () => shell.openExternal('https://github.com/zhouqinglong520/GitScope'),
+          label: 'Majie 官网',
+          click: () => shell.openExternal('https://github.com/zhouqinglong520/Majie'),
         },
         {
           label: '查看文档',
-          click: () => shell.openExternal('https://github.com/zhouqinglong520/GitScope/blob/main/README.md'),
+          click: () => shell.openExternal('https://github.com/zhouqinglong520/Majie/blob/main/README.md'),
         },
         { type: 'separator' },
         {
           label: '报告问题',
-          click: () => shell.openExternal('https://github.com/zhouqinglong520/GitScope/issues'),
+          click: () => shell.openExternal('https://github.com/zhouqinglong520/Majie/issues'),
         },
         { type: 'separator' },
         {
@@ -272,13 +375,13 @@ function createAppMenu() {
         },
         { type: 'separator' },
         {
-          label: '关于 GitScope',
+          label: '关于 Majie',
           click: () => {
             dialog.showMessageBox(mainWindow, {
               type: 'info',
-              title: '关于 GitScope',
-              message: 'GitScope 码界',
-              detail: `版本: ${app.getVersion()}\n面向国内开发者的现代 Git 图形化客户端\n\nElectron + React + TypeScript\nhttps://github.com/zhouqinglong520/GitScope`,
+              title: '关于 Majie',
+              message: 'Majie 码界',
+              detail: `版本: ${app.getVersion()}\n面向国内开发者的现代 Git 图形化客户端\n\nElectron + React + TypeScript\nhttps://github.com/zhouqinglong520/Majie`,
               buttons: ['确定'],
             });
           },
@@ -287,7 +390,11 @@ function createAppMenu() {
     },
   ];
 
-  return Menu.buildFromTemplate(template);
+  return template;
 }
 
-module.exports = { createAppMenu, setMainWindow };
+function rebuildMenu() {
+  createAppMenu();
+}
+
+module.exports = { createAppMenu, setMainWindow, addRecentRepo, rebuildMenu };

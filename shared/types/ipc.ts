@@ -26,10 +26,13 @@ export interface IpcGitApi {
   getBranches: () => Promise<GitBranch[]>;
   getStatus: () => Promise<GitStatus | null>;
   getDiff: (filePath?: string, commitOid?: string) => Promise<GitDiff[]>;
+  add: (files: string[]) => Promise<void>;
+  addAll: () => Promise<void>;
   stage: (files: string[]) => Promise<void>;
   stageAll: () => Promise<void>;
   unstage: (files: string[]) => Promise<void>;
   unstageAll: () => Promise<void>;
+  reset: (files: string[]) => Promise<void>;
   commit: (message: string, options?: { amend?: boolean; sign?: boolean }) => Promise<string>;
   push: (options?: { remote?: string; branch?: string; force?: boolean; forceWithLease?: boolean; setUpstream?: boolean }) => Promise<void>;
   pull: (options?: { remote?: string; branch?: string; rebase?: boolean }) => Promise<void>;
@@ -42,6 +45,8 @@ export interface IpcGitApi {
   getTags: () => Promise<GitTag[]>;
   createTag: (name: string, ref?: string, message?: string) => Promise<void>;
   deleteTag: (name: string) => Promise<void>;
+  pushTag: (name: string, remote?: string) => Promise<void>;
+  pushAllTags: (remote?: string) => Promise<void>;
   getStashes: () => Promise<GitStashEntry[]>;
   stash: (options?: StashOptions) => Promise<void>;
   stashPop: (index?: number) => Promise<void>;
@@ -56,13 +61,11 @@ export interface IpcGitApi {
   clone: (url: string, dir: string) => Promise<void>;
   getStagedDiff: (filePath?: string, options?: DiffOptions) => Promise<GitDiff[]>;
   getRemotes: () => Promise<Array<{ name: string; url: string; type: string }>>;
-  
   addRemote: (name: string, url: string) => Promise<void>;
-  removeRemote: (name: string) => Promise<void>;
+  removeRemote: (name: string, url: string) => Promise<void>;
   setRemoteUrl: (name: string, url: string) => Promise<void>;
   fetchAll: (options?: { prune?: boolean }) => Promise<void>;
   getUpstream: (branch?: string) => Promise<string | null>;
-
   reflog: () => Promise<Array<{ hash: string; action: string; ref: string; message: string; date: string }>>;
   blame: (filePath: string) => Promise<BlameResult | null>;
   revert: (oid: string) => Promise<void>;
@@ -109,6 +112,12 @@ export interface IpcGitApi {
   /** 获取文件在指定提交的内容(base64) */
   getFileContent: (filePath: string, oid: string) =>
     Promise<string | null>;
+  /** 选中代码的历史追溯 */
+  getCodeHistory: (filePath: string, options: { lineStart: number; lineEnd: number; mode: 'line' | 'string'; search?: string }) =>
+    Promise<Array<{ oid: string; message: string; author: string; date: string }>>;
+  /** Blame 上一版本 */
+  blamePreviousRevision: (filePath: string, line: number) =>
+    Promise<{ oid: string; commit: string; author: string; date: string } | null>;
 
   // ========== P2 新增 IPC 方法 ==========
 
@@ -236,20 +245,20 @@ export interface IpcGitApi {
   applyPatch: (patchPath: string, options?: { check?: boolean; reject?: boolean }) =>
     Promise<void>;
 
+  /** Patch：反向应用 */
+  applyPatchReverse: (patchPath: string) =>
+    Promise<void>;
+
+  /** Patch：应用并暂存 */
+  applyPatchCached: (patchPath: string) =>
+    Promise<void>;
+
   /** Patch：列出 */
   listPatches: (dir?: string) =>
     Promise<import('./git').PatchInfo[]>;
 
   /** 自动 Fetch 设置 */
   setAutoFetch: (intervalMinutes: number) =>
-    Promise<void>;
-
-  /** 推送标签 */
-  pushTag: (tagName: string, remote?: string) =>
-    Promise<void>;
-
-  /** 推送所有标签 */
-  pushAllTags: (remote?: string) =>
     Promise<void>;
 
   /** 获取合并请求列表（Gitee/GitHub） */
@@ -282,35 +291,5 @@ export interface IpcFsApi {
 }
 
 export interface IpcShellApi {
-  openPath: (path: string) => Promise<void>;
-  openTerminal: (path: string) => Promise<void>;
-}
-
-export interface IpcWindowApi {
-  minimize: () => void;
-  maximize: () => void;
-  close: () => void;
-  isMaximized: () => Promise<boolean>;
-  onMaximizeChange: (callback: (isMaximized: boolean) => void) => () => void;
-}
-
-export interface IpcEventsApi {
-  on: (channel: string, callback: (...args: unknown[]) => void) => void;
-  removeListener: (channel: string, callback: (...args: unknown[]) => void) => void;
-}
-
-export interface ElectronApi {
-  git: IpcGitApi;
-  credential: IpcCredentialApi;
-  fs: IpcFsApi;
-  shell: IpcShellApi;
-  window: IpcWindowApi;
-  ipc: IpcEventsApi;
-}
-
-declare global {
-  interface Window {
-    electronAPI: ElectronApi;
-  }
-
-}
+  openExternal: (url: string) => Promise<void>;
+  openPath: (path: string)

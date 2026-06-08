@@ -110,7 +110,7 @@ function CommitFilterBar({
           type="text"
           value={filter.search || ''}
           onChange={(e) => onFilterChange({ search: e.target.value })}
-          placeholder={t('filter.searchPlaceholder')}
+          placeholder={t('filter.searchPlaceholder') + ' (支持模糊搜索)'}
           className="w-full pl-8 pr-3 py-1.5 bg-[#3c3c3c] border border-[#4c4c4c] rounded text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-[#094771]"
         />
         {filter.search && (

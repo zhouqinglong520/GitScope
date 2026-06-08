@@ -43,13 +43,13 @@ export const RepoManagerDialog: React.FC<Props> = ({ visible, onClose, onSelectR
   // 从 localStorage 恢复
   useEffect(() => {
     try {
-      const fav = localStorage.getItem('gitscope_favorites');
+      const fav = localStorage.getItem('majie_favorites');
       if (fav) setFavoriteIds(new Set(JSON.parse(fav)));
-      const groups = localStorage.getItem('gitscope_repo_groups');
+      const groups = localStorage.getItem('majie_repo_groups');
       if (groups) setRepoGroups(JSON.parse(groups));
-      const colors = localStorage.getItem('gitscope_repo_colors');
+      const colors = localStorage.getItem('majie_repo_colors');
       if (colors) setRepoColors(JSON.parse(colors));
-      const renames = localStorage.getItem('gitscope_repo_renames');
+      const renames = localStorage.getItem('majie_repo_renames');
       if (renames) setRepoRenames(JSON.parse(renames));
     } catch {}
   }, []);
@@ -58,28 +58,28 @@ export const RepoManagerDialog: React.FC<Props> = ({ visible, onClose, onSelectR
     const next = new Set(favoriteIds);
     if (next.has(repoId)) next.delete(repoId); else next.add(repoId);
     setFavoriteIds(next);
-    localStorage.setItem('gitscope_favorites', JSON.stringify([...next]));
+    localStorage.setItem('majie_favorites', JSON.stringify([...next]));
   };
 
   const setGroup = (repoId: string, group: string) => {
     const next = { ...repoGroups, [repoId]: group };
     if (!group) delete next[repoId];
     setRepoGroups(next);
-    localStorage.setItem('gitscope_repo_groups', JSON.stringify(next));
+    localStorage.setItem('majie_repo_groups', JSON.stringify(next));
   };
 
   const setColor = (repoId: string, color: string) => {
     const next = { ...repoColors, [repoId]: color };
     if (!color) delete next[repoId];
     setRepoColors(next);
-    localStorage.setItem('gitscope_repo_colors', JSON.stringify(next));
+    localStorage.setItem('majie_repo_colors', JSON.stringify(next));
   };
 
   const handleRename = (repoId: string) => {
     if (!renameValue.trim()) return;
     const next = { ...repoRenames, [repoId]: renameValue.trim() };
     setRepoRenames(next);
-    localStorage.setItem('gitscope_repo_renames', JSON.stringify(next));
+    localStorage.setItem('majie_repo_renames', JSON.stringify(next));
     setRenamingId(null);
   };
 

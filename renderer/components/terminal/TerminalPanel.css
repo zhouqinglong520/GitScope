@@ -1,0 +1,192 @@
+/**
+ * Majie 码界 — 内置终端样式
+ * 品牌色 #00d4aa（翠绿青），画布色 #0a0e14（近黑微蓝）
+ */
+
+.terminal-panel {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-surface, #10141a);
+  border-top: 1px solid var(--border-default, #252b34);
+  flex-shrink: 0;
+  position: relative;
+}
+
+/* 拖拽条 */
+.terminal-resize-handle {
+  position: absolute;
+  top: -3px;
+  left: 0;
+  right: 0;
+  height: 6px;
+  cursor: row-resize;
+  z-index: 10;
+}
+
+.terminal-resize-handle:hover {
+  background: rgba(0, 212, 170, 0.2);
+}
+
+/* Tab 栏 */
+.terminal-tabs {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 32px;
+  background: var(--bg-overlay, #1e2229);
+  border-bottom: 1px solid var(--border-subtle, #1a1f28);
+  padding: 0 4px;
+  user-select: none;
+}
+
+.terminal-tabs-list {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  overflow-x: auto;
+  flex: 1;
+}
+
+.terminal-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  height: 26px;
+  border-radius: 4px 4px 0 0;
+  cursor: pointer;
+  color: var(--text-muted, #6b7280);
+  font-size: 12px;
+  white-space: nowrap;
+  transition: all 120ms ease;
+}
+
+.terminal-tab:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-secondary, #9ca3af);
+}
+
+.terminal-tab.active {
+  background: var(--bg-surface, #10141a);
+  color: var(--text-primary, #e6e6e6);
+  border-bottom: 2px solid var(--accent, #00d4aa);
+}
+
+.terminal-tab-icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.terminal-tab.active .terminal-tab-icon {
+  opacity: 1;
+  color: var(--accent, #00d4aa);
+}
+
+.terminal-tab-title {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.terminal-tab-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted, #6b7280);
+  font-size: 10px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 120ms, background 120ms;
+}
+
+.terminal-tab:hover .terminal-tab-close,
+.terminal-tab.active .terminal-tab-close {
+  opacity: 1;
+}
+
+.terminal-tab-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary, #e6e6e6);
+}
+
+/* Tab 操作按钮 */
+.terminal-tabs-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.terminal-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted, #6b7280);
+  cursor: pointer;
+  transition: all 120ms;
+}
+
+.terminal-action-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-secondary, #9ca3af);
+}
+
+/* 终端容器 */
+.terminal-content {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  background: #0a0e14;
+}
+
+.terminal-instance {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 4px 0 0 8px;
+}
+
+.terminal-instance.hidden {
+  display: none;
+}
+
+.terminal-instance.visible {
+  display: block;
+}
+
+/* xterm.js 覆盖样式 */
+.terminal-instance .xterm {
+  height: 100%;
+}
+
+.terminal-instance .xterm-viewport {
+  /* 隐藏 xterm 自带滚动条样式，使用更细的 */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(66, 66, 66, 0.6) transparent;
+}
+
+.terminal-instance .xterm-viewport::-webkit-scrollbar {
+  width: 6px;
+}
+
+.terminal-instance .xterm-viewport::-webkit-scrollbar-thumb {
+  background: rgba(66, 66, 66, 0.6);
+  border-radius: 3px;
+}
+
+.terminal-instance .xterm-viewport::-webkit-scrollbar-track {
+  background: transparent;
+}

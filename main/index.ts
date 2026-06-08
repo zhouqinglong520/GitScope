@@ -7,7 +7,7 @@ export {};
 const { app, BrowserWindow, shell, Menu } = require('electron');
 const path = require('path');
 const { registerIpcHandlers } = require('./ipc/index');
-const { createAppMenu, setMainWindow } = require('./menu');
+const { createAppMenu, setMainWindow, addRecentRepo, rebuildMenu } = require('./menu');
 
 // 开发模式标志
 const isDev = !app.isPackaged;
@@ -24,8 +24,8 @@ function createWindow() {
     height: 900,
     minWidth: 1000,
     minHeight: 700,
-    title: 'GitScope',
-    backgroundColor: '#1e1e1e',
+    title: 'Majie',
+    backgroundColor: '#10141a',
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.js'),
       contextIsolation: true,

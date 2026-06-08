@@ -94,6 +94,8 @@ export default function BlameView({ filePath, initialFilter, onClose }: BlameVie
   const [showAllLines, setShowAllLines] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
   const [authorSearch, setAuthorSearch] = useState('');
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; line: BlameLine } | null>(null);
+  const [blamingPrevious, setBlamingPrevious] = useState(false);
   
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -178,6 +180,22 @@ export default function BlameView({ filePath, initialFilter, onClose }: BlameVie
     setShowAllLines(false);
   }, []);
 
+  // Blame 上一版本
+  const handleBlamePrevious = useCallback(async (line: BlameLine) => {
+    setBlamingPrevious(true);
+    setContextMenu(null);
+    try {
+      const result = await window.electronAPI.git.blamePreviousRevision(filePath, line.commit);
+      if (result) {
+        setBlameData(result as any);
+      }
+    } catch (error) {
+      console.error('Blame 上一版本失败:', error);
+    } finally {
+      setBlamingPrevious(false);
+    }
+  }, [filePath]);
+
   // 复制 SHA
   const handleCopySHA = useCallback(async (sha: string) => {
     const success = await copyToClipboard(sha);
@@ -186,6 +204,14 @@ export default function BlameView({ filePath, initialFilter, onClose }: BlameVie
       setTimeout(() => setCopied(null), 2000);
     }
   }, []);
+
+  // 点击外部关闭右键菜单
+  useEffect(() => {
+    if (!contextMenu) return;
+    const handler = () => setContextMenu(null);
+    document.addEventListener('click', handler);
+    return () => document.removeEventListener('click', handler);
+  }, [contextMenu]);
 
   // 处理滚动以跟随悬停行
   useEffect(() => {
@@ -331,6 +357,10 @@ export default function BlameView({ filePath, initialFilter, onClose }: BlameVie
                   className={`group ${isHovered ? 'bg-[#2a2d2e]' : 'hover:bg-[#252526]'}`}
                   onMouseEnter={() => setHoveredLine(line)}
                   onMouseLeave={() => setHoveredLine(null)}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    setContextMenu({ x: e.clientX, y: e.clientY, line });
+                  }}
                 >
                   {/* 提交信息 */}
                   <td 
@@ -388,6 +418,38 @@ export default function BlameView({ filePath, initialFilter, onClose }: BlameVie
           </tbody>
         </table>
       </div>
+
+      {/* 右键菜单 */}
+      {contextMenu && (
+        <div className="fixed bg-[#2d2d30] border border-[#3c3c3c] rounded shadow-xl py-1 z-[1000] min-w-[180px]"
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="px-3 py-2 text-sm text-gray-300 hover:bg-[#094771] cursor-pointer flex items-center gap-2"
+            onClick={() => { navigator.clipboard.writeText(contextMenu.line.commit); setContextMenu(null); }}
+          >
+            📋 复制 SHA
+          </div>
+          <div className="px-3 py-2 text-sm text-gray-300 hover:bg-[#094771] cursor-pointer flex items-center gap-2"
+            onClick={() => handleBlamePrevious(contextMenu.line)}
+          >
+            ⏪ Blame 上一版本
+          </div>
+          <div className="h-px bg-[#3c3c3c] my-1" />
+          <div className="px-3 py-2 text-sm text-gray-300 hover:bg-[#094771] cursor-pointer flex items-center gap-2"
+            onClick={() => { setContextMenu(null); }}
+          >
+            ✕ 关闭
+          </div>
+        </div>
+      )}
+
+      {/* Blaming 指示器 */}
+      {blamingPrevious && (
+        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-xs px-3 py-1.5 rounded-full shadow-lg z-50">
+          ⏳ 正在加载上一版本...
+        </div>
+      )}
 
       {/* 悬停详情 Tooltip */}
       {hoveredLine && (

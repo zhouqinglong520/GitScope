@@ -1,9 +1,8 @@
 /**
  * 主布局组件
- * 上半部分：提交筛选栏 + 提交图
- * 下半部分：提交详情面板 + 暂存区 + Diff 对比（同屏显示）
- * 底部：常驻提交栏
- * 支持上下拖拽调整高度
+ * Fork 风格三栏并列：左 Sidebar → 中 CommitGraph+List → 右 Detail(FileTree+Diff)
+ * CommitBar 在右栏底部常驻
+ * 支持左右拖拽调整列宽
  */
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
@@ -15,7 +14,20 @@ import CommitFilterBar from '../filter/CommitFilterBar';
 import CommitDetailPanel from '../commitdetail/CommitDetailPanel';
 import FileHistory from '../filehistory/FileHistory';
 import CherryPickDialog from '../operations/CherryPickDialog';
+import PushPullDialog from '../operations/PushPullDialog';
+import InteractiveRebaseDialog from '../rebase/InteractiveRebaseDialog';
+import StashDialog from '../stash/StashDialog';
+import BlameView from '../blame/BlameView';
+import ConflictResolutionPanel from '../conflict/ConflictResolutionPanel';
+import ConflictWarningDialog from '../conflict/ConflictWarningDialog';
+import ReflogPanel from '../reflog/ReflogPanel';
+import ReflogVisualPanel from '../reflogvisual/ReflogVisualPanel';
+import TerminalPanel from '../terminal/TerminalPanel';
+import GiteePanel from '../gitee/GiteePanel';
 import TagPanel from '../branch/TagPanel';
+import CommandPreviewDialog, { getGitCommandPreview, shouldShowPreview } from '../commandpreview/CommandPreviewDialog';
+import ShortcutsDialog from '../shortcuts/ShortcutsDialog';
+import { DragDropProvider } from '../dragdrop/DragDropContext';
 import { useRepoStore } from '../../stores/repoStore';
 import { useI18 } from '../../i18n';
 
@@ -26,6 +38,25 @@ function MainLayout() {
   const [showCherryPick, setShowCherryPick] = useState(false);
   const [cherryPickOid, setCherryPickOid] = useState<string | undefined>();
   const [showTagPanel, setShowTagPanel] = useState(false);
+  const [showPushPull, setShowPushPull] = useState<'push' | 'pull' | 'fetch' | null>(null);
+  const [showRebase, setShowRebase] = useState(false);
+  const [rebaseOid, setRebaseOid] = useState<string>();
+  const [showStashDialog, setShowStashDialog] = useState(false);
+  const [showBlame, setShowBlame] = useState(false);
+  const [blameFilePath, setBlameFilePath] = useState<string>();
+  const [showConflict, setShowConflict] = useState(false);
+  const [conflictType, setConflictType] = useState<'merge' | 'rebase' | 'cherry-pick'>('merge');
+  const [showConflictWarning, setShowConflictWarning] = useState(false);
+  const [conflictWarningData, setConflictWarningData] = useState<{ type: string; branch: string; files: string[] }>({ type: '', branch: '', files: [] });
+  const [showReflog, setShowReflog] = useState(false);
+  const [showTerminal, setShowTerminal] = useState(false);
+  const [showGitee, setShowGitee] = useState(false);
+  const [showReflogVisual, setShowReflogVisual] = useState(false);
+  const [showShortcuts, setShowShortcuts] = useState(false);
+  const [showCmdPreview, setShowCmdPreview] = useState(false);
+  const [pendingCmdAction, setPendingCmdAction] = useState<(() => void) | null>(null);
+  const [cmdPreviewCommands, setCmdPreviewCommands] = useState<any[]>([]);
+  const [autoFetchInterval, setAutoFetchInterval] = useState<ReturnType<typeof setInterval> | null>(null);
   const {
     commits,
     filteredCommits,
@@ -55,32 +86,50 @@ function MainLayout() {
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [isCommitting, setIsCommitting] = useState(false);
 
-  // 分栏比例状态
-  const [splitRatio, setSplitRatio] = useState(0.35); // 提交图占 35%
+  // 三栏比例状态：中栏占比
+  const [centerRatio, setCenterRatio] = useState(0.38);
   const containerRef = useRef<HTMLDivElement>(null);
-  const isDraggingRef = useRef(false);
+  const isDraggingCenterRef = useRef(false);
 
-  // 拖拽调整分栏高度
-  const handleMouseDown = useCallback(() => {
-    isDraggingRef.current = true;
+  // 右栏内部上下分栏：详情/文件树 占比
+  const [detailRatio, setDetailRatio] = useState(0.35);
+  const isDraggingDetailRef = useRef(false);
+
+  // 拖拽：中栏/右栏分隔线
+  const handleCenterMouseDown = useCallback(() => {
+    isDraggingCenterRef.current = true;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  }, []);
+
+  // 拖拽：右栏内部详情/Diff分隔线
+  const handleDetailMouseDown = useCallback(() => {
+    isDraggingDetailRef.current = true;
     document.body.style.cursor = 'row-resize';
     document.body.style.userSelect = 'none';
   }, []);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
-      if (!isDraggingRef.current || !containerRef.current) return;
-
-      const container = containerRef.current;
-      const containerRect = container.getBoundingClientRect();
-      const relativeY = e.clientY - containerRect.top;
-      const newRatio = Math.min(Math.max(relativeY / containerRect.height, 0.2), 0.6);
-
-      setSplitRatio(newRatio);
+      if (isDraggingCenterRef.current && containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect();
+        const ratio = (e.clientX - rect.left) / rect.width;
+        setCenterRatio(Math.min(Math.max(ratio, 0.2), 0.6));
+      }
+      if (isDraggingDetailRef.current) {
+        // 右栏内部拖拽，基于右栏高度
+        const rightPanel = document.getElementById('right-panel');
+        if (rightPanel) {
+          const rect = rightPanel.getBoundingClientRect();
+          const ratio = (e.clientY - rect.top) / rect.height;
+          setDetailRatio(Math.min(Math.max(ratio, 0.15), 0.6));
+        }
+      }
     };
 
     const handleMouseUp = () => {
-      isDraggingRef.current = false;
+      isDraggingCenterRef.current = false;
+      isDraggingDetailRef.current = false;
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
     };
@@ -98,27 +147,18 @@ function MainLayout() {
   const handleCommitSelect = useCallback(async (oid: string | null) => {
     setSelectedCommit(oid);
     setSelectedFile(null);
-    
     if (oid) {
-      // 获取提交详情
       await getCommitDetail(oid);
     } else {
       setShowCommitDetail(false);
     }
   }, [getCommitDetail, setShowCommitDetail]);
 
-  // 处理刷新
-  const handleRefresh = async () => {
-    await refresh();
-  };
+  const handleRefresh = async () => { await refresh(); };
 
-  // 处理提交
   const handleCommit = async (message: string, options?: { amend?: boolean; sign?: boolean }) => {
     setIsCommitting(true);
     try {
-      const commitArgs: string[] = [];
-      if (options?.amend) commitArgs.push('--amend');
-      if (options?.sign) commitArgs.push('-S');
       await window.electronAPI.git.commit(message, { amend: options?.amend, sign: options?.sign });
       await refresh();
     } catch (error) {
@@ -129,195 +169,222 @@ function MainLayout() {
     }
   };
 
-  // 处理暂存文件
-  const handleStage = async (path: string) => {
-    await stageFile(path);
-  };
-
-  // 处理取消暂存
-  const handleUnstage = async (path: string) => {
-    await unstageFile(path);
-  };
-
-  // 处理暂存所有
-  const handleStageAll = async () => {
-    await stageAll();
-  };
-
-  // 处理取消暂存所有
-  const handleUnstageAll = async () => {
-    await unstageAll();
-  };
-
-  // 处理查看文件历史
-  const handleViewFileHistory = async (filePath: string) => {
-    await getFileHistory(filePath);
-  };
-
-  // 处理查看文件 diff
+  const handleStage = async (path: string) => { await stageFile(path); };
+  const handleUnstage = async (path: string) => { await unstageFile(path); };
+  const handleStageAll = async () => { await stageAll(); };
+  const handleUnstageAll = async () => { await unstageAll(); };
+  const handleViewFileHistory = async (filePath: string) => { await getFileHistory(filePath); };
   const handleViewFileDiff = (oid: string, filePath: string) => {
     setSelectedFile(filePath);
     setSelectedCommit(oid);
   };
 
-  // 右键菜单回调 - 创建分支
-  const handleCreateBranch = useCallback(async (oid: string) => {
-    const branchName = await window.electronAPI.fs.showInputBox({
-      title: '创建分支',
-      prompt: '输入分支名称:',
-    });
-    if (branchName) {
-      await window.electronAPI.git.createBranch(branchName, oid);
-      await refresh();
-    }
-  }, [refresh]);
+  // 右键菜单回调 → 触发专业弹窗
+  const handleCreateBranch = useCallback((oid: string) => {
+    window.dispatchEvent(new CustomEvent('showDialog:newBranch', { detail: { defaultBase: oid } }));
+  }, []);
 
-  // 右键菜单回调 - 创建标签
-  const handleCreateTag = useCallback(async (oid: string) => {
-    const tagName = await window.electronAPI.fs.showInputBox({
-      title: '创建标签',
-      prompt: '输入标签名称:',
-    });
-    if (tagName) {
-      await window.electronAPI.git.createTag(tagName, oid);
-      await refresh();
-    }
-  }, [refresh]);
+  const handleCreateTag = useCallback((oid: string) => {
+    window.dispatchEvent(new CustomEvent('showDialog:newTag', { detail: { defaultRef: oid } }));
+  }, []);
 
-  // 右键菜单回调 - 检出提交
   const handleCheckout = useCallback(async (oid: string) => {
-    await window.electronAPI.git.checkout(oid);
-    await refresh();
+    await window.electronAPI.git.checkout(oid); await refresh();
   }, [refresh]);
 
-  // 右键菜单回调 - 重置
   const handleReset = useCallback(async (oid: string) => {
-    // 简化实现，实际应该显示模式选择对话框
-    await window.electronAPI.git.checkout(oid);
-    await refresh();
+    await window.electronAPI.git.checkout(oid); await refresh();
   }, [refresh]);
 
-  // 右键菜单回调 - Cherry-pick
   const handleCherryPick = useCallback((oid: string) => {
-    setCherryPickOid(oid);
-    setShowCherryPick(true);
+    setCherryPickOid(oid); setShowCherryPick(true);
   }, []);
 
-  // 右键菜单回调 - Revert
   const handleRevert = useCallback(async (oid: string) => {
-    // 简化实现
-    console.log('Revert commit:', oid);
+    try { await window.electronAPI.git.revert(oid); await refresh(); } catch (err) { console.error('Revert failed:', err); }
   }, []);
 
-  // 右键菜单回调 - 保存为 Patch
   const handleSavePatch = useCallback(async (oid: string) => {
-    try {
-      await window.electronAPI.git.createPatch([oid]);
-      alert('Patch 已创建');
-    } catch (e: any) { alert('创建 Patch 失败: ' + e.message); }
+    try { await window.electronAPI.git.createPatch([oid]); alert('Patch 已创建'); } catch (e: any) { alert('创建 Patch 失败: ' + e.message); }
   }, []);
 
-  // 右键菜单回调 - Interactive Rebase
-  const handleInteractiveRebase = useCallback(async (
-    oid: string,
-    action: 'reword' | 'squash' | 'fixup' | 'drop'
-  ) => {
-    console.log('Interactive rebase:', oid, action);
+  const handleInteractiveRebase = useCallback(async (oid: string, _action: 'reword' | 'squash' | 'fixup' | 'drop') => {
+    setRebaseOid(oid); setShowRebase(true);
+  }, []);
+
+  // 自动 Fetch（每 5 分钟）
+  useEffect(() => {
+    if (currentRepo) {
+      const interval = setInterval(async () => {
+        try { await window.electronAPI.git.fetch(); } catch (e) { /* silent */ }
+      }, 5 * 60 * 1000);
+      setAutoFetchInterval(interval);
+      return () => clearInterval(interval);
+    } else {
+      if (autoFetchInterval) clearInterval(autoFetchInterval);
+    }
+  }, [currentRepo]);
+
+  // 快捷键 ? 弹出速查表
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === '?' && !e.ctrlKey && !e.altKey && !e.metaKey) {
+        const target = e.target as HTMLElement;
+        if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
+        e.preventDefault();
+        setShowShortcuts(true);
+      }
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, []);
+
+  // 执行 Git 操作（带命令预览）
+  const executeGitAction = useCallback((action: string, params: Record<string, any>, callback: () => void) => {
+    const commands = getGitCommandPreview(action, params);
+    if (commands.length > 0 && shouldShowPreview(commands[0].category)) {
+      setCmdPreviewCommands(commands);
+      setPendingCmdAction(() => callback);
+      setShowCmdPreview(true);
+    } else {
+      callback();
+    }
+  }, []);
+
+  // Amend Last Commit
+  const handleAmendCommit = useCallback(async () => {
+    const callback = async () => {
+      try { await window.electronAPI.git.commit('', { amend: true }); await refresh(); } catch (e: any) { alert('Amend 失败: ' + e.message); }
+    };
+    executeGitAction('commit_amend', {}, callback);
+  }, [refresh, executeGitAction]);
+
+  // 监听 CustomEvent
+  useEffect(() => {
+    const handlers: Record<string, EventListener> = {
+      showRemotesManager: () => setShowPushPull('fetch'),
+      showInteractiveRebase: (e: Event) => {
+        const detail = (e as CustomEvent).detail;
+        if (detail?.oid) { setRebaseOid(detail.oid); }
+        setShowRebase(true);
+      },
+      showReflog: () => setShowReflog(true),
+      showSubmodulesManager: () => {},
+      showBranchSelector: () => {},
+      showGitignoreEditor: () => {},
+      showShortcuts: () => setShowShortcuts(true),
+      showReflogVisual: () => setShowReflogVisual(true),
+      toggleTerminal: () => setShowTerminal(prev => !prev),
+      'menu:toggleTerminal': () => setShowTerminal(prev => !prev),
+      'menu:gitee': () => setShowGitee(true),
+      'menu:amendCommit': () => handleAmendCommit(),
+      'menu:reflogVisual': () => setShowReflogVisual(true),
+    };
+    for (const [event, handler] of Object.entries(handlers)) {
+      window.addEventListener(event, handler);
+    }
+    return () => {
+      for (const [event, handler] of Object.entries(handlers)) {
+        window.removeEventListener(event, handler);
+      }
+    };
   }, []);
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden">
-      {/* 主内容区域（可拖拽分栏） */}
+    <DragDropProvider
+      onMerge={async (source, target) => { try { await window.electronAPI.git.checkout(target); await window.electronAPI.git.merge(source); await refresh(); } catch (e: any) { alert('合并失败: ' + e.message); } }}
+      onRebase={async (source, onto) => { try { await window.electronAPI.git.checkout(source); await window.electronAPI.git.rebaseInteractive?.(onto, ''); await refresh(); } catch (e: any) { alert('变基失败: ' + e.message); } }}
+      onCherryPick={async (oid) => { setCherryPickOid(oid); setShowCherryPick(true); }}
+      onCompare={async () => {}}
+      onReset={async (oid, targetBranch) => { try { await window.electronAPI.git.checkout(targetBranch); await window.electronAPI.git.resetTo(oid, 'mixed'); await refresh(); } catch (e: any) { alert('重置失败: ' + e.message); } }}
+    >
+    <div className="flex-1 flex overflow-hidden" ref={containerRef}>
+
+      {/* ========== 中栏：提交图 + 提交列表 ========== */}
       <div
-        ref={containerRef}
-        className="flex-1 flex flex-col overflow-hidden"
-        style={{ height: 'calc(100% - 180px)' }} // 预留底部提交栏空间
+        className="flex flex-col overflow-hidden"
+        style={{ width: `${centerRatio * 100}%` }}
       >
-        {/* 上半部分：筛选栏 + 提交图 */}
-        <div
-          className="flex flex-col border-b border-panel-border"
-          style={{ height: `${splitRatio * 100}%` }}
-        >
-          {/* 提交筛选工具栏 */}
-          <CommitFilterBar
-            authors={authorStats}
-            branches={branches}
-            filter={commitFilter}
-            onFilterChange={updateCommitFilter}
-            onClearFilter={clearCommitFilter}
-          />
+        {/* 提交筛选工具栏 */}
+        <CommitFilterBar
+          authors={authorStats}
+          branches={branches}
+          filter={commitFilter}
+          onFilterChange={updateCommitFilter}
+          onClearFilter={clearCommitFilter}
+        />
 
-          {/* 分支信息栏 */}
-          <div className="h-8 bg-[#252526] flex items-center px-3 border-b border-panel-border">
-            <div className="flex items-center gap-2 overflow-x-auto">
-              {branches.map((branch) => (
-                <span
-                  key={branch.name}
-                  className={`badge ${
-                    branch.current ? 'badge-green' : 'badge-gray'
-                  } text-xs`}
-                >
-                  {branch.name}
-                </span>
-              ))}
-            </div>
-          </div>
-
-          {/* 提交图搜索/筛选栏 */}
-          <div className="h-9 bg-[#252526] flex items-center gap-2 px-3 border-b border-panel-border">
-            <input
-              className="bg-[#1e1e1e] border border-[#3c3c3c] rounded px-2 py-1 text-xs text-gray-300 w-40 focus:border-[#4CAF50] focus:outline-none"
-              placeholder={t('commitGraph.searchPlaceholder') || '搜索提交...'}
-              value={graphSearch}
-              onChange={e => { setGraphSearch(e.target.value); updateCommitFilter({ search: e.target.value }); }}
-            />
-            <div className="flex gap-1">
-              {(['all', 'today', 'week', 'month'] as const).map(d => {
-                const labels: Record<string, string> = { all: t('commitGraph.filterAll') || '全部', today: t('commitGraph.today') || '今天', week: t('commitGraph.thisWeek') || '本周', month: t('commitGraph.thisMonth') || '本月' };
-                return (
-                  <button
-                    key={d}
-                    className={`px-2 py-0.5 rounded text-xs ${graphDateFilter === d ? 'bg-[#094771] text-white' : 'text-gray-500 hover:text-gray-300'}`}
-                    onClick={() => { setGraphDateFilter(d); const now = Date.now() / 1000; if (d === 'all') updateCommitFilter({ startDate: undefined, endDate: undefined }); else if (d === 'today') updateCommitFilter({ startDate: now - 86400 }); else if (d === 'week') updateCommitFilter({ startDate: now - 604800 }); else if (d === 'month') updateCommitFilter({ startDate: now - 2592000 }); }}
-                  >{labels[d]}</button>
-                );
-              })}
-            </div>
-            <span className="text-xs text-gray-600 ml-auto">{filteredCommits.length} 提交</span>
-          </div>
-
-          {/* 提交图 */}
-          <div className="flex-1 overflow-hidden">
-            <CommitGraph
-              commits={filteredCommits}
-              branches={branches}
-              currentBranch={currentRepo?.currentBranch || undefined}
-              selectedCommit={selectedCommit}
-              onCommitSelect={handleCommitSelect}
-              onCreateBranch={handleCreateBranch}
-              onCreateTag={handleCreateTag}
-              onCheckout={handleCheckout}
-              onReset={handleReset}
-              onCherryPick={handleCherryPick}
-              onRevert={handleRevert}
-              onSavePatch={handleSavePatch}
-              onInteractiveRebase={handleInteractiveRebase}
-            />
+        {/* 分支信息栏 */}
+        <div className="h-8 flex items-center px-3" style={{ background: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-subtle)' }}>
+          <div className="flex items-center gap-1.5 overflow-x-auto">
+            {branches.map((branch) => (
+              <span
+                key={branch.name}
+                className={`badge ${branch.current ? 'badge-green' : 'badge-gray'} text-xs`}
+              >
+                {branch.name}
+              </span>
+            ))}
           </div>
         </div>
 
-        {/* 拖拽条 */}
-        <div
-          onMouseDown={handleMouseDown}
-          className="h-1 bg-[#3c3c3c] hover:bg-primary-500 cursor-row-resize transition-colors flex-shrink-0"
-        />
+        {/* 提交图搜索/筛选栏 */}
+        <div className="h-9 flex items-center gap-2 px-3" style={{ background: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-subtle)' }}>
+          <input
+            className="input px-2 py-1 text-xs w-40"
+            placeholder={t('commitGraph.searchPlaceholder') || '搜索提交...'}
+            value={graphSearch}
+            onChange={e => { setGraphSearch(e.target.value); updateCommitFilter({ search: e.target.value }); }}
+          />
+          <div className="flex gap-1">
+            {(['all', 'today', 'week', 'month'] as const).map(d => {
+              const labels: Record<string, string> = { all: t('commitGraph.filterAll') || '全部', today: t('commitGraph.today') || '今天', week: t('commitGraph.thisWeek') || '本周', month: t('commitGraph.thisMonth') || '本月' };
+              return (
+                <button
+                  key={d}
+                  className={`px-2 py-0.5 rounded text-xs transition-colors ${graphDateFilter === d ? 'text-white' : ''}`}
+                  style={{ background: graphDateFilter === d ? 'var(--accent)' : 'transparent', color: graphDateFilter === d ? 'white' : 'var(--text-muted)' }}
+                  onClick={() => { setGraphDateFilter(d); const now = Date.now() / 1000; if (d === 'all') updateCommitFilter({ startDate: undefined, endDate: undefined }); else if (d === 'today') updateCommitFilter({ startDate: now - 86400 }); else if (d === 'week') updateCommitFilter({ startDate: now - 604800 }); else if (d === 'month') updateCommitFilter({ startDate: now - 2592000 }); }}
+                >{labels[d]}</button>
+              );
+            })}
+          </div>
+          <span className="text-[11px] ml-auto" style={{ color: 'var(--text-faint)' }}>{filteredCommits.length} 提交</span>
+        </div>
 
-        {/* 下半部分：提交详情 + 暂存区 + Diff */}
-        <div
-          className="flex-1 flex flex-col overflow-hidden"
-          style={{ height: `${(1 - splitRatio) * 100}%` }}
-        >
-          {/* 提交详情面板（可折叠） */}
+        {/* 提交图 */}
+        <div className="flex-1 overflow-hidden">
+          <CommitGraph
+            commits={filteredCommits}
+            branches={branches}
+            currentBranch={currentRepo?.currentBranch || undefined}
+            selectedCommit={selectedCommit}
+            onCommitSelect={handleCommitSelect}
+            onCreateBranch={handleCreateBranch}
+            onCreateTag={handleCreateTag}
+            onCheckout={handleCheckout}
+            onReset={handleReset}
+            onCherryPick={handleCherryPick}
+            onRevert={handleRevert}
+            onSavePatch={handleSavePatch}
+            onInteractiveRebase={handleInteractiveRebase}
+          />
+        </div>
+      </div>
+
+      {/* ========== 中/右拖拽条 ========== */}
+      <div
+        onMouseDown={handleCenterMouseDown}
+        className="resize-handle-vertical flex-shrink-0"
+      />
+
+      {/* ========== 右栏：详情面板 + 暂存区 + Diff + CommitBar ========== */}
+      <div
+        id="right-panel"
+        className="flex-1 flex flex-col overflow-hidden"
+      >
+        {/* 上半：提交详情（可折叠） */}
+        <div style={{ height: `${detailRatio * 100}%` }} className="flex flex-col overflow-hidden border-b border-panel-border">
           <CommitDetailPanel
             detail={selectedCommitDetail}
             isExpanded={showCommitDetail}
@@ -325,73 +392,75 @@ function MainLayout() {
             onViewFileDiff={handleViewFileDiff}
             onViewFileHistory={handleViewFileHistory}
           />
+        </div>
 
-          {/* 暂存区 + Diff */}
-          <div className="flex-1 flex overflow-hidden">
-            {/* 左侧：暂存区 */}
-            <div className="w-[300px] flex-shrink-0 border-r border-panel-border flex flex-col overflow-hidden">
-              <div className="flex-shrink-0 px-3 py-2 bg-panel-bg border-b border-panel-border">
-                <div className="text-xs font-semibold text-gray-400">
-                  {t('detail.fileChanges')}
-                </div>
-              </div>
-              <div className="flex-1 overflow-hidden">
-                <StatusPanel
-                  status={status}
-                  onFileSelect={(path) => {
-                    setSelectedFile(path);
-                    setSelectedCommit(null);
-                  }}
-                  selectedFile={selectedFile}
-                  onStage={handleStage}
-                  onUnstage={handleUnstage}
-                  onStageAll={handleStageAll}
-                  onUnstageAll={handleUnstageAll}
-                  onViewHistory={handleViewFileHistory}
-                  onRefresh={refresh}
-                />
-              </div>
+        {/* 详情/Diff 拖拽条 */}
+        <div
+          onMouseDown={handleDetailMouseDown}
+          className="resize-handle flex-shrink-0"
+        />
+
+        {/* 下半：暂存区 + Diff */}
+        <div className="flex-1 flex overflow-hidden">
+          {/* 左：暂存区 */}
+          <div className="w-[260px] flex-shrink-0 border-r border-panel-border flex flex-col overflow-hidden">
+            <div className="panel-header">
+              {t('detail.fileChanges')}
             </div>
+            <div className="flex-1 overflow-hidden">
+              <StatusPanel
+                status={status}
+                onFileSelect={(path) => {
+                  setSelectedFile(path);
+                  setSelectedCommit(null);
+                }}
+                selectedFile={selectedFile}
+                onStage={handleStage}
+                onUnstage={handleUnstage}
+                onStageAll={handleStageAll}
+                onUnstageAll={handleUnstageAll}
+                onViewHistory={handleViewFileHistory}
+                onRefresh={refresh}
+              />
+            </div>
+          </div>
 
-            {/* 右侧：Diff 对比 */}
-            <div className="flex-1 flex flex-col overflow-hidden">
-              <div className="flex-shrink-0 px-3 py-2 bg-panel-bg border-b border-panel-border">
-                <div className="text-xs font-semibold text-gray-400">
-                  {t('detail.diff')}
-                </div>
-              </div>
-              <div className="flex-1 overflow-hidden">
-                {selectedFile || selectedCommit ? (
-                  <DiffView
-                    commitOid={selectedCommit}
-                    filePath={selectedFile}
-                  />
-                ) : (
-                  <div className="h-full flex items-center justify-center text-gray-500">
-                    <div className="text-center">
-                      <svg className="w-12 h-12 mx-auto mb-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
-                      <p className="text-sm">选择一个文件查看差异</p>
-                      <p className="text-xs mt-1">或选择一个提交查看变更</p>
-                    </div>
+          {/* 右：Diff 对比 */}
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <div className="panel-header">
+              {t('detail.diff')}
+            </div>
+            <div className="flex-1 overflow-hidden">
+              {selectedFile || selectedCommit ? (
+                <DiffView
+                  commitOid={selectedCommit}
+                  filePath={selectedFile}
+                />
+              ) : (
+                <div className="h-full flex items-center justify-center" style={{ color: 'var(--text-muted)' }}>
+                  <div className="text-center animate-fade-in">
+                    <svg className="w-16 h-16 mx-auto mb-3 opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <p className="text-sm">选择一个文件查看差异</p>
+                    <p className="text-xs mt-1" style={{ color: 'var(--text-faint)' }}>或选择一个提交查看变更</p>
                   </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
+
+        {/* 底部常驻提交栏 */}
+        <CommitBar
+          hasStaged={!!status && status.staged.length > 0}
+          onCommit={handleCommit}
+          isCommitting={isCommitting}
+          stagedCount={status?.staged.length || 0}
+        />
       </div>
 
-      {/* 底部常驻提交栏 */}
-      <CommitBar
-        hasStaged={!!status && status.staged.length > 0}
-        onCommit={handleCommit}
-        isCommitting={isCommitting}
-        stagedCount={status?.staged.length || 0}
-      />
-
-      {/* 文件历史弹窗 */}
+      {/* ========== 弹窗层 ========== */}
       {showFileHistory && fileHistory && (
         <FileHistory
           filePath={fileHistory.filePath}
@@ -402,7 +471,6 @@ function MainLayout() {
         />
       )}
 
-      {/* Cherry-pick 对话框 */}
       <CherryPickDialog
         visible={showCherryPick}
         initialOid={cherryPickOid}
@@ -410,13 +478,75 @@ function MainLayout() {
         onRefresh={refresh}
       />
 
-      {/* 标签管理面板 */}
-      <TagPanel
-        visible={showTagPanel}
-        onClose={() => setShowTagPanel(false)}
+      {showPushPull && (
+        <PushPullDialog
+          mode={showPushPull}
+          visible={true}
+          onClose={() => setShowPushPull(null)}
+          onRefresh={refresh}
+        />
+      )}
+
+      {showRebase && rebaseOid && (
+        <InteractiveRebaseDialog
+          visible={showRebase}
+          onto={rebaseOid}
+          onClose={() => { setShowRebase(false); setRebaseOid(undefined); }}
+          onRefresh={refresh}
+        />
+      )}
+
+      <StashDialog
+        visible={showStashDialog}
+        onClose={() => setShowStashDialog(false)}
         onRefresh={refresh}
       />
+
+      {showBlame && blameFilePath && (
+        <BlameView
+          visible={showBlame}
+          filePath={blameFilePath}
+          onClose={() => { setShowBlame(false); setBlameFilePath(undefined); }}
+        />
+      )}
+
+      <ConflictResolutionPanel
+        visible={showConflict}
+        conflictType={conflictType}
+        onClose={() => setShowConflict(false)}
+        onRefresh={refresh}
+      />
+
+      <ConflictWarningDialog
+        visible={showConflictWarning}
+        type={conflictWarningData.type}
+        branch={conflictWarningData.branch}
+        files={conflictWarningData.files}
+        onConfirm={async () => { setShowConflictWarning(false); }}
+        onCancel={() => setShowConflictWarning(false)}
+      />
+
+      <ReflogPanel visible={showReflog} onClose={() => setShowReflog(false)} />
+      <TagPanel visible={showTagPanel} onClose={() => setShowTagPanel(false)} onRefresh={refresh} />
+      <TerminalPanel visible={showTerminal} onClose={() => setShowTerminal(false)} cwd={currentRepo?.path} />
+      <GiteePanel visible={showGitee} onClose={() => setShowGitee(false)} repoPath={currentRepo?.path} />
+      <ReflogVisualPanel visible={showReflogVisual} onClose={() => setShowReflogVisual(false)} onRefresh={refresh} />
+      <ShortcutsDialog visible={showShortcuts} onClose={() => setShowShortcuts(false)} />
+      <CommandPreviewDialog
+        visible={showCmdPreview}
+        commands={cmdPreviewCommands}
+        onConfirm={() => {
+          setShowCmdPreview(false);
+          if (pendingCmdAction) pendingCmdAction();
+          setPendingCmdAction(null);
+        }}
+        onCancel={() => {
+          setShowCmdPreview(false);
+          setPendingCmdAction(null);
+        }}
+      />
     </div>
+    </DragDropProvider>
   );
 }
 

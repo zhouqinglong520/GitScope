@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>GitScope 码界</title>
+  <title>Majie 码界</title>
   <script>
     // Mock electronAPI for browser preview - MUST be before React loads
     if (!window.electronAPI) {
-      console.log('[GitScope] Using mock electronAPI for browser preview');
+      console.log('[Majie] Using mock electronAPI for browser preview');
       window.electronAPI = {
         git: {
           openRepository: async () => ({ path: '/home/user/project', name: 'project', currentBranch: 'main', ahead: 2, behind: 0, isGitRepo: true, remotes: [{name:'origin',url:'https://github.com/user/project.git'}] }),
