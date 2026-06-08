@@ -1929,7 +1929,7 @@ function parseNameStatus(output: string): CommitFileChange[] {
     try {
       const fs = await import('fs/promises');
       const path = await import('path');
-      const prefsPath = path.join(this.dir, '.git', 'gitscope.json');
+      const prefsPath = path.join(this.dir, '.git', 'majie.json');
       const data = await fs.readFile(prefsPath, 'utf-8');
       return JSON.parse(data);
     } catch {
@@ -1942,7 +1942,7 @@ function parseNameStatus(output: string): CommitFileChange[] {
     if (!this.dir) throw new Error('仓库未打开');
     const fs = await import('fs/promises');
     const path = await import('path');
-    const prefsPath = path.join(this.dir, '.git', 'gitscope.json');
+    const prefsPath = path.join(this.dir, '.git', 'majie.json');
     let existing: Record<string, any> = {};
     try {
       const data = await fs.readFile(prefsPath, 'utf-8');
