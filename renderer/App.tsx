@@ -217,6 +217,29 @@ function App() {
     dispatch({ type: 'HIDE', dialog });
   }, []);
 
+  // CommitGraph 右键创建分支/标签（携带 commit OID）
+  const [newBranchDefaultBase, setNewBranchDefaultBase] = useState<string | undefined>();
+  const [newTagDefaultRef, setNewTagDefaultRef] = useState<string | undefined>();
+
+  useEffect(() => {
+    const onNewBranch = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      setNewBranchDefaultBase(detail?.defaultBase);
+      dispatch({ type: 'SHOW', dialog: 'newBranch' });
+    };
+    const onNewTag = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      setNewTagDefaultRef(detail?.defaultRef);
+      dispatch({ type: 'SHOW', dialog: 'newTag' });
+    };
+    window.addEventListener('showDialog:newBranch', onNewBranch);
+    window.addEventListener('showDialog:newTag', onNewTag);
+    return () => {
+      window.removeEventListener('showDialog:newBranch', onNewBranch);
+      window.removeEventListener('showDialog:newTag', onNewTag);
+    };
+  }, [dispatch]);
+
   const handleOpenRepo = async () => {
     const path = await window.electronAPI.fs.selectFolder();
     if (path) await openRepo(path);
@@ -389,12 +412,12 @@ function App() {
       {/* ===== 专业弹窗渲染 ===== */}
       {dialogs.cloneRepo && <CloneDialog onClose={() => closeDialog('cloneRepo')} onCloned={async (path) => { await openRepo(path); closeDialog('cloneRepo'); }} />}
       {showCloneDialog && <CloneDialog onClose={() => setShowCloneDialog(false)} onCloned={async (path) => { await openRepo(path); setShowCloneDialog(false); }} />}
-      {dialogs.newBranch && <NewBranchDialog onClose={() => closeDialog('newBranch')} />}
+      {dialogs.newBranch && <NewBranchDialog onClose={() => closeDialog('newBranch')} defaultBase={newBranchDefaultBase} />}
       {dialogs.deleteBranch !== null && dialogs.deleteBranch !== false && <DeleteBranchDialog onClose={() => closeDialog('deleteBranch')} branchName={typeof dialogs.deleteBranch === 'string' ? dialogs.deleteBranch : undefined} />}
       {dialogs.renameBranch !== null && dialogs.renameBranch !== false && <RenameBranchDialog onClose={() => closeDialog('renameBranch')} branchName={typeof dialogs.renameBranch === 'string' ? dialogs.renameBranch : undefined} />}
       {dialogs.switchBranch && <SwitchBranchDialog onClose={() => closeDialog('switchBranch')} />}
       {dialogs.mergeBranch !== null && dialogs.mergeBranch !== false && <MergeBranchDialog onClose={() => closeDialog('mergeBranch')} sourceBranch={typeof dialogs.mergeBranch === 'string' ? dialogs.mergeBranch : undefined} />}
-      {dialogs.newTag && <NewTagDialog onClose={() => closeDialog('newTag')} />}
+      {dialogs.newTag && <NewTagDialog onClose={() => closeDialog('newTag')} defaultRef={newTagDefaultRef} />}
       {dialogs.deleteTag !== null && dialogs.deleteTag !== false && <DeleteTagDialog onClose={() => closeDialog('deleteTag')} tagName={typeof dialogs.deleteTag === 'string' ? dialogs.deleteTag : undefined} />}
       {dialogs.pushTag !== null && dialogs.pushTag !== false && <PushTagDialog onClose={() => closeDialog('pushTag')} tagName={typeof dialogs.pushTag === 'string' ? dialogs.pushTag : undefined} />}
       {dialogs.initRepo && <InitRepoDialog onClose={() => closeDialog('initRepo')} />}
