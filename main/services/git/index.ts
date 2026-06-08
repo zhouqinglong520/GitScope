@@ -1690,6 +1690,104 @@ function parseNameStatus(output: string): CommitFileChange[] {
     await fs.writeFile(fullPath, content, 'utf-8');
   }
 
+  /**
+   * 获取选中代码的历史（Fork 标志性功能）
+   * 支持两种模式：
+   * - line-range: git log -L start,end:file 追踪行范围
+   * - pickaxe: git log -S "code" -- file 搜索代码出现/消失的提交
+   */
+  async getCodeHistory(options: {
+    filePath: string;
+    startLine?: number;
+    endLine?: number;
+    codeSnippet?: string;
+    mode: 'line-range' | 'pickaxe';
+    maxCount?: number;
+  }): Promise<Array<{
+    oid: string;
+    shortOid: string;
+    message: string;
+    authorName: string;
+    authorEmail: string;
+    authorTimestamp: number;
+    changeType: 'added' | 'removed' | 'modified';
+    diffSnippet: string;
+  }>> {
+    if (!this.dir) throw new Error('仓库未打开');
+    
+    const maxCount = options.maxCount || 50;
+    let stdout: string;
+    
+    try {
+      if (options.mode === 'line-range' && options.startLine && options.endLine) {
+        // git log -L start,end:file — 追踪行范围变更历史
+        stdout = await this.gitCliExec([
+          'log', `--max-count=${maxCount}`,
+          `--format=COMMIT_START%n%H%n%h%n%s%n%an%n%ae%n%at%nCOMMIT_END`,
+          `-L`, `${options.startLine},${options.endLine}:${options.filePath}`,
+        ]);
+      } else if (options.mode === 'pickaxe' && options.codeSnippet) {
+        // git log -S "code" -- file — pickaxe 搜索
+        stdout = await this.gitCliExec([
+          'log', `--max-count=${maxCount}`,
+          `--format=COMMIT_START%n%H%n%h%n%s%n%an%n%ae%n%at%nCOMMIT_END`,
+          '-S', options.codeSnippet,
+          '--', options.filePath,
+        ]);
+      } else {
+        return [];
+      }
+    } catch (error) {
+      // git log -L 可能因为没有变更而返回非零
+      console.warn('getCodeHistory error:', error);
+      return [];
+    }
+    
+    // 解析输出
+    const entries: Array<{
+      oid: string; shortOid: string; message: string;
+      authorName: string; authorEmail: string; authorTimestamp: number;
+      changeType: 'added' | 'removed' | 'modified'; diffSnippet: string;
+    }> = [];
+    
+    const commitBlocks = stdout.split('COMMIT_START
+').filter(b => b.trim());
+    
+    for (const block of commitBlocks) {
+      const lines = block.split('
+');
+      if (lines.length < 7) continue;
+      
+      const oid = lines[0]?.trim();
+      const shortOid = lines[1]?.trim();
+      const message = lines[2]?.trim();
+      const authorName = lines[3]?.trim();
+      const authorEmail = lines[4]?.trim();
+      const authorTimestamp = parseInt(lines[5]?.trim() || '0', 10);
+      
+      // 跳过 COMMIT_END 标记，剩余的是 diff
+      const diffStart = lines.indexOf('COMMIT_END') + 1;
+      const diffLines = lines.slice(diffStart);
+      
+      // 判断变更类型
+      let changeType: 'added' | 'removed' | 'modified' = 'modified';
+      const hasAdd = diffLines.some(l => l.startsWith('+') && !l.startsWith('+++'));
+      const hasDel = diffLines.some(l => l.startsWith('-') && !l.startsWith('---'));
+      if (hasAdd && !hasDel) changeType = 'added';
+      else if (hasDel && !hasAdd) changeType = 'removed';
+      
+      const diffSnippet = diffLines.slice(0, 30).join('
+');
+      
+      entries.push({
+        oid, shortOid, message, authorName, authorEmail, authorTimestamp,
+        changeType, diffSnippet,
+      });
+    }
+    
+    return entries;
+  }
+
   /** 列出补丁 */
   async listPatches(): Promise<string[]> {
     if (!this.dir) return [];
