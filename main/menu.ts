@@ -260,6 +260,23 @@ function getMenuTemplate() {
           label: '外部工具设置...',
           click: () => mainWindow?.webContents.send('menu:externalTools'),
         },
+        { type: 'separator' },
+        {
+          label: '仓库磁盘占用...',
+          click: () => mainWindow?.webContents.send('menu:treemap'),
+        },
+        {
+          label: '操作活动管理器...',
+          click: () => mainWindow?.webContents.send('menu:activityManager'),
+        },
+        {
+          label: '粘贴 Patch...',
+          click: () => mainWindow?.webContents.send('menu:pastePatch'),
+        },
+        {
+          label: '部分 Stash...',
+          click: () => mainWindow?.webContents.send('menu:partialStash'),
+        },
         {
           label: '在资源管理器中打开',
           click: () => mainWindow?.webContents.send('menu:openInExplorer'),
@@ -288,6 +305,10 @@ function getMenuTemplate() {
         {
           label: '交互式 Rebase...',
           click: () => mainWindow?.webContents.send('menu:interactiveRebase'),
+        },
+        {
+          label: 'Rebase --update-refs...',
+          click: () => mainWindow?.webContents.send('menu:rebaseUpdateRefs'),
         },
         { type: 'separator' },
         {
