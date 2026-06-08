@@ -179,16 +179,14 @@ function MainLayout() {
     setSelectedCommit(oid);
   };
 
-  // 右键菜单回调
-  const handleCreateBranch = useCallback(async (oid: string) => {
-    const branchName = await window.electronAPI.fs.showInputBox({ title: '创建分支', prompt: '输入分支名称:' });
-    if (branchName) { await window.electronAPI.git.createBranch(branchName, oid); await refresh(); }
-  }, [refresh]);
+  // 右键菜单回调 → 触发专业弹窗
+  const handleCreateBranch = useCallback((oid: string) => {
+    window.dispatchEvent(new CustomEvent('showDialog:newBranch', { detail: { defaultBase: oid } }));
+  }, []);
 
-  const handleCreateTag = useCallback(async (oid: string) => {
-    const tagName = await window.electronAPI.fs.showInputBox({ title: '创建标签', prompt: '输入标签名称:' });
-    if (tagName) { await window.electronAPI.git.createTag(tagName, oid); await refresh(); }
-  }, [refresh]);
+  const handleCreateTag = useCallback((oid: string) => {
+    window.dispatchEvent(new CustomEvent('showDialog:newTag', { detail: { defaultRef: oid } }));
+  }, []);
 
   const handleCheckout = useCallback(async (oid: string) => {
     await window.electronAPI.git.checkout(oid); await refresh();
