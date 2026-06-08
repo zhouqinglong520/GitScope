@@ -17,6 +17,11 @@ import { StaleBranchesDialog } from './components/dialogs/StaleBranchesDialog';
 import { GitFlowDialog } from './components/dialogs/GitFlowDialog';
 import { ExternalToolsDialog } from './components/dialogs/ExternalToolsDialog';
 import { GitHubNotificationsPanel } from './components/dialogs/GitHubNotificationsPanel';
+import { TreemapDialog } from './components/dialogs/TreemapDialog';
+import { ActivityManagerDialog } from './components/dialogs/ActivityManagerDialog';
+import { PastePatchDialog } from './components/dialogs/PastePatchDialog';
+import { PartialStashDialog } from './components/dialogs/PartialStashDialog';
+import { RebaseUpdateRefsDialog } from './components/dialogs/RebaseUpdateRefsDialog';
 import { zhCN } from './i18n/zh-CN';
 
 function useI18n() { return zhCN; }
@@ -279,6 +284,12 @@ function App() {
     { id: 'git-flow', label: 'Git Flow', description: 'Feature/Release/Hotfix 工作流', category: '分支', action: () => { dispatch({ type: 'SHOW', dialog: 'gitFlow' }); } },
     { id: 'external-tools', label: '外部工具设置', description: '配置 Diff/Merge 外部工具', category: '设置', action: () => { dispatch({ type: 'SHOW', dialog: 'externalTools' }); } },
     { id: 'github-notifications', label: 'GitHub 通知', description: '查看 GitHub 仓库通知', category: '远程', action: () => { dispatch({ type: 'SHOW', dialog: 'githubNotifications' }); } },
+    // P2 QuickLaunch 入口
+    { id: 'treemap', label: '仓库磁盘占用', description: 'Treemap 可视化仓库文件大小', category: '仓库', action: () => { dispatch({ type: 'SHOW', dialog: 'treemap' }); } },
+    { id: 'activity-manager', label: '操作活动管理器', description: '查看 Git 操作历史记录', category: '工具', action: () => { dispatch({ type: 'SHOW', dialog: 'activityManager' }); } },
+    { id: 'paste-patch', label: '粘贴 Patch', description: '从剪贴板粘贴并应用 Patch', category: '仓库', action: () => { dispatch({ type: 'SHOW', dialog: 'pastePatch' }); } },
+    { id: 'partial-stash', label: '部分 Stash', description: '选择性暂存部分更改', category: '仓库', action: () => { dispatch({ type: 'SHOW', dialog: 'partialStash' }); } },
+    { id: 'rebase-update-refs', label: 'Rebase --update-refs', description: 'Rebase 并更新分支引用', category: '分支', action: () => { dispatch({ type: 'SHOW', dialog: 'rebaseUpdateRefs' }); } },
   ];
 
   // 全局键盘快捷键
@@ -438,6 +449,13 @@ function App() {
       {dialogs.gitFlow && <GitFlowDialog onClose={() => closeDialog('gitFlow')} />}
       {dialogs.externalTools && <ExternalToolsDialog onClose={() => closeDialog('externalTools')} />}
       {dialogs.githubNotifications && <GitHubNotificationsPanel onClose={() => closeDialog('githubNotifications')} />}
+
+      {/* P2 新增弹窗 */}
+      {dialogs.treemap && <TreemapDialog onClose={() => closeDialog('treemap')} />}
+      {dialogs.activityManager && <ActivityManagerDialog onClose={() => closeDialog('activityManager')} />}
+      {dialogs.pastePatch && <PastePatchDialog onClose={() => closeDialog('pastePatch')} onApplied={() => { closeDialog('pastePatch'); refresh(); }} />}
+      {dialogs.partialStash && <PartialStashDialog onClose={() => closeDialog('partialStash')} onStashed={() => { closeDialog('partialStash'); refresh(); }} />}
+      {dialogs.rebaseUpdateRefs && <RebaseUpdateRefsDialog onClose={() => closeDialog('rebaseUpdateRefs')} />}
     </div>
   );
 }
