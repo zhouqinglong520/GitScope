@@ -185,6 +185,24 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
     // P1-6: GitHub 通知
     getGitHubNotifications: (token: string) => ipcRenderer.invoke('git:getGitHubNotifications', token),
+
+    // P2-5: Rebase with --update-refs
+    rebaseWithUpdateRefs: (onto: string, updateRefs: boolean) => ipcRenderer.invoke('git:rebaseWithUpdateRefs', onto, updateRefs),
+
+    // P2-6: 从剪贴板内容应用 Patch
+    applyPatchFromContent: (patchContent: string, options?: { check?: boolean; cached?: boolean; reject?: boolean }) => ipcRenderer.invoke('git:applyPatchFromContent', patchContent, options),
+
+    // P2-7: 仓库磁盘占用统计
+    getRepoDiskUsage: () => ipcRenderer.invoke('git:getRepoDiskUsage'),
+
+    // P2-8: 操作活动日志
+    getActivityLog: (limit?: number) => ipcRenderer.invoke('git:getActivityLog', limit),
+    clearActivityLog: () => ipcRenderer.invoke('git:clearActivityLog'),
+    logActivity: (action: string, detail: string, status?: string) => ipcRenderer.invoke('git:logActivity', action, detail, status),
+    updateActivity: (id: string, status: string, detail?: string) => ipcRenderer.invoke('git:updateActivity', id, status, detail),
+
+    // P2-10: 部分 Stash (git stash push -p)
+    stashPartial: (options?: { message?: string }) => ipcRenderer.invoke('git:stashPartial', options),
   },
 
   // ========== 凭证服务 ==========
