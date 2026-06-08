@@ -299,12 +299,28 @@
   .resize-handle:hover::after { opacity: 1; background: var(--accent); }
 
   .resize-handle-vertical {
-    width: 3px;
+    width: 4px;
     background: transparent;
     cursor: col-resize;
     transition: background var(--duration-normal);
+    position: relative;
+    flex-shrink: 0;
   }
-  .resize-handle-vertical:hover { background: var(--accent); }
+  .resize-handle-vertical::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 4px;
+    height: 32px;
+    border-radius: 2px;
+    background: var(--border-default);
+    opacity: 0;
+    transition: opacity var(--duration-normal);
+  }
+  .resize-handle-vertical:hover { background: rgba(0, 212, 170, 0.08); }
+  .resize-handle-vertical:hover::after { opacity: 1; background: var(--accent); }
 
   /* ---- 模态框 ---- */
   .modal-backdrop {
@@ -364,11 +380,4 @@
 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
 @keyframes slideUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-@keyframes slideDown { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
-@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-
-.animate-spin { animation: spin 1s linear infinite; }
-.animate-pulse { animation: pulse 2s ease-in-out infinite; }
-.animate-slide-up { animation: slideUp var(--duration-slow) var(--ease-out); }
-.animate-slide-down { animation: slideDown var(--duration-slow) var(--ease-out); }
-.animate-fade-in { animation: fadeIn var(--duration-normal) var(--ease-out); }
+@keyframes slideDown { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; trans
