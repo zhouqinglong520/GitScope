@@ -25,6 +25,11 @@ const isoFs = { promises: fs };
 class GitService {
   private dir: string | null = null;
 
+  /** 获取当前仓库路径 — 供 IPC 调用 */
+  getRepoPath(): string | null {
+    return this.dir;
+  }
+
   /**
    * 打开仓库
    */
