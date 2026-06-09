@@ -15,17 +15,9 @@ interface SidebarProps {
   onShowDialog?: (dialog: string, payload?: string | null) => void;
 }
 
-// P2-3: 分支/标签颜色与提交图匹配
-const BRANCH_COLORS = [
-  '#5b8def', '#e05673', '#68c263', '#c9a73c', '#a06cd5',
-  '#3eb4c6', '#d4844e', '#e86580', '#7ec8e3', '#b5e48c',
-];
-
-function getBranchColor(branchName: string): string {
-  let hash = 0;
-  for (let i = 0; i < branchName.length; i++) hash = ((hash << 5) - hash + branchName.charCodeAt(i)) | 0;
-  return BRANCH_COLORS[Math.abs(hash) % BRANCH_COLORS.length];
-}
+// P2-3: 分支/标签颜色与提交图匹配 — 使用 shared 共享色板
+import { BRANCH_COLORS, getBranchColorByName } from '../../../shared/types/git';
+const getBranchColor = getBranchColorByName;
 
 type SectionType = 'repositories' | 'branches' | 'tags' | 'stashes';
 
@@ -306,15 +298,15 @@ function StashItem({ stash, index, onRefresh }: { stash: { id: string; message: 
   return (
     <>
       <div onContextMenu={showContextMenu} className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-sidebar-hover transition-colors">
-        <svg className="w-4 h-4 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
+        <svg className="w-4 h-4 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
         <div className="flex-1 min-w-0">
-          <div className="text-sm text-gray-300 truncate">{stash.message}</div>
-          <div className="text-xs text-gray-500 truncate">{stash.branch}</div>
+          <div className="text-sm truncate">{stash.message || `Stash #${index}`}</div>
+          <div className="text-xs text-gray-500">{stash.date || index === 0 ? '刚刚' : `${index} 分钟前`}</div>
         </div>
-        <span className="text-xs text-gray-500">{stash.date}</span>
       </div>
+      {ContextMenuWrapper}
     </>
   );
-};
+}
 
 export default Sidebar;
