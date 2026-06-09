@@ -306,4 +306,15 @@ function StashItem({ stash, index, onRefresh }: { stash: { id: string; message: 
   return (
     <>
       <div onContextMenu={showContextMenu} className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-sidebar-hover transition-colors">
-        <svg className="w-4 h-4 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWid
+        <svg className="w-4 h-4 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
+        <div className="flex-1 min-w-0">
+          <div className="text-sm text-gray-300 truncate">{stash.message}</div>
+          <div className="text-xs text-gray-500 truncate">{stash.branch}</div>
+        </div>
+        <span className="text-xs text-gray-500">{stash.date}</span>
+      </div>
+    </>
+  );
+};
+
+export default Sidebar;

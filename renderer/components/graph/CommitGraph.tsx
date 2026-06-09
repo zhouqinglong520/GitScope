@@ -774,9 +774,9 @@ function CommitGraph({
                     </span>
                   </>
                 ) : (
-
-                {/* 折叠指示器 */}
-                {node.isMergeCommit && (
+                  <>
+                    {/* 折叠指示器 */}
+                    {node.isMergeCommit && (
                   <button
                     className={`flex-shrink-0 mr-1.5 w-4 h-4 flex items-center justify-center rounded text-[10px] ${
                       isCollapsed ? 'bg-orange-500/20 text-orange-400' : 'bg-gray-700 text-gray-400'
@@ -826,6 +826,7 @@ function CommitGraph({
                 <span className="text-xs text-gray-500 flex-shrink-0">
                   {formatRelativeTime(node.commit.authorTimestamp)}
                 </span>
+                  </>
                 )}
               </div>
             );

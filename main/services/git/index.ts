@@ -286,7 +286,7 @@ class GitService {
       }
 
       const { stdout } = await execFileAsync(cmd, args, { cwd: this.dir, maxBuffer: 10 * 1024 * 1024 });
-      return parseDiffOutput(stdout);
+      return this.parseDiffOutput(stdout);
     } catch (error: any) {
       if (error.code === 'ENOENT') {
         // git CLI 不可用，降级到简单实现
@@ -308,7 +308,7 @@ class GitService {
       if (filePath) args.push('--', filePath);
 
       const { stdout } = await execFileAsync('git', args, { cwd: this.dir, maxBuffer: 10 * 1024 * 1024 });
-      return parseDiffOutput(stdout);
+      return this.parseDiffOutput(stdout);
     } catch {
       return [];
     }
@@ -1196,14 +1196,13 @@ class GitService {
 
     return { ahead: 0, behind: 0 };
   }
-}
 
-// ========== 辅助函数 ==========
+  // ========== 辅助方法 ==========
 
-/**
- * 解析 git diff 输出为结构化数据
- */
-function parseDiffOutput(output: string): GitDiff[] {
+  /**
+   * 解析 git diff 输出为结构化数据
+   */
+  private parseDiffOutput(output: string): GitDiff[] {
   if (!output.trim()) return [];
 
   const diffs: GitDiff[] = [];
@@ -1302,10 +1301,10 @@ function parseDiffOutput(output: string): GitDiff[] {
   return diffs;
 }
 
-/**
- * 解析 git diff-tree --name-status 输出
- */
-function parseNameStatus(output: string): CommitFileChange[] {
+  /**
+   * 解析 git diff-tree --name-status 输出
+   */
+  private parseNameStatus(output: string): CommitFileChange[] {
   const files: CommitFileChange[] = [];
   const statusMap: Record<string, CommitFileChange['shortStatus']> = {
     A: 'A',
@@ -1345,7 +1344,9 @@ function parseNameStatus(output: string): CommitFileChange[] {
   }
 
   return files;
-  // ========== 冲突解决 ==========
+}
+
+// ========== 冲突解决 ==========
 
   /** 中止合并 */
   async abortMerge(): Promise<void> {
@@ -1755,12 +1756,10 @@ function parseNameStatus(output: string): CommitFileChange[] {
       changeType: 'added' | 'removed' | 'modified'; diffSnippet: string;
     }> = [];
     
-    const commitBlocks = stdout.split('COMMIT_START
-').filter(b => b.trim());
+    const commitBlocks = stdout.split('COMMIT_START\n').filter(b => b.trim());
     
     for (const block of commitBlocks) {
-      const lines = block.split('
-');
+      const lines = block.split('\n');
       if (lines.length < 7) continue;
       
       const oid = lines[0]?.trim();
@@ -1781,8 +1780,7 @@ function parseNameStatus(output: string): CommitFileChange[] {
       if (hasAdd && !hasDel) changeType = 'added';
       else if (hasDel && !hasAdd) changeType = 'removed';
       
-      const diffSnippet = diffLines.slice(0, 30).join('
-');
+      const diffSnippet = diffLines.slice(0, 30).join('\n');
       
       entries.push({
         oid, shortOid, message, authorName, authorEmail, authorTimestamp,
@@ -1845,8 +1843,7 @@ function parseNameStatus(output: string): CommitFileChange[] {
     authors: string[];
     dateRange: { oldest: number; newest: number };
   } {
-    const lines = stdout.split('
-');
+    const lines = stdout.split('\n');
     const blameLines: Array<{
       lineNumber: number;
       content: string;
@@ -2034,8 +2031,19 @@ function parseNameStatus(output: string): CommitFileChange[] {
   async getFileDiff(oid: string, filePath: string): Promise<GitDiff[]> {
     if (!this.dir) return [];
     try {
-      const { stdout } = await this.gitCliExec(['diff', oid + '^..' + oid, '--', filePath]);
-      return parseDiffOutput(stdout);
+      let args: string[];
+      try {
+        const commitObj = await git.readCommit({ fs: isoFs, dir: this.dir, oid });
+        if (commitObj.commit.parent.length === 0) {
+          args = ['diff', '--root', oid, '--', filePath];
+        } else {
+          args = ['diff', oid + '^..' + oid, '--', filePath];
+        }
+      } catch {
+        args = ['diff', oid + '^..' + oid, '--', filePath];
+      }
+      const { stdout } = await this.gitCliExec(args);
+      return this.parseDiffOutput(stdout);
     } catch {
       return [];
     }

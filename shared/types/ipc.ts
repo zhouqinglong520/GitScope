@@ -292,4 +292,28 @@ export interface IpcFsApi {
 
 export interface IpcShellApi {
   openExternal: (url: string) => Promise<void>;
-  openPath: (path: string)
+  openPath: (path: string) => Promise<void>;
+}
+
+export interface IpcTerminalApi {
+  create: (id: string, cwd?: string) => Promise<void>;
+  write: (id: string, data: string) => void;
+  resize: (id: string, cols: number, rows: number) => void;
+  kill: (id: string) => void;
+  getDefaultShell: () => Promise<string>;
+  onData: (callback: (id: string, data: string) => void) => () => void;
+  onExit: (callback: (id: string, exitCode: number) => void) => () => void;
+}
+
+export interface IpcWindowApi {
+  minimize: () => void;
+  maximize: () => void;
+  close: () => void;
+  isMaximized: () => Promise<boolean>;
+  onMaximizeChange: (callback: (isMaximized: boolean) => void) => () => void;
+}
+
+export interface IpcApi {
+  on: (channel: string, callback: (...args: any[]) => void) => void;
+  removeListener: (channel: string, callback: (...args: any[]) => void) => void;
+}

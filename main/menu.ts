@@ -45,11 +45,11 @@ function buildRecentSubmenu() {
   if (repos.length === 0) {
     return [{ label: '无最近仓库', enabled: false }];
   }
-  const items = repos.map((r, i) => ({
+  const items: Array<{ label: string; click: () => any; enabled?: boolean }> = repos.map((r, i) => ({
     label: `${i < 9 ? `${i + 1}. ` : ''}${r.name} — ${r.path}`,
     click: () => mainWindow?.webContents.send('menu:openRepoAtPath', r.path),
   }));
-  items.push({ type: 'separator' as const });
+  items.push({ label: '', click: () => {}, enabled: false });
   items.push({ label: '清除最近打开', click: () => { clearRecentRepos(); rebuildMenu(); } });
   return items;
 }

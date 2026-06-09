@@ -87,6 +87,11 @@ export function useMenuEvents(dispatch: (action: DialogAction) => void) {
   } = useRepoStore();
 
   useEffect(() => {
+    // 安全检查：确保 electronAPI 存在
+    if (!window.electronAPI || !window.electronAPI.ipcRenderer) {
+      return;
+    }
+
     const handlers: Record<string, () => void> = {
       'menu:openRepo': async () => {
         const path = await window.electronAPI.fs.selectFolder();
@@ -139,7 +144,6 @@ export function useMenuEvents(dispatch: (action: DialogAction) => void) {
 
       'menu:fetch': async () => {
         if (currentRepo) {
-          // 触发 PushPullDialog 的 fetch 模式
           window.dispatchEvent(new CustomEvent('showPushPullDialog', { detail: 'fetch' }));
         }
       },
@@ -161,7 +165,6 @@ export function useMenuEvents(dispatch: (action: DialogAction) => void) {
       },
 
       'menu:stashPop': () => {
-        // 触发 Stash 管理面板（StashDialog 或 StashSection）
         if (currentRepo) {
           window.dispatchEvent(new CustomEvent('showStashPop'));
         }
@@ -231,7 +234,6 @@ export function useMenuEvents(dispatch: (action: DialogAction) => void) {
         window.dispatchEvent(new CustomEvent('showShortcuts'));
       },
 
-      // P1: 新增菜单事件
       'menu:staleBranches': () => {
         dispatch({ type: 'SHOW', dialog: 'staleBranches' });
       },
@@ -248,10 +250,40 @@ export function useMenuEvents(dispatch: (action: DialogAction) => void) {
         dispatch({ type: 'SHOW', dialog: 'githubNotifications' });
       },
 
-      // P2: 新增菜单事件
       'menu:treemap': () => {
         dispatch({ type: 'SHOW', dialog: 'treemap' });
       },
 
       'menu:activityManager': () => {
-        dispa
+        dispatch({ type: 'SHOW', dialog: 'activityManager' });
+      },
+
+      // 支持指定路径打开仓库（菜单"最近打开"项目）
+      'menu:openRepoAtPath': async (_event: any, path: string) => {
+        if (path) await openRepo(path);
+      },
+    };
+
+    // 为每个菜单通道分别注册监听器
+    const registeredCallbacks: Array<{ channel: string; callback: (...args: any[]) => void }> = [];
+
+    for (const [channel, handler] of Object.entries(handlers)) {
+      const callback = async (...args: any[]) => {
+        try {
+          await (handler as any)(...args);
+        } catch (error) {
+          console.error('[useMenuEvents] 处理菜单事件失败:', channel, error);
+        }
+      };
+      window.electronAPI.ipcRenderer.on(channel, callback);
+      registeredCallbacks.push({ channel, callback });
+    }
+
+    // 清理函数：移除所有注册的监听器
+    return () => {
+      for (const { channel, callback } of registeredCallbacks) {
+        window.electronAPI.ipcRenderer.removeListener(channel, callback);
+      }
+    };
+  }, [dispatch, currentRepo, activeRepoId, openRepo, closeRepo, toggleSidebar]);
+}

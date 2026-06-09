@@ -6,6 +6,7 @@
 export {};
 
 const { contextBridge, ipcRenderer } = require('electron');
+import type { IpcRendererEvent } from 'electron';
 
 /**
  * 暴露给渲染进程的 API
@@ -263,12 +264,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     kill: (id: string) => ipcRenderer.send('terminal:kill', id),
     getDefaultShell: () => ipcRenderer.invoke('terminal:getDefaultShell'),
     onData: (callback: (id: string, data: string) => void) => {
-      const handler = (_event: Electron.IpcRendererEvent, id: string, data: string) => callback(id, data);
+      const handler = (_event: IpcRendererEvent, id: string, data: string) => callback(id, data);
       ipcRenderer.on('terminal:data', handler);
       return () => { ipcRenderer.removeListener('terminal:data', handler); };
     },
     onExit: (callback: (id: string, exitCode: number) => void) => {
-      const handler = (_event: Electron.IpcRendererEvent, id: string, exitCode: number) => callback(id, exitCode);
+      const handler = (_event: IpcRendererEvent, id: string, exitCode: number) => callback(id, exitCode);
       ipcRenderer.on('terminal:exit', handler);
       return () => { ipcRenderer.removeListener('terminal:exit', handler); };
     },
@@ -281,7 +282,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     close: () => ipcRenderer.send('window:close'),
     isMaximized: () => ipcRenderer.invoke('window:isMaximized'),
     onMaximizeChange: (callback: (isMaximized: boolean) => void) => {
-      const handler = (_event: Electron.IpcRendererEvent, isMaximized: boolean) => callback(isMaximized);
+      const handler = (_event: IpcRendererEvent, isMaximized: boolean) => callback(isMaximized);
       ipcRenderer.on('window:maximizeChange', handler);
       ipcRenderer.on('window:maximize-changed', handler);
       return () => {
@@ -294,12 +295,29 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // ========== IPC 事件监听 ==========
   ipc: {
     on: (channel: string, callback: (...args: any[]) => void) => {
-      ipcRenderer.on(channel, (_event: Electron.IpcRendererEvent, ...args: any[]) => callback(...args));
+      ipcRenderer.on(channel, (_event: IpcRendererEvent, ...args: any[]) => callback(...args));
     },
     removeListener: (channel: string, callback: (...args: any[]) => void) => {
       ipcRenderer.removeListener(channel, callback);
     },
   },
+
+  // ========== 直接 IPC Renderer 访问（支持事件监听） ==========
+  ipcRenderer: {
+    on: (channel: string, callback: (...args: any[]) => void) => {
+      ipcRenderer.on(channel, (_event: IpcRendererEvent, ...args: any[]) => callback(_event, ...args));
+    },
+    removeListener: (channel: string, callback: (...args: any[]) => void) => {
+      ipcRenderer.removeListener(channel, callback);
+    },
+    send: (channel: string, ...args: any[]) => {
+      ipcRenderer.send(channel, ...args);
+    },
+    invoke: (channel: string, ...args: any[]) => {
+      return ipcRenderer.invoke(channel, ...args);
+    },
+  },
 });
+
 
 console.log('[Preload] Electron API 已暴露');
