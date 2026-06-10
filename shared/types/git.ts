@@ -179,6 +179,8 @@ export interface GitBranch {
   remote?: string;
   /** 指向的提交 SHA */
   oid?: string;
+  /** 最新提交时间戳（秒） */
+  timestamp?: number;
 }
 
 /** Git 仓库状态 */

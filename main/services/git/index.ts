@@ -426,7 +426,12 @@ class GitService {
         if (name === 'HEAD') continue;
         try {
           const oid = await git.resolveRef({ fs: isoFs, dir: this.dir, ref: name });
-          result.push({ name, current: name === currentBranch, oid });
+          let timestamp: number | undefined;
+          try {
+            const { stdout } = await this.gitCliExec(['log', '-1', '--format=%ct', name]);
+            timestamp = parseInt(stdout.trim()) || undefined;
+          } catch {}
+          result.push({ name, current: name === currentBranch, oid, timestamp });
         } catch {
           result.push({ name, current: name === currentBranch });
         }
@@ -437,7 +442,12 @@ class GitService {
         const displayName = `origin/${name}`;
         try {
           const oid = await git.resolveRef({ fs: isoFs, dir: this.dir, ref: `remotes/origin/${name}` });
-          result.push({ name: displayName, current: false, remote: 'origin', oid });
+          let timestamp: number | undefined;
+          try {
+            const { stdout } = await this.gitCliExec(['log', '-1', '--format=%ct', `remotes/origin/${name}`]);
+            timestamp = parseInt(stdout.trim()) || undefined;
+          } catch {}
+          result.push({ name: displayName, current: false, remote: 'origin', oid, timestamp });
         } catch {
           result.push({ name: displayName, current: false, remote: 'origin' });
         }

@@ -10,6 +10,18 @@ import { zhCN } from '../../i18n/zh-CN';
 import { useContextMenu, type MenuItem } from '../contextmenu/ContextMenu';
 import { getBranchColorByName } from '../../../shared/types/git';
 
+/** 相对时间格式化（用于分支最新提交时间） */
+function formatRelativeTime(timestamp: number): string {
+  const now = Math.floor(Date.now() / 1000);
+  const diff = now - timestamp;
+  if (diff < 60) return '刚刚';
+  if (diff < 3600) return `${Math.floor(diff / 60)}分钟前`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}小时前`;
+  if (diff < 2592000) return `${Math.floor(diff / 86400)}天前`;
+  if (diff < 31536000) return `${Math.floor(diff / 2592000)}月前`;
+  return `${Math.floor(diff / 31536000)}年前`;
+}
+
 /** 弹窗调度接口 — 由 App 层传入 */
 interface SidebarProps {
   onOpenRepo: () => void;
@@ -132,14 +144,16 @@ function BranchSection({ onShowDialog, pinnedItems, togglePin }: { onShowDialog?
   const { branches, refresh } = useRepoStore();
   const localBranches = branches.filter((b) => !b.remote);
   const remoteBranches = branches.filter((b) => b.remote);
-  // Pin 排序：pinned 优先
+  // Pin 排序：pinned 优先，再按最新提交时间降序
   const sortedLocal = [...localBranches].sort((a, b) => {
     const aP = pinnedItems.has('branch:' + a.name) ? 0 : 1;
     const bP = pinnedItems.has('branch:' + b.name) ? 0 : 1;
     if (aP !== bP) return aP - bP;
     if (a.current !== b.current) return a.current ? -1 : 1;
-    return 0;
+    return (b.timestamp || 0) - (a.timestamp || 0);
   });
+  // 远程分支：按最新提交时间降序（最新的排最前）
+  const sortedRemote = [...remoteBranches].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
   const checkoutLocalBranch = async (branchName: string) => { try { await window.electronAPI.git.checkout(branchName); await refresh(); } catch (err) { console.error('[Sidebar] 切换分支失败:', err); } };
   const checkoutRemoteBranch = async (branchName: string) => { try { const localName = branchName.replace(/^origin\//, ''); await window.electronAPI.git.createBranch(localName, branchName); await refresh(); } catch (err) { console.error('[Sidebar] 从远程分支创建本地分支失败:', err); } };
 
@@ -155,13 +169,14 @@ function BranchSection({ onShowDialog, pinnedItems, togglePin }: { onShowDialog?
       {sortedLocal.map((branch) => (
         <BranchItem key={branch.name} branch={branch} onDoubleClick={() => checkoutLocalBranch(branch.name)} onRefresh={refresh} showDialog={showBranchDialog} isPinned={pinnedItems.has('branch:' + branch.name)} onTogglePin={() => togglePin('branch:' + branch.name)} />
       ))}
-      {remoteBranches.length > 0 && (
+      {sortedRemote.length > 0 && (
         <>
           <div className="px-3 py-1 text-xs font-semibold text-gray-500 uppercase mt-2">{zhCN.branch.remote}</div>
-          {remoteBranches.map((branch) => (
+          {sortedRemote.map((branch) => (
             <div key={branch.name} onDoubleClick={() => checkoutRemoteBranch(branch.name)} className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-sidebar-hover transition-colors">
               <svg className="w-4 h-4 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" /></svg>
-              <span className="text-sm truncate text-gray-400">{branch.name}</span>
+              <span className="text-sm truncate text-gray-400 flex-1">{branch.name}</span>
+              {branch.timestamp && <span className="text-[10px] text-gray-600 flex-shrink-0">{formatRelativeTime(branch.timestamp)}</span>}
             </div>
           ))}
         </>
