@@ -23,9 +23,9 @@ const BRANCH_COLORS = [
 ];
 
 const ROW_HEIGHT = 32;
-const LANE_WIDTH = 16;
+const LANE_WIDTH = 24;
 const NODE_RADIUS = 3.5;
-const GRAPH_MIN_WIDTH = 120;
+const GRAPH_MIN_WIDTH = 160;
 const VISIBLE_BUFFER = 20;
 
 // ============================================================
@@ -727,7 +727,7 @@ function CommitGraph({
       <div ref={containerRef} className="flex-1 overflow-y-auto bg-[#1e1e1e]" onScroll={handleScroll}>
         <div style={{ height: totalHeight, position: 'relative' }}>
           {/* 左侧分支图 Canvas */}
-          <div className="sticky left-0 top-0 z-10" style={{ width: graphWidth, height: totalHeight, backgroundColor: '#1e1e1e', borderRight: '1px solid #3c3c3c' }}>
+          <div className="absolute left-0 top-0 z-10" style={{ width: graphWidth, height: containerHeight, backgroundColor: '#1e1e1e', borderRight: '1px solid #3c3c3c', pointerEvents: 'none' }}>
             <canvas ref={canvasRef} style={{ display: 'block' }} />
           </div>
 
@@ -769,10 +769,13 @@ function CommitGraph({
                     {/* 分支标签 */}
                     {node.branchNames.length > 0 && (
                       <div className="flex flex-wrap gap-1 mr-2">
-                        {node.branchNames.map((branchName) => {
+                        {node.branchNames.slice(0, 3).map((branchName) => {
                           const isCurrent = branches.find(br => br.current && br.name === branchName);
+                          const isRemote = branchName.startsWith('origin/');
+                          const displayName = isRemote ? branchName.replace(/^origin\//, '') : branchName;
                           return (
-                            <span key={branchName} className="text-xs px-1.5 py-0 rounded flex-shrink-0"
+                            <span key={branchName} className="text-xs px-1.5 py-0 rounded flex-shrink-0 max-w-[140px] truncate"
+                              title={branchName}
                               style={{
                                 backgroundColor: isCurrent ? `${node.color}44` : `${node.color}22`,
                                 color: node.color,
@@ -780,10 +783,13 @@ function CommitGraph({
                                 fontWeight: isCurrent ? 600 : 400,
                               }}
                             >
-                              {isCurrent ? '● ' : ''}{branchName}
+                              {isCurrent ? '● ' : isRemote ? '◯ ' : ''}{displayName}
                             </span>
                           );
                         })}
+                        {node.branchNames.length > 3 && (
+                          <span className="text-xs text-gray-500 flex-shrink-0">+{node.branchNames.length - 3}</span>
+                        )}
                       </div>
                     )}
 
