@@ -877,8 +877,8 @@ function CommitGraph({
       {/* 滚动区域 */}
       <div ref={containerRef} className="flex-1 overflow-y-auto bg-[#1e1e1e]" onScroll={handleScroll}>
         <div style={{ height: totalHeight, position: 'relative' }}>
-          {/* 左侧分支图 Canvas */}
-          <div className="sticky left-0 top-0 z-10" style={{ width: graphWidth, height: totalHeight, backgroundColor: '#1e1e1e', borderRight: '1px solid #3c3c3c' }}>
+          {/* 左侧分支图 Canvas — absolute 定位，始终固定在可视区域顶部 */}
+          <div className="absolute left-0 top-0 z-10" style={{ width: graphWidth, height: containerHeight, backgroundColor: '#1e1e1e', borderRight: '1px solid #3c3c3c', pointerEvents: 'none' }}>
             <canvas ref={canvasRef} style={{ display: 'block' }} />
           </div>
 
