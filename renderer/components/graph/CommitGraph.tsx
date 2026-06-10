@@ -500,35 +500,24 @@ function CommitGraph({
   // Canvas 绘制
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || containerHeight <= 0) return;
+    if (!canvas || totalHeight <= 0) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
     const dpr = window.devicePixelRatio || 1;
-    const firstVisibleRow = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - VISIBLE_BUFFER);
-    const lastVisibleRow = Math.min(graphNodes.length - 1, Math.ceil((scrollTop + containerHeight) / ROW_HEIGHT) + VISIBLE_BUFFER);
 
     canvas.width = graphWidth * dpr;
-    canvas.height = containerHeight * dpr;
+    canvas.height = totalHeight * dpr;
     canvas.style.width = `${graphWidth}px`;
-    canvas.style.height = `${containerHeight}px`;
+    canvas.style.height = `${totalHeight}px`;
     ctx.scale(dpr, dpr);
-    ctx.clearRect(0, 0, graphWidth, containerHeight);
+    ctx.clearRect(0, 0, graphWidth, totalHeight);
 
     const grayedPen = 'rgba(128, 128, 128, 0.4)';
 
     // 1. 绘制路径曲线
     for (const path of graphData.paths) {
       if (path.points.length < 2) continue;
-
-      // 检查路径是否经过可见区域（检查所有点的 Y 范围）
-      let minY = Infinity, maxY = -Infinity;
-      for (const pt of path.points) {
-        const py = pt.y * ROW_HEIGHT;
-        if (py < minY) minY = py;
-        if (py > maxY) maxY = py;
-      }
-      if (maxY < scrollTop - 50 || minY > scrollTop + containerHeight + 50) continue;
 
       ctx.strokeStyle = path.isHighlighted ? BRANCH_COLORS[path.color % BRANCH_COLORS.length] : grayedPen;
       ctx.lineWidth = path.isHighlighted ? 2 : 1.4;
@@ -539,49 +528,36 @@ function CommitGraph({
 
       ctx.beginPath();
       let started = false;
-      let prevScreen: { x: number; y: number } | null = null;
+      let prevPt: { x: number; y: number } | null = null;
 
       for (let i = 0; i < path.points.length; i++) {
         const pt = path.points[i];
         const sx = pt.x;
-        const sy = pt.y * ROW_HEIGHT - scrollTop;
-
-        if (sy < -100 && i < path.points.length - 1) { prevScreen = { x: sx, y: sy }; continue; }
-        if (sy > containerHeight + 100) { prevScreen = { x: sx, y: sy }; continue; }
+        const sy = pt.y * ROW_HEIGHT;
 
         if (!started) {
-          const startPt = prevScreen || { x: sx, y: sy };
-          ctx.moveTo(startPt.x, startPt.y);
+          ctx.moveTo(sx, sy);
           started = true;
-        }
-
-        if (prevScreen && i > 0) {
-          if (sx > prevScreen.x) {
-            // 向右弯曲 — Quadratic Bezier
-            ctx.quadraticCurveTo(sx, prevScreen.y, sx, sy);
-          } else if (sx < prevScreen.x) {
-            // 向左弯曲 — Cubic Bezier（更平滑）
-            const midY = (prevScreen.y + sy) / 2;
-            ctx.bezierCurveTo(prevScreen.x, midY + 4, sx, midY - 4, sx, sy);
+        } else if (prevPt) {
+          if (sx > prevPt.x) {
+            ctx.quadraticCurveTo(sx, prevPt.y, sx, sy);
+          } else if (sx < prevPt.x) {
+            const midY = (prevPt.y + sy) / 2;
+            ctx.bezierCurveTo(prevPt.x, midY + 4, sx, midY - 4, sx, sy);
           } else {
-            // 垂直直线
             ctx.lineTo(sx, sy);
           }
-        } else if (started && !prevScreen) {
-          ctx.lineTo(sx, sy);
         }
 
-        prevScreen = { x: sx, y: sy };
+        prevPt = { x: sx, y: sy };
       }
       ctx.stroke();
     }
 
     // 2. 绘制连接线（合并弧线）
     for (const link of graphData.links) {
-      const sy1 = link.start.y * ROW_HEIGHT - scrollTop;
-      const sy2 = link.end.y * ROW_HEIGHT - scrollTop;
-      if (sy1 < -100 && sy2 < -100) continue;
-      if (sy1 > containerHeight + 100 && sy2 > containerHeight + 100) continue;
+      const sy1 = link.start.y * ROW_HEIGHT;
+      const sy2 = link.end.y * ROW_HEIGHT;
 
       ctx.strokeStyle = link.isHighlighted ? BRANCH_COLORS[link.color % BRANCH_COLORS.length] : grayedPen;
       ctx.lineWidth = link.isHighlighted ? 1.6 : 1.2;
@@ -590,18 +566,17 @@ function CommitGraph({
 
       ctx.beginPath();
       ctx.moveTo(link.start.x, sy1);
-      ctx.quadraticCurveTo(link.control.x, link.control.y * ROW_HEIGHT - scrollTop, link.end.x, sy2);
+      ctx.quadraticCurveTo(link.control.x, link.control.y * ROW_HEIGHT, link.end.x, sy2);
       ctx.stroke();
     }
 
     // 3. 绘制节点
-    for (let row = firstVisibleRow; row <= lastVisibleRow; row++) {
-      if (row < 0 || row >= graphNodes.length) continue;
+    for (let row = 0; row < graphNodes.length; row++) {
       const dot = graphData.dots[row];
       if (!dot) continue;
 
       const x = dot.center.x;
-      const y = dot.center.y * ROW_HEIGHT - scrollTop;
+      const y = dot.center.y * ROW_HEIGHT;
       const color = dot.isHighlighted ? BRANCH_COLORS[dot.color % BRANCH_COLORS.length] : grayedPen;
       const fillColor = dot.isHighlighted ? color : grayedPen;
 
@@ -662,7 +637,7 @@ function CommitGraph({
         ctx.globalAlpha = 1;
       }
     }
-  }, [graphData, graphNodes, graphWidth, scrollTop, containerHeight, selectedCommit, maxLane]);
+  }, [graphData, graphNodes, graphWidth, totalHeight, selectedCommit, maxLane]);
 
   const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
     setScrollTop(e.currentTarget.scrollTop);
@@ -732,8 +707,8 @@ function CommitGraph({
       {/* 滚动区域 */}
       <div ref={containerRef} className="flex-1 overflow-y-auto bg-[#1e1e1e]" onScroll={handleScroll}>
         <div style={{ height: totalHeight, position: 'relative' }}>
-          {/* 左侧分支图 Canvas */}
-          <div className="absolute left-0 top-0 z-10" style={{ width: graphWidth, height: containerHeight, backgroundColor: '#1e1e1e', borderRight: '1px solid #3c3c3c', pointerEvents: 'none' }}>
+          {/* 左侧分支图 Canvas — 全高度，滚动容器自然裁剪 */}
+          <div style={{ position: 'absolute', left: 0, top: 0, width: graphWidth, height: totalHeight, borderRight: '1px solid #3c3c3c', pointerEvents: 'none' }}>
             <canvas ref={canvasRef} style={{ display: 'block' }} />
           </div>
 
