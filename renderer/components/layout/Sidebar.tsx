@@ -8,7 +8,7 @@ import React, { useState } from 'react';
 import { useRepoStore } from '../../stores/repoStore';
 import { zhCN } from '../../i18n/zh-CN';
 import { useContextMenu, type MenuItem } from '../contextmenu/ContextMenu';
-import { BRANCH_COLORS, getBranchColorByName } from '../../../shared/types/git';
+import { BRANCH_COLORS, getBranchColorByName, type GitStatus, type GitFileStatus } from '../../../shared/types/git';
 
 const getBranchColor = getBranchColorByName;
 
@@ -30,12 +30,12 @@ interface SidebarProps {
   onShowDialog?: (dialog: string, payload?: string | null) => void;
 }
 
-type SectionType = 'repositories' | 'branches' | 'tags' | 'stashes';
+type SectionType = 'changes' | 'repositories' | 'branches' | 'tags' | 'stashes';
 
 function Sidebar({ onOpenRepo, onShowDialog }: SidebarProps) {
   const i18n = zhCN;
-  const { branches, tags, stashes } = useRepoStore();
-  const [expandedSections, setExpandedSections] = useState<Set<SectionType>>(new Set(['repositories', 'branches']));
+  const { branches, tags, stashes, status, stageFile, unstageFile, stageAll, unstageAll, refresh } = useRepoStore();
+  const [expandedSections, setExpandedSections] = useState<Set<SectionType>>(new Set(['changes', 'repositories', 'branches']));
 
   // Pin 分支/标签 — 持久化到 localStorage
   const [pinnedItems, setPinnedItems] = useState<Set<string>>(() => {
@@ -66,6 +66,11 @@ function Sidebar({ onOpenRepo, onShowDialog }: SidebarProps) {
         </button>
       </div>
       <div className="flex-1 overflow-y-auto">
+        {status && (
+          <Section title={`${i18n.sidebar.changes} (${status.staged.length + status.unstaged.length + status.untracked.length})`} expanded={isExpanded('changes')} onToggle={() => toggleSection('changes')} icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>}>
+            <ChangesSection />
+          </Section>
+        )}
         <Section title={i18n.sidebar.repositories} expanded={isExpanded('repositories')} onToggle={() => toggleSection('repositories')} icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg>}>
           <RepoSection />
         </Section>
@@ -89,6 +94,151 @@ function Sidebar({ onOpenRepo, onShowDialog }: SidebarProps) {
         )}
       </div>
     </div>
+  );
+}
+
+/* ======================== 变更面板 — 本地修改快速提交 ======================== */
+function ChangesSection() {
+  const { status, stageFile, unstageFile, stageAll, unstageAll, refresh } = useRepoStore();
+  const [commitMsg, setCommitMsg] = useState('');
+  const [isCommitting, setIsCommitting] = useState(false);
+
+  if (!status) return null;
+
+  const { staged, unstaged, untracked } = status;
+  const totalChanges = staged.length + unstaged.length + untracked.length;
+
+  if (status.isClean) {
+    return <div className="px-3 py-4 text-xs text-gray-500 text-center">{zhCN.sidebar.noChanges}</div>;
+  }
+
+  const handleCommit = async () => {
+    if (!commitMsg.trim() || isCommitting) return;
+    setIsCommitting(true);
+    try {
+      window.dispatchEvent(new CustomEvent('sidebar:commit', { detail: commitMsg.trim() }));
+      setCommitMsg('');
+    } finally {
+      setIsCommitting(false);
+    }
+  };
+
+  const handleFileSelect = (path: string) => {
+    window.dispatchEvent(new CustomEvent('sidebar:fileSelect', { detail: path }));
+  };
+
+  const handleDiscard = async (file: GitFileStatus) => {
+    try {
+      await window.electronAPI.git.reset([file.path]);
+      await refresh();
+    } catch (err) {
+      console.error('[Sidebar] 丢弃变更失败:', err);
+    }
+  };
+
+  const getStatusBadge = (s: string) => {
+    switch (s) {
+      case 'added': return { label: 'A', color: '#4ec9b0' };
+      case 'modified': return { label: 'M', color: '#dcdcaa' };
+      case 'deleted': return { label: 'D', color: '#f44747' };
+      case 'renamed': return { label: 'R', color: '#569cd6' };
+      default: return { label: '?', color: '#808080' };
+    }
+  };
+
+  return (
+    <div style={{ paddingLeft: 12, paddingRight: 8 }}>
+      {/* 操作按钮行 */}
+      <div style={{ display: 'flex', gap: 4, marginBottom: 6 }}>
+        {staged.length > 0 && (
+          <button onClick={unstageAll} style={{ flex: 1, padding: '3px 0', fontSize: 10, color: 'var(--text-faint)', background: 'none', border: '1px solid var(--border-subtle)', borderRadius: 4, cursor: 'pointer' }}>
+            取消暂存 ({staged.length})
+          </button>
+        )}
+        {(unstaged.length > 0 || untracked.length > 0) && (
+          <button onClick={stageAll} style={{ flex: 1, padding: '3px 0', fontSize: 10, color: 'var(--text-faint)', background: 'none', border: '1px solid var(--border-subtle)', borderRadius: 4, cursor: 'pointer' }}>
+            暂存全部 ({unstaged.length + untracked.length})
+          </button>
+        )}
+      </div>
+
+      {/* 已暂存文件 */}
+      {staged.length > 0 && (
+        <>
+          <div style={{ fontSize: 10, color: 'var(--text-faint)', fontWeight: 600, padding: '4px 0 2px', textTransform: 'uppercase' }}>已暂存</div>
+          {staged.map((f) => <ChangeFileRow key={'s-' + f.path} file={f} isStaged={true} onToggle={() => unstageFile(f.path)} onClick={() => handleFileSelect(f.path)} onDiscard={() => handleDiscard(f)} getStatusBadge={getStatusBadge} refresh={refresh} />)}
+        </>
+      )}
+
+      {/* 未暂存文件 */}
+      {unstaged.length > 0 && (
+        <>
+          <div style={{ fontSize: 10, color: 'var(--text-faint)', fontWeight: 600, padding: '4px 0 2px', textTransform: 'uppercase' }}>未暂存</div>
+          {unstaged.map((f) => <ChangeFileRow key={'u-' + f.path} file={f} isStaged={false} onToggle={() => stageFile(f.path)} onClick={() => handleFileSelect(f.path)} onDiscard={() => handleDiscard(f)} getStatusBadge={getStatusBadge} refresh={refresh} />)}
+        </>
+      )}
+
+      {/* 未跟踪文件 */}
+      {untracked.length > 0 && (
+        <>
+          <div style={{ fontSize: 10, color: 'var(--text-faint)', fontWeight: 600, padding: '4px 0 2px', textTransform: 'uppercase' }}>未跟踪</div>
+          {untracked.map((f) => <ChangeFileRow key={'t-' + f.path} file={f} isStaged={false} onToggle={() => stageFile(f.path)} onClick={() => handleFileSelect(f.path)} onDiscard={() => handleDiscard(f)} getStatusBadge={getStatusBadge} refresh={refresh} isUntracked={true} />)}
+        </>
+      )}
+
+      {/* 提交输入框 */}
+      <div style={{ display: 'flex', gap: 4, marginTop: 6, marginBottom: 4 }}>
+        <input
+          type="text"
+          value={commitMsg}
+          onChange={(e) => setCommitMsg(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') handleCommit(); }}
+          placeholder={zhCN.sidebar.commitMessage}
+          style={{ flex: 1, padding: '4px 6px', fontSize: 11, background: '#2d2d2d', border: '1px solid var(--border-subtle)', borderRadius: 4, color: 'var(--text-primary)', outline: 'none', minWidth: 0 }}
+        />
+        <button
+          onClick={handleCommit}
+          disabled={!commitMsg.trim() || staged.length === 0 || isCommitting}
+          style={{ padding: '4px 10px', fontSize: 11, fontWeight: 600, color: '#fff', background: staged.length > 0 ? '#0e7a0d' : '#3c3c3c', border: 'none', borderRadius: 4, cursor: staged.length > 0 && commitMsg.trim() ? 'pointer' : 'not-allowed', whiteSpace: 'nowrap' }}
+        >
+          {isCommitting ? '...' : zhCN.sidebar.commit}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ChangeFileRow({ file, isStaged, onToggle, onClick, onDiscard, getStatusBadge, refresh, isUntracked }: {
+  file: GitFileStatus;
+  isStaged: boolean;
+  onToggle: () => void;
+  onClick: () => void;
+  onDiscard: () => void;
+  getStatusBadge: (s: string) => { label: string; color: string };
+  refresh: () => Promise<void>;
+  isUntracked?: boolean;
+}) {
+  const badge = isUntracked ? { label: '?', color: '#808080' } : getStatusBadge(file.status);
+  const { showContextMenu, ContextMenuWrapper } = useContextMenu(() => {
+    const items: MenuItem[] = [
+      { id: isStaged ? 'unstage' : 'stage', label: isStaged ? '取消暂存' : '暂存', onClick: onToggle },
+      { id: 'divider-1', label: '', divider: true },
+      { id: 'discard', label: isUntracked ? '删除文件' : '丢弃变更', onClick: onDiscard },
+    ];
+    return items;
+  });
+
+  return (
+    <>
+      <div onContextMenu={showContextMenu} onClick={onClick} className="flex items-center gap-1 cursor-pointer hover:bg-sidebar-hover rounded" style={{ padding: '2px 4px' }}>
+        <div onClick={(e) => { e.stopPropagation(); onToggle(); }} style={{ width: 14, height: 14, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+          <input type="checkbox" checked={isStaged} readOnly style={{ width: 12, height: 12, cursor: 'pointer', accentColor: '#0e7a0d' }} />
+        </div>
+        <span style={{ fontSize: 10, fontWeight: 700, color: badge.color, width: 12, textAlign: 'center', flexShrink: 0 }}>{badge.label}</span>
+        <span className="truncate" style={{ fontSize: 11, color: 'var(--text-primary)', flex: 1, minWidth: 0 }}>{file.path}</span>
+      </div>
+      {ContextMenuWrapper}
+    </>
   );
 }
 

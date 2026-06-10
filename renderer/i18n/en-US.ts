@@ -43,6 +43,11 @@ export const enUS= {
     expand: 'Expand Sidebar',
     tags: 'Tags',
     stashes: 'Stashes',
+    changes: 'Changes',
+    commitMessage: 'Commit message',
+    commit: 'Commit',
+    amend: 'Amend',
+    noChanges: 'Working tree clean',
   },
 
   // 提交图

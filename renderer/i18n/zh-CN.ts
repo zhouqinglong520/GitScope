@@ -41,6 +41,11 @@ export const zhCN = {
     expand: '展开侧边栏',
     tags: '标签',
     stashes: '暂存',
+    changes: '变更',
+    commitMessage: '提交信息',
+    commit: '提交',
+    amend: '修正',
+    noChanges: '工作区干净',
   },
 
   // 提交图

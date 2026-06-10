@@ -181,6 +181,29 @@ function MainLayout() {
     setSelectedCommit(oid);
   };
 
+  // 监听侧边栏变更面板事件
+  useEffect(() => {
+    const handleSidebarFileSelect = (e: Event) => {
+      const path = (e as CustomEvent).detail as string;
+      setSelectedFile(path);
+      setSelectedCommit(null);
+    };
+    const handleSidebarCommit = async (e: Event) => {
+      const message = (e as CustomEvent).detail as string;
+      try {
+        await handleCommit(message);
+      } catch (err) {
+        console.error('[MainLayout] 侧边栏提交失败:', err);
+      }
+    };
+    window.addEventListener('sidebar:fileSelect', handleSidebarFileSelect);
+    window.addEventListener('sidebar:commit', handleSidebarCommit);
+    return () => {
+      window.removeEventListener('sidebar:fileSelect', handleSidebarFileSelect);
+      window.removeEventListener('sidebar:commit', handleSidebarCommit);
+    };
+  }, []);
+
   // 右键菜单回调 → 触发专业弹窗
   const handleCreateBranch = useCallback((oid: string) => {
     window.dispatchEvent(new CustomEvent('showDialog:newBranch', { detail: { defaultBase: oid } }));
