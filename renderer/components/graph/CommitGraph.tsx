@@ -708,7 +708,7 @@ function CommitGraph({
       <div ref={containerRef} className="flex-1 overflow-y-auto bg-[#1e1e1e]" onScroll={handleScroll}>
         <div style={{ height: totalHeight, position: 'relative' }}>
           {/* 左侧分支图 Canvas — 全高度，滚动容器自然裁剪 */}
-          <div style={{ position: 'absolute', left: 0, top: 0, width: graphWidth, height: totalHeight, borderRight: '1px solid #3c3c3c', pointerEvents: 'none' }}>
+          <div style={{ position: 'absolute', left: 0, top: 0, width: graphWidth, height: totalHeight, zIndex: 10, backgroundColor: '#1e1e1e', borderRight: '1px solid #3c3c3c', pointerEvents: 'none' }}>
             <canvas ref={canvasRef} style={{ display: 'block' }} />
           </div>
 
