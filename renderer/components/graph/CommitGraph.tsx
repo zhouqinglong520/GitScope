@@ -258,6 +258,7 @@ function generateGraph(
   const ended: PathHelper[] = [];
   let offsetY = -HALF_H;
   const colorPicker = new ColorPicker(BRANCH_COLORS.length);
+  let peakLanes = 0;
 
   const nodes: GraphNode[] = [];
 
@@ -329,6 +330,9 @@ function generateGraph(
       graphResult.paths.push(major.path);
     }
 
+    // 追踪峰值车道数
+    if (unsolved.length > peakLanes) peakLanes = unsolved.length;
+
     // 节点位置
     const position = { x: major?.lastX ?? offsetX, y: offsetY };
     const dotColor = major?.path.color ?? 0;
@@ -398,15 +402,14 @@ function generateGraph(
     });
   }
 
-  // 处理未结束的路径
+  // 处理未结束的路径 — 沿当前 x 位置向下延伸
+  const endY = (visibleCommits.length + 0.5) * UNIT_H;
   for (let i = 0; i < unsolved.length; i++) {
     const path = unsolved[i];
-    const endY = (visibleCommits.length - 0.5) * UNIT_H;
-    if (path.path.points.length === 1 && Math.abs(path.path.points[0].y - endY) < 0.001) continue;
-    path.end((i + 0.5) * UNIT_W + 4, endY + HALF_H, HALF_H);
+    path.end(path.lastX, endY, HALF_H);
   }
 
-  const maxLane = unsolved.length;
+  const maxLane = peakLanes;
   return { graphData: graphResult, nodes, maxLane };
 }
 
@@ -497,7 +500,7 @@ function CommitGraph({
   // Canvas 绘制
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas || containerHeight <= 0) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
@@ -517,12 +520,15 @@ function CommitGraph({
     // 1. 绘制路径曲线
     for (const path of graphData.paths) {
       if (path.points.length < 2) continue;
-      const lastPt = path.points[path.points.length - 1];
-      const firstPt = path.points[0];
-      const lastPtY = lastPt.y * ROW_HEIGHT;
-      const firstPtY = firstPt.y * ROW_HEIGHT;
-      if (lastPtY < scrollTop - 50 && firstPtY < scrollTop - 50) continue;
-      if (firstPtY > scrollTop + containerHeight + 50 && lastPtY > scrollTop + containerHeight + 50) continue;
+
+      // 检查路径是否经过可见区域（检查所有点的 Y 范围）
+      let minY = Infinity, maxY = -Infinity;
+      for (const pt of path.points) {
+        const py = pt.y * ROW_HEIGHT;
+        if (py < minY) minY = py;
+        if (py > maxY) maxY = py;
+      }
+      if (maxY < scrollTop - 50 || minY > scrollTop + containerHeight + 50) continue;
 
       ctx.strokeStyle = path.isHighlighted ? BRANCH_COLORS[path.color % BRANCH_COLORS.length] : grayedPen;
       ctx.lineWidth = path.isHighlighted ? 2 : 1.4;
@@ -541,7 +547,7 @@ function CommitGraph({
         const sy = pt.y * ROW_HEIGHT - scrollTop;
 
         if (sy < -100 && i < path.points.length - 1) { prevScreen = { x: sx, y: sy }; continue; }
-        if (sy > containerHeight + 100 && i > 0) break;
+        if (sy > containerHeight + 100) { prevScreen = { x: sx, y: sy }; continue; }
 
         if (!started) {
           const startPt = prevScreen || { x: sx, y: sy };

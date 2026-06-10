@@ -466,7 +466,7 @@ export const useRepoStore = create<RepoState>((set, get) => ({
     try {
       const [branches, commits, status, tags, aheadBehind] = await Promise.all([
         window.electronAPI.git.getBranches(),
-        window.electronAPI.git.getLog({ depth: 100, all: true }),
+        window.electronAPI.git.getLog({ depth: 300, all: true }),
         window.electronAPI.git.getStatus(),
         window.electronAPI.git.getTags().catch(() => []),
         window.electronAPI.git.getAheadBehind().catch(() => ({ ahead: 0, behind: 0 })),
