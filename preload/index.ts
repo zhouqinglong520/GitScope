@@ -18,7 +18,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     openRepository: (path: string) => ipcRenderer.invoke('git:openRepository', path),
     closeRepository: () => ipcRenderer.invoke('git:closeRepository'),
     getRepositoryInfo: () => ipcRenderer.invoke('git:getRepositoryInfo'),
-    getLog: (options?: { ref?: string; depth?: number }) => ipcRenderer.invoke('git:getLog', options),
+    getLog: (options?: { ref?: string; depth?: number; all?: boolean; skip?: number }) => ipcRenderer.invoke('git:getLog', options),
     getBranches: () => ipcRenderer.invoke('git:getBranches'),
     getStatus: () => ipcRenderer.invoke('git:getStatus'),
     getDiff: (filePath?: string, commitOid?: string) => ipcRenderer.invoke('git:getDiff', filePath, commitOid),
@@ -82,7 +82,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getFileHistory: (filePath: string) => ipcRenderer.invoke('git:getFileHistory', filePath),
     getCommitDetail: (oid: string) => ipcRenderer.invoke('git:getCommitDetail', oid),
     getAuthorStats: () => ipcRenderer.invoke('git:getAuthorStats'),
-    getFileDiff: (oid: string, filePath: string) => ipcRenderer.invoke('git:getFileDiff', oid, filePath),
+    getFileDiff: (oid: string, filePath?: string) => ipcRenderer.invoke('git:getFileDiff', oid, filePath),
     getAheadBehind: () => ipcRenderer.invoke('git:getAheadBehind'),
 
     // ========== 冲突解决 ==========
@@ -204,6 +204,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
     // P2-10: 部分 Stash (git stash push -p)
     stashPartial: (options?: { message?: string }) => ipcRenderer.invoke('git:stashPartial', options),
+
+    // ========== 文件监听事件（SourceGit 模式）==========
+    onRepoChangedExternally: (callback: (changeType: string) => void) => {
+      const handler = (_event: IpcRendererEvent, changeType: string) => callback(changeType);
+      ipcRenderer.on('git:repoChangedExternally', handler);
+      return () => {
+        ipcRenderer.removeListener('git:repoChangedExternally', handler);
+      };
+    },
   },
 
   // ========== 凭证服务 ==========

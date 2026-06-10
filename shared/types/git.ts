@@ -3,6 +3,144 @@
  * 定义 Git 操作中使用的数据结构
  */
 
+// ============= 分支颜色常量 =============
+
+/**
+ * 分支图默认颜色池（10 种颜色）
+ * 参考 SourceGit 配色方案
+ */
+export const BRANCH_COLORS = [
+  '#5b8def', // 蓝色 - 主分支
+  '#e05673', // 红色
+  '#68c263', // 绿色
+  '#c9a73c', // 黄色
+  '#a06cd5', // 紫色
+  '#3eb4c6', // 青色
+  '#d4844e', // 橙色
+  '#e86580', // 粉色
+  '#7ec8e3', // 浅蓝
+  '#b5e48c', // 浅绿
+];
+
+/**
+ * 根据分支名获取颜色
+ * @param branchName 分支名称
+ * @param isHead 是否为 HEAD 所在分支
+ * @returns 颜色值
+ */
+export function getBranchColorByName(branchName: string, isHead: boolean = false): string {
+  // HEAD 分支使用特殊颜色
+  if (isHead) {
+    return '#f0b429'; // 金色强调
+  }
+  
+  // 主分支颜色
+  if (branchName === 'main' || branchName === 'master') {
+    return BRANCH_COLORS[0];
+  }
+  
+  // 开发分支
+  if (branchName === 'develop' || branchName === 'dev') {
+    return BRANCH_COLORS[1];
+  }
+  
+  // origin/HEAD 特殊处理
+  if (branchName.startsWith('origin/HEAD')) {
+    return '#9e9e9e';
+  }
+  
+  // 远程分支
+  if (branchName.startsWith('origin/')) {
+    return '#00bcd4';
+  }
+  
+  // 功能分支 - 紫色系
+  if (branchName.startsWith('feature/') || branchName.startsWith('feat/')) {
+    return BRANCH_COLORS[4];
+  }
+  
+  // 修复分支 - 橙红色系
+  if (branchName.startsWith('fix/') || branchName.startsWith('bugfix/')) {
+    return BRANCH_COLORS[6];
+  }
+  
+  // 热修复分支 - 红色系
+  if (branchName.startsWith('hotfix/')) {
+    return BRANCH_COLORS[1];
+  }
+  
+  // 发布分支 - 橙色系
+  if (branchName.startsWith('release/') || branchName.startsWith('rel/')) {
+    return BRANCH_COLORS[6];
+  }
+  
+  // 标签
+  if (branchName.startsWith('tag:')) {
+    return '#795548';
+  }
+  
+  // 其他分支 - 使用哈希分配固定颜色
+  let hash = 0;
+  for (let i = 0; i < branchName.length; i++) {
+    hash = ((hash << 5) - hash) + branchName.charCodeAt(i);
+    hash = hash & hash;
+  }
+  const colorIndex = Math.abs(hash) % BRANCH_COLORS.length;
+  return BRANCH_COLORS[colorIndex];
+}
+
+/**
+ * 分支颜色回收池
+ * 用于 Path-based 连续路径追踪中，路径结束时颜色回收再利用
+ */
+export class ColorPool {
+  private usedColors: Set<string> = new Set();
+  private recycledColors: string[] = [];
+  
+  /**
+   * 获取下一个可用颜色
+   */
+  getNextColor(): string {
+    // 优先使用回收的颜色
+    if (this.recycledColors.length > 0) {
+      const color = this.recycledColors.pop()!;
+      this.usedColors.add(color);
+      return color;
+    }
+    
+    // 从颜色池中找一个未使用的颜色
+    for (const color of BRANCH_COLORS) {
+      if (!this.usedColors.has(color)) {
+        this.usedColors.add(color);
+        return color;
+      }
+    }
+    
+    // 所有颜色都用过了，返回第一个颜色
+    return BRANCH_COLORS[0];
+  }
+  
+  /**
+   * 回收颜色（路径结束时调用）
+   */
+  recycleColor(color: string): void {
+    this.usedColors.delete(color);
+    if (!this.recycledColors.includes(color)) {
+      this.recycledColors.push(color);
+    }
+  }
+  
+  /**
+   * 重置颜色池
+   */
+  reset(): void {
+    this.usedColors.clear();
+    this.recycledColors = [];
+  }
+}
+
+// ============= Git 类型定义 =============
+
 /** Git 提交对象 */
 export interface GitCommit {
   /** 提交的 SHA 哈希值（完整 40 位） */
@@ -27,6 +165,8 @@ export interface GitCommit {
   committerTimestamp: number;
   /** 父提交 SHA 列表 */
   parentIds: string[];
+  /** 指向该提交的引用名称（分支、标签等），用于图表装饰 */
+  refs?: string[];
 }
 
 /** Git 分支对象 */
@@ -75,7 +215,7 @@ export interface GitFileStatus {
 /** Git 差异信息 */
 export interface GitDiff {
   /** 差异类型 */
-  type: 'text' | 'binary' | 'untracked' | 'deleted';
+  type: 'text' | 'binary' | 'untracked' | 'deleted' | 'renamed';
   /** 旧文件路径 */
   oldPath?: string;
   /** 新文件路径 */
@@ -86,6 +226,8 @@ export interface GitDiff {
   oldMode?: string;
   /** 新文件模式 */
   newMode?: string;
+  /** 重命名相似度百分比（0-100），仅 renamed 类型 */
+  similarity?: number;
 }
 
 /** Git 差异块 */
@@ -204,6 +346,10 @@ export interface LogOptions {
   depth?: number;
   /** 是否跳过合并提交 */
   skipMerges?: boolean;
+  /** 是否获取所有分支的提交（--all） */
+  all?: boolean;
+  /** 跳过前 N 条提交（用于增量加载） */
+  skip?: number;
 }
 
 /** 仓库信息 */

@@ -12,6 +12,7 @@ import DiffView from '../diff/DiffView';
 import CommitBar from '../commitbar/CommitBar';
 import CommitFilterBar from '../filter/CommitFilterBar';
 import CommitDetailPanel from '../commitdetail/CommitDetailPanel';
+import DiffFileTree from '../difftree/DiffFileTree';
 import FileHistory from '../filehistory/FileHistory';
 import CherryPickDialog from '../operations/CherryPickDialog';
 import PushPullDialog from '../operations/PushPullDialog';
@@ -80,6 +81,7 @@ function MainLayout() {
     setShowCommitDetail,
     getFileHistory,
     getCommitDetail,
+    setupWatcher,
   } = useRepoStore();
 
   const [selectedCommit, setSelectedCommit] = useState<string | null>(null);
@@ -224,6 +226,11 @@ function MainLayout() {
       if (autoFetchInterval) clearInterval(autoFetchInterval);
     }
   }, [currentRepo]);
+
+  // 启动文件监听器（SourceGit 模式：.git 变更自动刷新）
+  useEffect(() => {
+    setupWatcher();
+  }, []);
 
   // 快捷键 ? 弹出速查表
   useEffect(() => {
@@ -400,28 +407,60 @@ function MainLayout() {
           className="resize-handle flex-shrink-0"
         />
 
-        {/* 下半：暂存区 + Diff */}
+        {/* 下半：文件列表 + Diff */}
         <div className="flex-1 flex overflow-hidden">
-          {/* 左：暂存区 */}
+          {/* 左：文件列表（Fork 模式：选中提交时显示提交文件，否则显示工作区状态） */}
           <div className="w-[260px] flex-shrink-0 border-r border-panel-border flex flex-col overflow-hidden">
             <div className="panel-header">
-              {t('detail.fileChanges')}
+              {selectedCommit ? t('detail.fileChanges') : t('detail.fileChanges')}
             </div>
             <div className="flex-1 overflow-hidden">
-              <StatusPanel
-                status={status}
-                onFileSelect={(path) => {
-                  setSelectedFile(path);
-                  setSelectedCommit(null);
-                }}
-                selectedFile={selectedFile}
-                onStage={handleStage}
-                onUnstage={handleUnstage}
-                onStageAll={handleStageAll}
-                onUnstageAll={handleUnstageAll}
-                onViewHistory={handleViewFileHistory}
-                onRefresh={refresh}
-              />
+              {selectedCommit ? (
+                selectedCommitDetail ? (
+                  <DiffFileTree
+                    files={selectedCommitDetail.files.map(f => ({
+                      path: f.path,
+                      oldPath: f.oldPath,
+                      status: f.status,
+                      additions: f.additions,
+                      deletions: f.deletions,
+                    }))}
+                    selectedFile={selectedFile}
+                    onFileSelect={(path) => {
+                      setSelectedFile(path);
+                    }}
+                    onViewDiff={(oid, path) => {
+                      setSelectedFile(path);
+                    }}
+                    onViewHistory={handleViewFileHistory}
+                    commitOid={selectedCommit}
+                  />
+                ) : (
+                  <div className="h-full flex items-center justify-center" style={{ color: 'var(--text-muted)' }}>
+                    <div className="text-center">
+                      <svg className="w-6 h-6 mx-auto mb-2 animate-spin opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      <p className="text-xs">加载提交详情...</p>
+                    </div>
+                  </div>
+                )
+              ) : (
+                <StatusPanel
+                  status={status}
+                  onFileSelect={(path) => {
+                    setSelectedFile(path);
+                    setSelectedCommit(null);
+                  }}
+                  selectedFile={selectedFile}
+                  onStage={handleStage}
+                  onUnstage={handleUnstage}
+                  onStageAll={handleStageAll}
+                  onUnstageAll={handleUnstageAll}
+                  onViewHistory={handleViewFileHistory}
+                  onRefresh={refresh}
+                />
+              )}
             </div>
           </div>
 

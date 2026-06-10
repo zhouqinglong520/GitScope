@@ -85,6 +85,10 @@ interface RepoState {
   ahead: number;
   /** 远程领先本地的提交数 */
   behind: number;
+  /** 是否有更多提交可加载（增量加载） */
+  hasMoreCommits: boolean;
+  /** 是否正在加载更多提交 */
+  isLoadingMore: boolean;
 
   // 多仓库 Tab Actions
   /** 设置活动仓库 */
@@ -167,6 +171,10 @@ interface RepoState {
   unstageAll: () => Promise<void>;
   /** 重置状态 */
   reset: () => void;
+  /** 加载更多提交（增量加载） */
+  loadMoreCommits: () => Promise<void>;
+  /** 设置文件监听器（SourceGit 模式） */
+  setupWatcher: () => void;
 }
 
 /** 默认状态 */
@@ -194,6 +202,8 @@ const initialState = {
   showCommitDetail: false,
   ahead: 0,
   behind: 0,
+  hasMoreCommits: true,
+  isLoadingMore: false,
 };
 
 /**
@@ -398,29 +408,17 @@ export const useRepoStore = create<RepoState>((set, get) => ({
   },
 
   /**
-   * 获取文件提交历史
+   * 获取文件提交历史（单次 git log --follow 调用，含统计）
    */
   getFileHistory: async (filePath: string) => {
     try {
-      const commits = await window.electronAPI.git.getFileLog(filePath);
-      // 获取每个提交的变更统计
-      const stats: Record<string, { additions: number; deletions: number }> = {};
-      
-      for (const commit of commits) {
-        const detail = await window.electronAPI.git.getCommitDetail(commit.oid);
-        const fileChange = detail?.files.find((f) => f.path === filePath);
-        if (fileChange) {
-          stats[commit.oid] = {
-            additions: fileChange.additions,
-            deletions: fileChange.deletions,
-          };
-        }
+      const result = await window.electronAPI.git.getFileHistory(filePath);
+      if (result) {
+        set({
+          fileHistory: { filePath: result.filePath, commits: result.commits, stats: result.stats },
+          showFileHistory: true,
+        });
       }
-      
-      set({
-        fileHistory: { filePath, commits, stats },
-        showFileHistory: true,
-      });
     } catch (error) {
       console.error('获取文件历史失败:', error);
     }
@@ -431,7 +429,15 @@ export const useRepoStore = create<RepoState>((set, get) => ({
    */
   getCommitDetail: async (oid: string) => {
     try {
+      console.log(`[Store] getCommitDetail called with oid:`, oid);
       const detail = await window.electronAPI.git.getCommitDetail(oid);
+      console.log(`[Store] getCommitDetail result:`, {
+        oid,
+        hasDetail: detail !== null,
+        filesCount: detail?.files?.length || 0,
+        commitOid: detail?.commit?.oid,
+        commitMessage: detail?.commit?.message,
+      });
       set({
         selectedCommitDetail: detail,
         showCommitDetail: detail !== null,
@@ -460,7 +466,7 @@ export const useRepoStore = create<RepoState>((set, get) => ({
     try {
       const [branches, commits, status, tags, aheadBehind] = await Promise.all([
         window.electronAPI.git.getBranches(),
-        window.electronAPI.git.getLog({ depth: 100 }),
+        window.electronAPI.git.getLog({ depth: 100, all: true }),
         window.electronAPI.git.getStatus(),
         window.electronAPI.git.getTags().catch(() => []),
         window.electronAPI.git.getAheadBehind().catch(() => ({ ahead: 0, behind: 0 })),
@@ -490,6 +496,7 @@ export const useRepoStore = create<RepoState>((set, get) => ({
         currentBranch: newCurrentBranch,
         ahead: aheadBehind.ahead,
         behind: aheadBehind.behind,
+        hasMoreCommits: commits.length >= 100,
         repos: state.repos.map((repo) =>
           repo.path === path ? { ...repo, currentBranch: newCurrentBranch?.name || null } : repo
         ),
@@ -614,9 +621,79 @@ export const useRepoStore = create<RepoState>((set, get) => ({
   },
 
   /**
+   * 加载更多提交（增量加载）
+   */
+  loadMoreCommits: async () => {
+    const { commits, hasMoreCommits, isLoadingMore } = get();
+    if (!hasMoreCommits || isLoadingMore) return;
+
+    set({ isLoadingMore: true });
+    try {
+      const PAGE_SIZE = 100;
+      const moreCommits = await window.electronAPI.git.getLog({
+        depth: PAGE_SIZE,
+        all: true,
+        skip: commits.length,
+      });
+
+      if (moreCommits.length === 0) {
+        set({ hasMoreCommits: false, isLoadingMore: false });
+        return;
+      }
+
+      // 去重：跳过已存在的提交
+      const existingOids = new Set(commits.map(c => c.oid));
+      const newCommits = moreCommits.filter(c => !existingOids.has(c.oid));
+
+      set((state) => ({
+        commits: [...state.commits, ...newCommits],
+        hasMoreCommits: moreCommits.length >= PAGE_SIZE,
+        isLoadingMore: false,
+      }));
+      get().filterCommits();
+    } catch (error) {
+      console.error('加载更多提交失败:', error);
+      set({ isLoadingMore: false });
+    }
+  },
+
+  /**
+   * 设置文件监听器（SourceGit 模式：监听 .git 变更自动刷新）
+   */
+  setupWatcher: () => {
+    // 清理旧监听器
+    if ((window as any).__repoWatcherCleanup) {
+      (window as any).__repoWatcherCleanup();
+    }
+
+    const cleanup = window.electronAPI.git.onRepoChangedExternally((changeType: string) => {
+      console.log(`[Store] .git 变更: ${changeType}`);
+      const { currentRepo } = get();
+      if (!currentRepo) return;
+
+      // 根据变更类型选择性刷新（减少不必要的全量刷新）
+      if (changeType === 'index') {
+        // 暂存区变更：只刷新 status
+        window.electronAPI.git.getStatus().then((status) => {
+          if (status) set({ status });
+        }).catch(() => {});
+      } else {
+        // refs/head/other 变更：全量刷新
+        get().refresh();
+      }
+    });
+
+    (window as any).__repoWatcherCleanup = cleanup;
+  },
+
+  /**
    * 重置状态
    */
   reset: () => {
+    if ((window as any).__repoWatcherCleanup) {
+      (window as any).__repoWatcherCleanup();
+      (window as any).__repoWatcherCleanup = null;
+    }
     window.electronAPI.git.closeRepository();
     set(initialState);
   },

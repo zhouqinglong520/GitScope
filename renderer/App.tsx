@@ -80,11 +80,12 @@ function CloneDialog({ onClose, onCloned }: { onClose: () => void; onCloned: (pa
       const repoName = getRepoNameFromUrl(url);
       const targetPath = clonePath + (clonePath.endsWith('/') || clonePath.endsWith('\\') ? '' : '/') + (repoName || 'repo');
       setCloneProgress({ stage: 'downloading', message: '正在下载对象...', percent: 40 });
-      const options: any = { url, path: targetPath };
-      if (cloneBranch) options.branch = cloneBranch;
-      if (cloneDepth && Number(cloneDepth) > 0) options.depth = Number(cloneDepth);
-      if (cloneSingleBranch) options.singleBranch = true;
-      await window.electronAPI.git.clone(options);
+      const cloneOptions: any = { url, dir: targetPath };
+      if (cloneBranch) cloneOptions.branch = cloneBranch;
+      if (cloneDepth && Number(cloneDepth) > 0) cloneOptions.depth = Number(cloneDepth);
+      if (cloneSingleBranch) cloneOptions.singleBranch = true;
+      if (cloneSubmodules) cloneOptions.submodules = true;
+      await window.electronAPI.git.clone(cloneOptions);
       setCloneProgress({ stage: 'done', message: '克隆完成！', percent: 100 });
       setTimeout(() => onCloned(targetPath), 800);
     } catch (e: any) { setCloneProgress({ stage: 'error', message: e.message || '克隆失败', percent: 0 }); }
@@ -421,7 +422,7 @@ function App() {
           {currentRepo && (<><span className="flex items-center gap-1 font-medium"><svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>{currentRepo.currentBranch}</span>{ahead > 0 && <span className="opacity-80">↑{ahead}</span>}{behind > 0 && <span className="opacity-80">↓{behind}</span>}{ahead === 0 && behind === 0 && <span className="opacity-60">同步</span>}</>)}
         </div>
         <div className="flex items-center gap-3 opacity-80">
-          <span>UTF-8</span><span>LF</span>
+          <span>UTF-8</span><span className="mx-2">|</span><span>LF</span>
           {currentRepo && <span className="max-w-[250px] truncate">{currentRepo.path}</span>}
         </div>
       </footer>

@@ -64,8 +64,8 @@ function CommitDetailPanel({
 
   return (
     <div className={`
-      bg-[#252526] border-t border-[#3c3c3c] transition-all duration-300
-      ${isExpanded ? 'max-h-[400px]' : 'max-h-[40px]'}
+      bg-[#252526] border-t border-[#3c3c3c] transition-all duration-300 flex flex-col overflow-hidden
+      ${isExpanded ? 'flex-1 min-h-0' : 'max-h-[40px] flex-shrink-0'}
     `}>
       {/* 折叠头部 */}
       <div
@@ -101,7 +101,7 @@ function CommitDetailPanel({
 
       {/* 展开内容 */}
       {isExpanded && (
-        <div className="px-4 pb-4 max-h-[350px] overflow-y-auto">
+        <div className="px-4 pb-4 flex-1 min-h-0 overflow-y-auto">
           <div className="grid grid-cols-3 gap-4">
             {/* 左侧：提交信息 */}
             <div className="col-span-2">
@@ -116,7 +116,7 @@ function CommitDetailPanel({
               </div>
 
               {/* 文件树 */}
-              <div className="mt-2" style={{ height: '240px' }}>
+              <div className="mt-2 flex-1 min-h-[120px]">
                 <DiffFileTree
                   files={files.map(f => ({
                     path: f.path,

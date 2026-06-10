@@ -22,7 +22,7 @@ export interface IpcGitApi {
   openRepository: (path: string) => Promise<RepositoryInfo | null>;
   closeRepository: () => Promise<void>;
   getRepositoryInfo: () => Promise<RepositoryInfo | null>;
-  getLog: (options?: { ref?: string; depth?: number }) => Promise<GitCommit[]>;
+  getLog: (options?: { ref?: string; depth?: number; all?: boolean; skip?: number }) => Promise<GitCommit[]>;
   getBranches: () => Promise<GitBranch[]>;
   getStatus: () => Promise<GitStatus | null>;
   getDiff: (filePath?: string, commitOid?: string) => Promise<GitDiff[]>;
@@ -57,7 +57,7 @@ export interface IpcGitApi {
   getFileLog: (filePath: string, options?: { depth?: number }) => Promise<GitCommit[]>;
   getCommitDetail: (oid: string) => Promise<CommitDetail | null>;
   getAuthorStats: () => Promise<AuthorStats[]>;
-  getFileDiff: (oid: string, filePath: string) => Promise<GitDiff[]>;
+  getFileDiff: (oid: string, filePath?: string) => Promise<GitDiff[]>;
   clone: (url: string, dir: string) => Promise<void>;
   getStagedDiff: (filePath?: string, options?: DiffOptions) => Promise<GitDiff[]>;
   getRemotes: () => Promise<Array<{ name: string; url: string; type: string }>>;

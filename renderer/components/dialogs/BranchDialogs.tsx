@@ -254,7 +254,7 @@ export function NewBranchDialog({ onClose, onCreated, defaultBase }: NewBranchDi
 
           {showOptions && (
             <div style={D.optionsPanel}>
-              <div style={D.field} style={{ marginBottom: 12 }}>
+              <div style={{ ...D.field, marginBottom: 12 }}>
                 <label style={D.label}>跟踪远程分支</label>
                 <select style={D.select} value={trackRemote} onChange={e => setTrackRemote(e.target.value)} onFocus={focusStyle} onBlur={blurStyle}>
                   <option value="">不跟踪</option>

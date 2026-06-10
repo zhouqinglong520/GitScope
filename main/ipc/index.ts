@@ -18,6 +18,14 @@ function registerIpcHandlers() {
   // ========== 最近打开仓库记录 ==========
   const { addRecentRepo, rebuildMenu } = require('../menu');
 
+  // ========== 文件系统监听器回调（SourceGit 模式）==========
+  gitService.setOnRepoChangedExternally((changeType: string) => {
+    const win = BrowserWindow.getFocusedWindow();
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('git:repoChangedExternally', changeType);
+    }
+  });
+
   // ========== Git 服务 ==========
 
   /** 打开仓库 */
@@ -246,7 +254,14 @@ function registerIpcHandlers() {
 
   /** 获取提交详情 */
   ipcMain.handle('git:getCommitDetail', async (_, oid: string) => {
-    return await gitService.getCommitDetail(oid);
+    const result = await gitService.getCommitDetail(oid);
+    // 添加调试信息返回给渲染进程
+    console.log(`[IPC] getCommitDetail result:`, JSON.stringify({
+      oid,
+      commit: result?.commit ? { oid: result.commit.oid, message: result.commit.message } : null,
+      filesCount: result?.files?.length || 0,
+    }));
+    return result;
   });
 
   /** 获取文件提交历史 */
@@ -864,7 +879,7 @@ function registerIpcHandlers() {
   });
 
   /** 获取指定文件的 diff */
-  ipcMain.handle('git:getFileDiff', async (_, oid: string, filePath: string) => {
+  ipcMain.handle('git:getFileDiff', async (_, oid: string, filePath?: string) => {
     return await gitService.getFileDiff(oid, filePath);
   });
 

@@ -262,6 +262,16 @@ export function useMenuEvents(dispatch: (action: DialogAction) => void) {
       'menu:openRepoAtPath': async (_event: any, path: string) => {
         if (path) await openRepo(path);
       },
+
+      'menu:amendCommit': async () => {
+        if (currentRepo) {
+          try {
+            await window.electronAPI.git.commit('', { amend: true });
+          } catch (e) {
+            console.error(e);
+          }
+        }
+      },
     };
 
     // 为每个菜单通道分别注册监听器

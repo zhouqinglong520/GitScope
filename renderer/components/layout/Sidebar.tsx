@@ -8,6 +8,7 @@ import React, { useState } from 'react';
 import { useRepoStore } from '../../stores/repoStore';
 import { zhCN } from '../../i18n/zh-CN';
 import { useContextMenu, type MenuItem } from '../contextmenu/ContextMenu';
+import { getBranchColorByName } from '../../../shared/types/git';
 
 /** 弹窗调度接口 — 由 App 层传入 */
 interface SidebarProps {
@@ -15,16 +16,9 @@ interface SidebarProps {
   onShowDialog?: (dialog: string, payload?: string | null) => void;
 }
 
-// P2-3: 分支/标签颜色与提交图匹配
-const BRANCH_COLORS = [
-  '#5b8def', '#e05673', '#68c263', '#c9a73c', '#a06cd5',
-  '#3eb4c6', '#d4844e', '#e86580', '#7ec8e3', '#b5e48c',
-];
-
-function getBranchColor(branchName: string): string {
-  let hash = 0;
-  for (let i = 0; i < branchName.length; i++) hash = ((hash << 5) - hash + branchName.charCodeAt(i)) | 0;
-  return BRANCH_COLORS[Math.abs(hash) % BRANCH_COLORS.length];
+// 使用共享颜色函数
+function getBranchColor(branchName: string, isCurrent: boolean = false): string {
+  return getBranchColorByName(branchName, isCurrent);
 }
 
 type SectionType = 'repositories' | 'branches' | 'tags' | 'stashes';
@@ -99,7 +93,7 @@ function Section({ title, expanded, onToggle, icon, children }: SectionProps) {
         {icon && <span style={{ color: 'var(--text-muted)' }}>{icon}</span>}
         <span className="sidebar-section-title flex-1">{title}</span>
       </div>
-      <div style={{ maxHeight: expanded ? '1000px' : '0', overflow: 'hidden', transition: 'max-height var(--duration-slow) var(--ease-out)', opacity: expanded ? 1 : 0 }}>
+      <div style={{ maxHeight: expanded ? '1000px' : '0', overflowY: expanded ? 'auto' : 'hidden', overflowX: 'hidden', transition: 'max-height var(--duration-slow) var(--ease-out)', opacity: expanded ? 1 : 0 }}>
         <div style={{ paddingBottom: 4 }}>{children}</div>
       </div>
     </div>
@@ -224,7 +218,7 @@ function BranchItem({ branch, onDoubleClick, onRefresh, showDialog, isPinned, on
   return (
     <>
       <div onContextMenu={showContextMenu} onDoubleClick={onDoubleClick} className={`sidebar-item ${branch.current ? 'sidebar-item-active' : ''}`} style={{ paddingLeft: 28 }}>
-        <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke={getBranchColor(branchName)} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+        <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke={getBranchColor(branchName, branch.current)} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
         <span className="text-sm truncate flex-1">{branchName}</span>
         {isPinned && <span style={{ color: '#e8c547', fontSize: 10, marginRight: 4 }} title="已固定">📌</span>}
         {branch.current && <span className="sidebar-item-meta" style={{ color: 'var(--accent)' }}>●</span>}
