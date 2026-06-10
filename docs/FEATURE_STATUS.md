@@ -1,6 +1,6 @@
 # Majie 码界 — 功能现状清单
 
-> 更新时间：2026-06-08 (v1.0)
+> 更新时间：2026-06-10 (v1.1)
 
 ## ✅ 已完成功能（48 项）
 
@@ -9,12 +9,12 @@
 | # | 功能 | 后端 API | IPC | Preload | 前端 UI | 备注 |
 |---|------|---------|-----|---------|--------|------|
 | 1 | 打开仓库 | ✅ | ✅ | ✅ | ✅ | 资源管理器/复制路径/移除 |
-| 2 | 提交历史（log） | ✅ | ✅ | ✅ | ✅ CommitGraph | Fork风格直线分支算法 |
-| 3 | 分支列表+右键 | ✅ | ✅ | ✅ | ✅ Sidebar | 切换/合并/重命名/删除/着色 |
+| 2 | 提交历史（log） | ✅ | ✅ | ✅ | ✅ CommitGraph | SourceGit Path-based 算法 + 颜色回收 + Bezier 曲线 |
+| 3 | 分支列表+右键 | ✅ | ✅ | ✅ | ✅ Sidebar | 切换/合并/重命名/删除/着色/时间戳排序/相对时间 |
 | 4 | 当前分支切换 | ✅ checkout | ✅ | ✅ | ✅ | |
 | 5 | 创建分支 | ✅ | ✅ | ✅ | ✅ 专业弹窗 | |
 | 6 | 文件状态（status） | ✅ | ✅ | ✅ | ✅ StatusPanel | |
-| 7 | Diff 查看 | ✅ | ✅ | ✅ | ✅ DiffView | 词级高亮+行级暂存+minimap+段落标记 |
+| 7 | Diff 查看 | ✅ | ✅ | ✅ | ✅ DiffView | 词级高亮+行级暂存+minimap+段落标记+合并提交first-parent |
 | 8 | 暂存/取消暂存 | ✅ add/reset | ✅ | ✅ stage/unstage | ✅ | 行级+文件级 |
 | 9 | 提交（commit） | ✅ | ✅ | ✅ | ✅ CommitBar | Conventional Commits + Amend |
 | 10 | 标签列表+右键 | ✅ tags | ✅ | ✅ | ✅ Sidebar | 检出/推送/删除/Pin |

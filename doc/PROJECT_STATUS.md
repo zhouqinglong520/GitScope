@@ -1,6 +1,6 @@
 # Majie 码界 — 项目状态
 
-> 最后更新：2026-06-08
+> 最后更新：2026-06-10
 
 ## 产品概况
 
@@ -76,8 +76,10 @@
 
 - **三栏布局**：侧边栏（分支/标签/远程/子模块）+ 提交图 + 提交详情
 - **专业弹窗系统**：21 个 Fork 风格弹窗，统一设计令牌
-- **Fork 风格直线分支算法**：Lane-based 提交图渲染
-- **Git 服务层**：isomorphic-git 优先 + git CLI 降级兜底
+- **SourceGit 风格提交图**：Path-based 连续路径追踪 + ColorPicker 颜色回收 + Bezier 曲线
+- **Git 服务层**：isomorphic-git 优先 + git CLI 降级兆底
+- **分支排序**：远程/本地分支按最新提交时间戳降序，显示相对时间
+- **Diff 渲染**：词级高亮 + 行级暂存 + minimap + 合并提交 --first-parent diff
 
 ## 待办
 

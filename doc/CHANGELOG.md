@@ -1,5 +1,48 @@
 # Majie 码界 — 更新日志
 
+## 2026-06-10 — Diff 渲染修复 + 分支排序 + 图形优化
+
+### 关键修复
+
+**gitCliExec 返回值修复（根因）**
+- `gitCliExec` 原返回 `Promise<string>`，但 15 处调用方均以 `const { stdout } = await ...` 解构
+- 导致 `stdout` 始终为 `undefined` → `parseDiffOutput(undefined)` 抛异常 → 全部显示 "No changes"
+- 修正返回类型为 `Promise<{ stdout: string; stderr: string }>`
+- 同步修复 `gitCliExecWithInput` 保持一致性
+
+**合并提交 diff 格式修复**
+- 合并提交使用 `-m` 标志产生 combined diff 格式（`++`/`--` 多列前缀），解析器无法处理
+- 改用 `--first-parent` + 显式第一父 SHA，输出标准 unified diff 格式
+
+### 分支管理增强
+
+**远程分支按最新提交排序**
+- `GitBranch` 类型新增 `timestamp` 字段（最新提交时间戳，秒级）
+- `branches()` 方法为每个分支执行 `git log -1 --format=%ct` 获取时间戳
+- 远程分支按最新提交时间降序排列（最近活跃的排最前）
+- 本地分支在 pinned/current 优先级之后按时间降序
+- 远程分支旁显示相对时间标签（如 "3天前"、"2小时前"）
+
+### 提交图优化
+
+**Canvas 定位与渲染**
+- Canvas 从 `position: sticky` 改为 `position: absolute`，修复滚动时图形消失问题
+- Canvas 覆盖层添加 `pointerEvents: 'none'`，点击事件穿透到提交行
+
+**分支线条与标签**
+- `LANE_WIDTH` 从 16 增加到 24 像素，分支线间距更清晰
+- `GRAPH_MIN_WIDTH` 从 120 增加到 160 像素
+- 远程分支标签显示短名称（去除 `origin/` 前缀），加 ◯ 标识
+- 本地分支加 ● 标识当前分支
+- 每行最多显示 3 个分支标签，超出显示 `+N`
+- 分支标签添加 `max-width: 140px` + 截断 + tooltip 防止溢出
+
+### 侧边栏
+- 分支区域展开时 `overflowY: auto`，支持内容超出 `maxHeight` 时滚动
+- 远程分支区域显示相对时间标签
+
+---
+
 ## 2026-06-10 — CommitGraph 重写 + 类型系统治理
 
 ### 核心改进
