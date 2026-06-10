@@ -8,7 +8,9 @@ import React, { useState } from 'react';
 import { useRepoStore } from '../../stores/repoStore';
 import { zhCN } from '../../i18n/zh-CN';
 import { useContextMenu, type MenuItem } from '../contextmenu/ContextMenu';
-import { getBranchColorByName } from '../../../shared/types/git';
+import { BRANCH_COLORS, getBranchColorByName } from '../../../shared/types/git';
+
+const getBranchColor = getBranchColorByName;
 
 /** 相对时间格式化（用于分支最新提交时间） */
 function formatRelativeTime(timestamp: number): string {
@@ -26,11 +28,6 @@ function formatRelativeTime(timestamp: number): string {
 interface SidebarProps {
   onOpenRepo: () => void;
   onShowDialog?: (dialog: string, payload?: string | null) => void;
-}
-
-// 使用共享颜色函数
-function getBranchColor(branchName: string, isCurrent: boolean = false): string {
-  return getBranchColorByName(branchName, isCurrent);
 }
 
 type SectionType = 'repositories' | 'branches' | 'tags' | 'stashes';
@@ -315,15 +312,15 @@ function StashItem({ stash, index, onRefresh }: { stash: { id: string; message: 
   return (
     <>
       <div onContextMenu={showContextMenu} className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-sidebar-hover transition-colors">
-        <svg className="w-4 h-4 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
+        <svg className="w-4 h-4 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
         <div className="flex-1 min-w-0">
-          <div className="text-sm text-gray-300 truncate">{stash.message}</div>
-          <div className="text-xs text-gray-500 truncate">{stash.branch}</div>
+          <div className="text-sm truncate">{stash.message || `Stash #${index}`}</div>
+          <div className="text-xs text-gray-500">{stash.date || index === 0 ? '刚刚' : `${index} 分钟前`}</div>
         </div>
-        <span className="text-xs text-gray-500">{stash.date}</span>
       </div>
+      {ContextMenuWrapper}
     </>
   );
-};
+}
 
 export default Sidebar;
