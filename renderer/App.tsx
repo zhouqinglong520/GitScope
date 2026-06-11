@@ -244,9 +244,12 @@ function App() {
     };
     window.addEventListener('showDialog:newBranch', onNewBranch);
     window.addEventListener('showDialog:newTag', onNewTag);
+    const onGitignoreEditor = () => dispatch({ type: 'SHOW', dialog: 'gitignoreEditor' });
+    window.addEventListener('openDialog:gitignoreEditor', onGitignoreEditor);
     return () => {
       window.removeEventListener('showDialog:newBranch', onNewBranch);
       window.removeEventListener('showDialog:newTag', onNewTag);
+      window.removeEventListener('openDialog:gitignoreEditor', onGitignoreEditor);
     };
   }, [dispatch]);
 
@@ -265,7 +268,7 @@ function App() {
     { id: 'clone', label: '克隆仓库', description: '克隆一个新的远程仓库', category: '仓库', shortcut: 'Ctrl+Shift+O', action: async () => { setShowCloneDialog(true); } },
     { id: 'new-branch', label: '新建分支', description: '创建一个新的分支', category: '分支', shortcut: 'Ctrl+Shift+N', action: async () => { dispatch({ type: 'SHOW', dialog: 'newBranch' }); } },
     { id: 'switch-branch', label: '切换分支', description: '切换到其他分支', category: '分支', action: () => { dispatch({ type: 'SHOW', dialog: 'switchBranch' }); } },
-    { id: 'commit-all', label: '提交所有更改', description: '暂存并提交所有更改', category: '提交', shortcut: 'Ctrl+Enter', action: () => {} },
+    { id: 'commit-all', label: '提交所有更改', description: '暂存并提交所有更改', category: '提交', shortcut: 'Ctrl+Enter', action: async () => { if (currentRepo) { try { await window.electronAPI.git.stageAll?.() || useRepoStore.getState().stageAll(); } catch {} window.dispatchEvent(new CustomEvent('sidebar:focusCommit')); } } },
     { id: 'push', label: '推送', description: '推送到远程仓库', category: '远程', shortcut: 'Ctrl+P', action: async () => { if (currentRepo) await window.electronAPI.git.push(); } },
     { id: 'pull', label: '拉取', description: '从远程仓库拉取', category: '远程', shortcut: 'Ctrl+Shift+P', action: async () => { if (currentRepo) await window.electronAPI.git.pull(); } },
     { id: 'fetch', label: '获取', description: '获取远程更新', category: '远程', action: async () => { if (currentRepo) await window.electronAPI.git.fetch(); } },

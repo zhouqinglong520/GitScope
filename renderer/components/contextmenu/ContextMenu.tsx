@@ -63,9 +63,7 @@ function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
   // 点击外部关闭菜单
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      console.log('[ContextMenu] handleClickOutside 触发');
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        console.log('[ContextMenu] 点击了外部，关闭菜单');
         onClose();
       }
     };
@@ -117,12 +115,10 @@ function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
       >
         <div
           onClick={(e) => {
-            console.log('[ContextMenu] 点击了菜单项:', item.id);
             e.preventDefault();
             e.stopPropagation();
             
             if (!item.disabled && !hasChildren) {
-              console.log('[ContextMenu] 执行 onClick');
               // 先执行 onClick，再关闭菜单
               if (item.onClick) {
                 try {

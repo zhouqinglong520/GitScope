@@ -272,6 +272,34 @@ export function useMenuEvents(dispatch: (action: DialogAction) => void) {
           }
         }
       },
+
+      'menu:showCommits': () => {
+        window.dispatchEvent(new CustomEvent('focusCommits'));
+      },
+
+      'menu:showStatus': () => {
+        window.dispatchEvent(new CustomEvent('focusStatus'));
+      },
+
+      'menu:showDiff': () => {
+        window.dispatchEvent(new CustomEvent('focusDiff'));
+      },
+
+      'menu:visualReflog': () => {
+        window.dispatchEvent(new CustomEvent('showReflogVisual'));
+      },
+
+      'menu:pastePatch': () => {
+        dispatch({ type: 'SHOW', dialog: 'pastePatch' });
+      },
+
+      'menu:partialStash': () => {
+        dispatch({ type: 'SHOW', dialog: 'partialStash' });
+      },
+
+      'menu:rebaseUpdateRefs': () => {
+        dispatch({ type: 'SHOW', dialog: 'rebaseUpdateRefs' });
+      },
     };
 
     // 为每个菜单通道分别注册监听器

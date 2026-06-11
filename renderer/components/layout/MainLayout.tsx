@@ -15,7 +15,7 @@ import CommitDetailPanel from '../commitdetail/CommitDetailPanel';
 import DiffFileTree from '../difftree/DiffFileTree';
 import FileHistory from '../filehistory/FileHistory';
 import CherryPickDialog from '../operations/CherryPickDialog';
-import PushPullDialog from '../operations/PushPullDialog';
+import { PushDialog, PullDialog, FetchDialog } from '../operations/PushPullDialog';
 import InteractiveRebaseDialog from '../rebase/InteractiveRebaseDialog';
 import StashDialog from '../stash/StashDialog';
 import BlameView from '../blame/BlameView';
@@ -31,6 +31,7 @@ import ShortcutsDialog from '../shortcuts/ShortcutsDialog';
 import { DragDropProvider } from '../dragdrop/DragDropContext';
 import { useRepoStore } from '../../stores/repoStore';
 import { useI18 } from '../../i18n';
+import { zhCN } from '../../i18n/zh-CN';
 
 function MainLayout() {
   const { t } = useI18();
@@ -305,7 +306,20 @@ function MainLayout() {
       showReflog: () => setShowReflog(true),
       showSubmodulesManager: () => {},
       showBranchSelector: () => {},
-      showGitignoreEditor: () => {},
+      showGitignoreEditor: () => {
+        window.dispatchEvent(new CustomEvent('openDialog:gitignoreEditor'));
+      },
+      showStashPop: async () => {
+        try { await window.electronAPI.git.stashPop(); await refresh(); } catch (e: any) { alert('Stash Pop 失败: ' + e.message); }
+      },
+      showBlame: (e: Event) => {
+        const filePath = (e as CustomEvent).detail as string;
+        if (filePath) { setBlameFilePath(filePath); setShowBlame(true); }
+      },
+      showTagPanel: () => setShowTagPanel(true),
+      focusCommits: () => { document.getElementById('commit-graph-area')?.focus(); },
+      focusStatus: () => { document.getElementById('status-panel-area')?.focus(); },
+      focusDiff: () => { document.getElementById('diff-view-area')?.focus(); },
       showShortcuts: () => setShowShortcuts(true),
       showReflogVisual: () => setShowReflogVisual(true),
       toggleTerminal: () => setShowTerminal(prev => !prev),
@@ -322,7 +336,7 @@ function MainLayout() {
         window.removeEventListener(event, handler);
       }
     };
-  }, []);
+  }, [refresh, handleAmendCommit]);
 
   return (
     <DragDropProvider
@@ -544,12 +558,40 @@ function MainLayout() {
         onRefresh={refresh}
       />
 
-      {showPushPull && (
-        <PushPullDialog
-          mode={showPushPull}
-          visible={true}
+      {showPushPull === 'push' && (
+        <PushDialog
+          isOpen={true}
           onClose={() => setShowPushPull(null)}
-          onRefresh={refresh}
+          onPush={async (options) => {
+            await window.electronAPI.git.push({ force: options.force, forceWithLease: options.forceWithLease, setUpstream: options.setUpstream });
+            await refresh();
+          }}
+          remote="origin"
+          branch={currentRepo?.currentBranch || undefined}
+          hasUpstream={true}
+          i18n={zhCN}
+        />
+      )}
+      {showPushPull === 'pull' && (
+        <PullDialog
+          isOpen={true}
+          onClose={() => setShowPushPull(null)}
+          onPull={async (options) => {
+            await window.electronAPI.git.pull({ rebase: options.rebase });
+            await refresh();
+          }}
+          i18n={zhCN}
+        />
+      )}
+      {showPushPull === 'fetch' && (
+        <FetchDialog
+          isOpen={true}
+          onClose={() => setShowPushPull(null)}
+          onFetch={async (options) => {
+            await window.electronAPI.git.fetch({ remote: options.fetchAll ? undefined : 'origin', prune: options.prune });
+            await refresh();
+          }}
+          i18n={zhCN}
         />
       )}
 
@@ -563,9 +605,9 @@ function MainLayout() {
       )}
 
       <StashDialog
-        visible={showStashDialog}
+        isOpen={showStashDialog}
         onClose={() => setShowStashDialog(false)}
-        onRefresh={refresh}
+        onSuccess={refresh}
       />
 
       {showBlame && blameFilePath && (

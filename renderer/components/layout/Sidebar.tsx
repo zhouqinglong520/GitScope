@@ -4,7 +4,7 @@
  * 右键菜单触发专业弹窗（替换 showInputBox）
  */
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useRepoStore } from '../../stores/repoStore';
 import { zhCN } from '../../i18n/zh-CN';
 import { useContextMenu, type MenuItem } from '../contextmenu/ContextMenu';
@@ -102,6 +102,14 @@ function ChangesSection() {
   const { status, stageFile, unstageFile, stageAll, unstageAll, refresh } = useRepoStore();
   const [commitMsg, setCommitMsg] = useState('');
   const [isCommitting, setIsCommitting] = useState(false);
+  const commitInputRef = useRef<HTMLInputElement>(null);
+
+  // Listen for focus-commit event from Quick Launch
+  useEffect(() => {
+    const handler = () => commitInputRef.current?.focus();
+    window.addEventListener('sidebar:focusCommit', handler);
+    return () => window.removeEventListener('sidebar:focusCommit', handler);
+  }, []);
 
   if (!status) return null;
 
@@ -217,6 +225,7 @@ function ChangesSection() {
       {/* 提交输入框 */}
       <div style={{ display: 'flex', gap: 4, marginTop: 6, marginBottom: 4 }}>
         <input
+          ref={commitInputRef}
           type="text"
           value={commitMsg}
           onChange={(e) => setCommitMsg(e.target.value)}
@@ -350,11 +359,7 @@ function BranchSection({ onShowDialog, pinnedItems, togglePin }: { onShowDialog?
         <>
           <div className="px-3 py-1 text-xs font-semibold text-gray-500 uppercase mt-2">{zhCN.branch.remote}</div>
           {sortedRemote.map((branch) => (
-            <div key={branch.name} onDoubleClick={() => checkoutRemoteBranch(branch.name)} className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-sidebar-hover transition-colors">
-              <svg className="w-4 h-4 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" /></svg>
-              <span className="text-sm truncate text-gray-400 flex-1">{branch.name}</span>
-              {branch.timestamp && <span className="text-[10px] text-gray-600 flex-shrink-0">{formatRelativeTime(branch.timestamp)}</span>}
-            </div>
+            <RemoteBranchItem key={branch.name} branch={branch} onCheckout={() => checkoutRemoteBranch(branch.name)} onRefresh={refresh} />
           ))}
         </>
       )}
@@ -414,6 +419,33 @@ function BranchItem({ branch, onDoubleClick, onRefresh, showDialog, isPinned, on
         <span className="text-sm truncate flex-1">{branchName}</span>
         {isPinned && <span style={{ color: '#e8c547', fontSize: 10, marginRight: 4 }} title="已固定">📌</span>}
         {branch.current && <span className="sidebar-item-meta" style={{ color: 'var(--accent)' }}>●</span>}
+      </div>
+      {ContextMenuWrapper}
+    </>
+  );
+}
+
+/* ======================== 远程分支项 — 带右键菜单 ======================== */
+function RemoteBranchItem({ branch, onCheckout, onRefresh }: {
+  branch: { name: string; current: boolean; timestamp?: number };
+  onCheckout: () => void;
+  onRefresh: () => Promise<void>;
+}) {
+  const branchName = branch.name;
+  const { showContextMenu, ContextMenuWrapper } = useContextMenu(() => {
+    const items: MenuItem[] = [
+      { id: 'checkout', label: '创建本地跟踪分支', onClick: onCheckout },
+      { id: 'copy', label: '复制分支名', onClick: () => { navigator.clipboard.writeText(branchName); } },
+    ];
+    return items;
+  });
+
+  return (
+    <>
+      <div onContextMenu={showContextMenu} onDoubleClick={onCheckout} className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-sidebar-hover transition-colors">
+        <svg className="w-4 h-4 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" /></svg>
+        <span className="text-sm truncate text-gray-400 flex-1">{branchName}</span>
+        {branch.timestamp && <span className="text-[10px] text-gray-600 flex-shrink-0">{formatRelativeTime(branch.timestamp)}</span>}
       </div>
       {ContextMenuWrapper}
     </>
@@ -495,7 +527,7 @@ function StashItem({ stash, index, onRefresh }: { stash: { id: string; message: 
         <svg className="w-4 h-4 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
         <div className="flex-1 min-w-0">
           <div className="text-sm truncate">{stash.message || `Stash #${index}`}</div>
-          <div className="text-xs text-gray-500">{stash.date || index === 0 ? '刚刚' : `${index} 分钟前`}</div>
+          <div className="text-xs text-gray-500">{stash.date || (index === 0 ? '刚刚' : `${index} 分钟前`)}</div>
         </div>
       </div>
       {ContextMenuWrapper}

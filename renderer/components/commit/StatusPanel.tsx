@@ -7,6 +7,7 @@ import React, { useState, useCallback, useMemo } from 'react';
 import './StatusPanel.css';
 import type { GitStatus, GitFileStatus } from '@shared/types/git';
 import { useI18 } from '../../i18n';
+import { useRepoStore } from '../../stores/repoStore';
 
 type ViewMode = 'split' | 'combined' | 'tree';
 
@@ -35,6 +36,7 @@ function StatusPanel({
   onStageAll, onUnstageAll, onViewHistory, onRefresh,
 }: StatusPanelProps) {
   const { t } = useI18();
+  const currentRepo = useRepoStore(s => s.currentRepo);
   const [expandedDirs, setExpandedDirs] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<ViewMode>('split');
   const [searchFilter, setSearchFilter] = useState('');
@@ -327,8 +329,17 @@ function StatusPanel({
 
       {/* 右键菜单 */}
       {contextMenu && (
-        <div className="fixed bg-[#2d2d30] border border-[#3c3c3c] rounded shadow-xl py-1 z-[1000] min-w-[160px]"
+        <div className="fixed bg-[#2d2d30] border border-[#3c3c3c] rounded shadow-xl py-1 z-[1000] min-w-[180px]"
           style={{ left: contextMenu.x, top: contextMenu.y }} onClick={(e) => e.stopPropagation()}>
+          {/* Stage / Unstage */}
+          <div className="px-3 py-2 text-sm text-gray-300 hover:bg-[#094771] cursor-pointer flex items-center gap-2"
+            onClick={() => {
+              contextMenu.section === 'staged' ? onUnstage?.(contextMenu.file.path) : onStage?.(contextMenu.file.path);
+              closeContextMenu();
+            }}>
+            {contextMenu.section === 'staged' ? '⊟ ' : '⊞ '}{contextMenu.section === 'staged' ? (t('detail.unstage') || '取消暂存') : (t('detail.stage') || '暂存')}
+          </div>
+          <div className="h-px bg-[#3c3c3c] my-1" />
           <div className="px-3 py-2 text-sm text-gray-300 hover:bg-[#094771] cursor-pointer flex items-center gap-2"
             onClick={() => { onFileSelect(contextMenu.file.path); closeContextMenu(); }}>
             👁 {t('detail.viewDiff')}
@@ -337,7 +348,15 @@ function StatusPanel({
             onClick={() => { onViewHistory?.(contextMenu.file.path); closeContextMenu(); }}>
             📜 {t('fileHistory.title') || '文件历史'}
           </div>
+          <div className="px-3 py-2 text-sm text-gray-300 hover:bg-[#094771] cursor-pointer flex items-center gap-2"
+            onClick={() => { window.dispatchEvent(new CustomEvent('showBlame', { detail: contextMenu.file.path })); closeContextMenu(); }}>
+            🔍 Blame
+          </div>
           <div className="h-px bg-[#3c3c3c] my-1" />
+          <div className="px-3 py-2 text-sm text-gray-300 hover:bg-[#094771] cursor-pointer flex items-center gap-2"
+            onClick={async () => { if (currentRepo) await window.electronAPI.shell.openPath(`${currentRepo.path}/${contextMenu.file.path}`); closeContextMenu(); }}>
+            📂 在资源管理器中打开
+          </div>
           <div className="px-3 py-2 text-sm text-gray-300 hover:bg-[#094771] cursor-pointer flex items-center gap-2"
             onClick={() => { navigator.clipboard.writeText(contextMenu.file.path); closeContextMenu(); }}>
             📋 {t('contextMenu.copyPath')}
