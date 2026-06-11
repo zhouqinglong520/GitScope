@@ -293,6 +293,10 @@ function MainLayout() {
   useEffect(() => {
     const handlers: Record<string, EventListener> = {
       showRemotesManager: () => setShowPushPull('fetch'),
+      showPushPullDialog: (e: Event) => {
+        const mode = (e as CustomEvent).detail as 'push' | 'pull' | 'fetch';
+        setShowPushPull(mode);
+      },
       showInteractiveRebase: (e: Event) => {
         const detail = (e as CustomEvent).detail;
         if (detail?.oid) { setRebaseOid(detail.oid); }

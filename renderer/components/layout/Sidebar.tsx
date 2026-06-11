@@ -264,7 +264,7 @@ function ChangeFileRow({ file, isStaged, onToggle, onClick, onDiscard, getStatus
           <input type="checkbox" checked={isStaged} readOnly style={{ width: 12, height: 12, cursor: 'pointer', accentColor: '#0e7a0d' }} />
         </div>
         <span style={{ fontSize: 10, fontWeight: 700, color: badge.color, width: 12, textAlign: 'center', flexShrink: 0 }}>{badge.label}</span>
-        <span className="truncate" style={{ fontSize: 11, color: 'var(--text-primary)', flex: 1, minWidth: 0 }}>{file.path}</span>
+        <span style={{ fontSize: 11, color: 'var(--text-primary)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={file.path}>{file.path}</span>
         {isPartial && <span style={{ fontSize: 8, color: '#dcdcaa', flexShrink: 0, padding: '0 2px' }} title="部分暂存">◐</span>}
       </div>
       {ContextMenuWrapper}
