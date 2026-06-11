@@ -126,6 +126,15 @@ function StatusPanel({
     return { dir: filePath.slice(0, idx + 1), name: filePath.slice(idx + 1) };
   };
 
+  /** Get high-contrast color for file status badge */
+  const getStatusColor = (status: string): string => {
+    if (status === 'modified') return '#e5c07b';
+    if (status === 'added' || status === 'untracked') return '#4ec9b0';
+    if (status === 'deleted') return '#e06c75';
+    if (status === 'renamed') return '#61afef';
+    return '#c678dd';
+  };
+
   /** Per-file hover action buttons (Fork/SourceGit style) */
   const renderFileActions = (file: GitFileStatus, section: 'staged' | 'unstaged' | 'untracked') => {
     const isStaged = section === 'staged';
@@ -167,27 +176,37 @@ function StatusPanel({
     const isSelected = selectedFile === file.path;
     const isStaged = section === 'staged';
     const { dir, name } = splitPath(file.path);
+    const statusColor = getStatusColor(file.status);
     return (
       <div
         key={`${section}-${file.path}`}
         className={`sp-file group flex items-center gap-2 cursor-pointer transition-colors
           ${isSelected ? 'bg-[#094771]' : 'hover:bg-[#2a2d2e]'}`}
         onClick={() => onFileSelect(file.path)}
+        onDoubleClick={() => isStaged ? onUnstage?.(file.path) : onStage?.(file.path)}
         onContextMenu={(e) => handleContextMenu(e, file, section)}
       >
-        {/* Stage/Unstage checkbox toggle */}
-        <div style={{ width: 20, height: 20, borderRadius: 4, border: `1.5px solid ${isStaged ? '#4ec9b0' : '#555'}`, background: isStaged ? '#4ec9b022' : 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+        {/* Stage/Unstage checkbox toggle — bold visual distinction */}
+        <div style={{
+          width: 18, height: 18, borderRadius: 3, flexShrink: 0,
+          border: `2px solid ${isStaged ? '#4ec9b0' : '#888'}`,
+          background: isStaged ? '#4ec9b033' : 'transparent',
+          cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}
           onClick={(e) => { e.stopPropagation(); isStaged ? onUnstage?.(file.path) : onStage?.(file.path); }}>
           {isStaged && (<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4ec9b0" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>)}
         </div>
-        {/* Status badge — styled pill */}
-        <span style={{ fontSize: 10, fontWeight: 700, fontFamily: 'monospace', color: style.text.includes('green') ? '#4ec9b0' : style.text.includes('yellow') ? '#e5c07b' : style.text.includes('red') ? '#e06c75' : '#61afef', background: '#2a2d2e', padding: '1px 5px', borderRadius: 3, flexShrink: 0 }}>
+        {/* Status badge — high contrast colored text */}
+        <span style={{
+          fontSize: 10, fontWeight: 700, fontFamily: 'monospace',
+          color: statusColor, minWidth: 14, textAlign: 'center', flexShrink: 0,
+        }}>
           {style.label}
         </span>
-        {/* Smart file path: dir muted + filename highlighted */}
-        <span className="flex-1 truncate" style={{ fontSize: 12 }}>
-          {dir && <span style={{ color: '#808080' }}>{dir}</span>}
-          <span style={{ color: '#e0e0e0' }}>{name}</span>
+        {/* Smart file path: dir muted + filename white & bold */}
+        <span className="flex-1 truncate" style={{ fontSize: 12, lineHeight: '18px' }}>
+          {dir && <span style={{ color: '#6e7681' }}>{dir}</span>}
+          <span style={{ color: '#ffffff', fontWeight: 500 }}>{name}</span>
         </span>
         {/* Combined mode section tag */}
         {viewMode === 'combined' && (
@@ -237,6 +256,7 @@ function StatusPanel({
       const style = getStatusStyle(node.file.status);
       const isSelected = selectedFile === node.file.path;
       const isStaged = node.file.section === 'staged';
+      const statusColor = getStatusColor(node.file.status);
       return (
         <div
           key={node.file.path}
@@ -244,14 +264,20 @@ function StatusPanel({
             ${isSelected ? 'bg-[#094771]' : 'hover:bg-[#2a2d2e]'}`}
           style={{ paddingLeft: `${depth * 16 + 8}px` }}
           onClick={() => onFileSelect(node.file!.path)}
+          onDoubleClick={() => isStaged ? onUnstage?.(node.file!.path) : onStage?.(node.file!.path)}
           onContextMenu={(e) => handleContextMenu(e, node.file!, node.file!.section)}
         >
-          <div style={{ width: 20, height: 20, borderRadius: 4, border: `1.5px solid ${isStaged ? '#4ec9b0' : '#555'}`, background: isStaged ? '#4ec9b022' : 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+          <div style={{
+            width: 18, height: 18, borderRadius: 3, flexShrink: 0,
+            border: `2px solid ${isStaged ? '#4ec9b0' : '#888'}`,
+            background: isStaged ? '#4ec9b033' : 'transparent',
+            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
             onClick={(e) => { e.stopPropagation(); isStaged ? onUnstage?.(node.file!.path) : onStage?.(node.file!.path); }}>
             {isStaged && (<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4ec9b0" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>)}
           </div>
-          <span style={{ fontSize: 10, fontWeight: 700, fontFamily: 'monospace', color: style.text.includes('green') ? '#4ec9b0' : style.text.includes('yellow') ? '#e5c07b' : style.text.includes('red') ? '#e06c75' : '#61afef', background: '#2a2d2e', padding: '1px 5px', borderRadius: 3, flexShrink: 0 }}>{style.label}</span>
-          <span className="flex-1 truncate" style={{ fontSize: 12, color: '#e0e0e0' }}>{node.name}</span>
+          <span style={{ fontSize: 10, fontWeight: 700, fontFamily: 'monospace', color: statusColor, minWidth: 14, textAlign: 'center', flexShrink: 0 }}>{style.label}</span>
+          <span className="flex-1 truncate" style={{ fontSize: 12, color: '#ffffff', fontWeight: 500, lineHeight: '18px' }}>{node.name}</span>
           {renderFileActions(node.file!, node.file!.section)}
         </div>
       );
