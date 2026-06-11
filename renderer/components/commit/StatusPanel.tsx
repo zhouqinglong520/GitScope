@@ -119,10 +119,54 @@ function StatusPanel({
     return styles[fileStatus] || styles.unchanged;
   };
 
+  /** Split file path into directory + filename for smart display */
+  const splitPath = (filePath: string) => {
+    const idx = filePath.lastIndexOf('/');
+    if (idx === -1) return { dir: '', name: filePath };
+    return { dir: filePath.slice(0, idx + 1), name: filePath.slice(idx + 1) };
+  };
+
+  /** Per-file hover action buttons (Fork/SourceGit style) */
+  const renderFileActions = (file: GitFileStatus, section: 'staged' | 'unstaged' | 'untracked') => {
+    const isStaged = section === 'staged';
+    return (
+      <div className="sp-file-actions" onClick={(e) => e.stopPropagation()}>
+        {/* Stage / Unstage */}
+        <button
+          onClick={() => isStaged ? onUnstage?.(file.path) : onStage?.(file.path)}
+          style={{ padding: '1px 6px', fontSize: 10, borderRadius: 3, border: 'none', cursor: 'pointer',
+            background: isStaged ? '#3c3c3c' : '#0e7a0d', color: '#e0e0e0' }}
+          title={isStaged ? '取消暂存' : '暂存'}
+        >
+          {isStaged ? '−' : '+'}
+        </button>
+        {/* Discard (only for unstaged/untracked) */}
+        {(section === 'unstaged' || section === 'untracked') && (
+          <button
+            onClick={async () => {
+              if (!window.confirm(section === 'untracked' ? `删除 ${file.path}?` : `放弃 ${file.path} 的更改?`)) return;
+              try {
+                if (section === 'untracked') await window.electronAPI.git.deleteUntrackedFile(file.path);
+                else await window.electronAPI.git.discardChanges([file.path]);
+                onRefresh?.();
+              } catch (e) { console.error(e); }
+            }}
+            style={{ padding: '1px 6px', fontSize: 10, borderRadius: 3, border: 'none', cursor: 'pointer',
+              background: 'transparent', color: '#f44747' }}
+            title={section === 'untracked' ? '删除文件' : '放弃更改'}
+          >
+            ✕
+          </button>
+        )}
+      </div>
+    );
+  };
+
   const renderFile = (file: GitFileStatus, section: 'staged' | 'unstaged' | 'untracked') => {
     const style = getStatusStyle(file.status);
     const isSelected = selectedFile === file.path;
     const isStaged = section === 'staged';
+    const { dir, name } = splitPath(file.path);
     return (
       <div
         key={`${section}-${file.path}`}
@@ -131,25 +175,30 @@ function StatusPanel({
         onClick={() => onFileSelect(file.path)}
         onContextMenu={(e) => handleContextMenu(e, file, section)}
       >
-        <div style={{ width: 22, height: 22, borderRadius: 4, border: `1.5px solid ${isStaged ? '#4ec9b0' : '#555'}`, background: isStaged ? '#4ec9b022' : 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+        {/* Stage/Unstage checkbox toggle */}
+        <div style={{ width: 20, height: 20, borderRadius: 4, border: `1.5px solid ${isStaged ? '#4ec9b0' : '#555'}`, background: isStaged ? '#4ec9b022' : 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
           onClick={(e) => { e.stopPropagation(); isStaged ? onUnstage?.(file.path) : onStage?.(file.path); }}>
-          {isStaged && (<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4ec9b0" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>)}
+          {isStaged && (<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4ec9b0" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>)}
         </div>
-        <span className={`text-xs font-mono font-bold ${style.text} w-4 text-center flex-shrink-0`}>
+        {/* Status badge — styled pill */}
+        <span style={{ fontSize: 10, fontWeight: 700, fontFamily: 'monospace', color: style.text.includes('green') ? '#4ec9b0' : style.text.includes('yellow') ? '#e5c07b' : style.text.includes('red') ? '#e06c75' : '#61afef', background: '#2a2d2e', padding: '1px 5px', borderRadius: 3, flexShrink: 0 }}>
           {style.label}
         </span>
-        <span className="flex-1 text-sm truncate" style={{ color: '#e0e0e0' }}>
-          {file.path}
+        {/* Smart file path: dir muted + filename highlighted */}
+        <span className="flex-1 truncate" style={{ fontSize: 12 }}>
+          {dir && <span style={{ color: '#808080' }}>{dir}</span>}
+          <span style={{ color: '#e0e0e0' }}>{name}</span>
         </span>
+        {/* Combined mode section tag */}
         {viewMode === 'combined' && (
-          <span className={`text-[10px] px-1.5 py-0.5 rounded flex-shrink-0 ${
-            section === 'staged' ? 'bg-green-500/20 text-green-400' :
-            section === 'unstaged' ? 'bg-yellow-500/20 text-yellow-400' :
-            'bg-gray-500/20 text-gray-400'
-          }`}>
+          <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 3, flexShrink: 0, fontWeight: 600,
+            background: section === 'staged' ? '#4ec9b022' : section === 'unstaged' ? '#e5c07b22' : '#80808022',
+            color: section === 'staged' ? '#4ec9b0' : section === 'unstaged' ? '#e5c07b' : '#808080' }}>
             {section === 'staged' ? 'S' : section === 'unstaged' ? 'U' : '?'}
           </span>
         )}
+        {/* Per-file hover actions */}
+        {renderFileActions(file, section)}
       </div>
     );
   };
@@ -197,12 +246,13 @@ function StatusPanel({
           onClick={() => onFileSelect(node.file!.path)}
           onContextMenu={(e) => handleContextMenu(e, node.file!, node.file!.section)}
         >
-          <div style={{ width: 22, height: 22, borderRadius: 4, border: `1.5px solid ${isStaged ? '#4ec9b0' : '#555'}`, background: isStaged ? '#4ec9b022' : 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+          <div style={{ width: 20, height: 20, borderRadius: 4, border: `1.5px solid ${isStaged ? '#4ec9b0' : '#555'}`, background: isStaged ? '#4ec9b022' : 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
             onClick={(e) => { e.stopPropagation(); isStaged ? onUnstage?.(node.file!.path) : onStage?.(node.file!.path); }}>
-            {isStaged && (<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4ec9b0" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>)}
+            {isStaged && (<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4ec9b0" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>)}
           </div>
-          <span className={`text-xs font-mono font-bold ${style.text} w-4 text-center flex-shrink-0`}>{style.label}</span>
-          <span className="flex-1 text-sm truncate" style={{ color: '#e0e0e0' }}>{node.name}</span>
+          <span style={{ fontSize: 10, fontWeight: 700, fontFamily: 'monospace', color: style.text.includes('green') ? '#4ec9b0' : style.text.includes('yellow') ? '#e5c07b' : style.text.includes('red') ? '#e06c75' : '#61afef', background: '#2a2d2e', padding: '1px 5px', borderRadius: 3, flexShrink: 0 }}>{style.label}</span>
+          <span className="flex-1 truncate" style={{ fontSize: 12, color: '#e0e0e0' }}>{node.name}</span>
+          {renderFileActions(node.file!, node.file!.section)}
         </div>
       );
     }
@@ -244,13 +294,13 @@ function StatusPanel({
       <div className="sp-toolbar flex-shrink-0 px-3 py-2 flex items-center justify-between border-b border-[#3c3c3c]">
         <div className="flex items-center gap-2">
           {/* 视图切换 */}
-          <div className="sp-view-toggle flex rounded overflow-hidden border border-[#3c3c3c]">
+          <div className="sp-view-toggle flex rounded overflow-hidden border border-[#3c3c3c]" style={{ height: 22 }}>
             <button className={`sp-view-btn ${viewMode === 'split' ? 'active' : ''}`}
-              onClick={() => setViewMode('split')} title="分区视图">⊞</button>
+              onClick={() => setViewMode('split')} title="分区视图" style={{ fontSize: 10, padding: '0 6px', width: 'auto' }}>List</button>
             <button className={`sp-view-btn ${viewMode === 'combined' ? 'active' : ''}`}
-              onClick={() => setViewMode('combined')} title="组合列表">☰</button>
+              onClick={() => setViewMode('combined')} title="组合列表" style={{ fontSize: 10, padding: '0 6px', width: 'auto' }}>Flat</button>
             <button className={`sp-view-btn ${viewMode === 'tree' ? 'active' : ''}`}
-              onClick={() => setViewMode('tree')} title="文件树">🌳</button>
+              onClick={() => setViewMode('tree')} title="文件树" style={{ fontSize: 10, padding: '0 6px', width: 'auto' }}>Tree</button>
           </div>
 
           {/* 搜索 */}
@@ -299,24 +349,48 @@ function StatusPanel({
           <>
             {staged.length > 0 && (
               <div className="border-b border-[#3c3c3c]">
-                <div className="sticky top-0 z-10 px-3 py-1.5 text-xs font-semibold text-green-400 uppercase bg-[#252526] border-b border-[#3c3c3c]">
-                  {t('detail.staged')} ({staged.length})
+                <div className="sticky top-0 z-10 flex items-center justify-between bg-[#252526] border-b border-[#3c3c3c]" style={{ padding: '6px 10px' }}>
+                  <div className="flex items-center gap-2">
+                    <span style={{ fontSize: 11, fontWeight: 700, color: '#4ec9b0', letterSpacing: '0.5px', textTransform: 'uppercase' }}>STAGED</span>
+                    <span style={{ fontSize: 10, color: '#808080', background: '#3c3c3c', padding: '1px 6px', borderRadius: 8, fontWeight: 600 }}>{staged.length}</span>
+                  </div>
+                  <button onClick={onUnstageAll} style={{ fontSize: 10, color: '#8b949e', background: 'transparent', border: 'none', cursor: 'pointer', padding: '2px 6px' }}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = '#e0e0e0')}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = '#8b949e')}>
+                    Unstage All
+                  </button>
                 </div>
                 <div className="py-1">{staged.map(f => renderFile(f, 'staged'))}</div>
               </div>
             )}
             {unstaged.length > 0 && (
               <div className="border-b border-[#3c3c3c]">
-                <div className="sticky top-0 z-10 px-3 py-1.5 text-xs font-semibold text-yellow-400 uppercase bg-[#252526] border-b border-[#3c3c3c]">
-                  {t('detail.unstaged')} ({unstaged.length})
+                <div className="sticky top-0 z-10 flex items-center justify-between bg-[#252526] border-b border-[#3c3c3c]" style={{ padding: '6px 10px' }}>
+                  <div className="flex items-center gap-2">
+                    <span style={{ fontSize: 11, fontWeight: 700, color: '#e5c07b', letterSpacing: '0.5px', textTransform: 'uppercase' }}>UNSTAGED</span>
+                    <span style={{ fontSize: 10, color: '#808080', background: '#3c3c3c', padding: '1px 6px', borderRadius: 8, fontWeight: 600 }}>{unstaged.length}</span>
+                  </div>
+                  <button onClick={onStageAll} style={{ fontSize: 10, color: '#8b949e', background: 'transparent', border: 'none', cursor: 'pointer', padding: '2px 6px' }}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = '#e0e0e0')}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = '#8b949e')}>
+                    Stage All
+                  </button>
                 </div>
                 <div className="py-1">{unstaged.map(f => renderFile(f, 'unstaged'))}</div>
               </div>
             )}
             {untracked.length > 0 && (
               <div>
-                <div className="sticky top-0 z-10 px-3 py-1.5 text-xs font-semibold text-gray-400 uppercase bg-[#252526] border-b border-[#3c3c3c]">
-                  {t('detail.untracked')} ({untracked.length})
+                <div className="sticky top-0 z-10 flex items-center justify-between bg-[#252526] border-b border-[#3c3c3c]" style={{ padding: '6px 10px' }}>
+                  <div className="flex items-center gap-2">
+                    <span style={{ fontSize: 11, fontWeight: 700, color: '#808080', letterSpacing: '0.5px', textTransform: 'uppercase' }}>UNTRACKED</span>
+                    <span style={{ fontSize: 10, color: '#808080', background: '#3c3c3c', padding: '1px 6px', borderRadius: 8, fontWeight: 600 }}>{untracked.length}</span>
+                  </div>
+                  <button onClick={onStageAll} style={{ fontSize: 10, color: '#8b949e', background: 'transparent', border: 'none', cursor: 'pointer', padding: '2px 6px' }}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = '#e0e0e0')}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = '#8b949e')}>
+                    Stage All
+                  </button>
                 </div>
                 <div className="py-1">{untracked.map(f => renderFile(f, 'untracked'))}</div>
               </div>

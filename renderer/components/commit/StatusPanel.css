@@ -16,7 +16,13 @@
 }
 .sp-filter-input:focus { border-color: #094771; }
 .sp-file {
-  padding: 2px 8px; min-height: 28px;
+  padding: 2px 8px; min-height: 28px; position: relative;
+}
+.sp-file-actions {
+  display: none; align-items: center; gap: 2px; flex-shrink: 0;
+}
+.sp-file:hover .sp-file-actions {
+  display: flex;
 }
 .sp-dir {
   padding: 2px 8px; min-height: 24px;

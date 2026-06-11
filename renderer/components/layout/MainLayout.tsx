@@ -511,7 +511,16 @@ function MainLayout() {
                 <DiffView
                   commitOid={selectedCommit}
                   filePath={selectedFile}
+                  isStaged={!!status && status.staged.some(f => f.path === selectedFile)}
                   onRefresh={refresh}
+                  onStageFile={handleStage}
+                  onUnstageFile={handleUnstage}
+                  onDiscardFile={async (path) => {
+                    try {
+                      await window.electronAPI.git.discardChanges([path]);
+                      await refresh();
+                    } catch (e: any) { alert('Discard failed: ' + e.message); }
+                  }}
                 />
               ) : (
                 <div className="h-full flex items-center justify-center" style={{ color: 'var(--text-muted)' }}>

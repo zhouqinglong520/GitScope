@@ -83,6 +83,10 @@ interface DiffViewProps {
   isStaged?: boolean;
   /** 刷新回调（行级暂存后刷新） */
   onRefresh?: () => void;
+  /** Per-file stage/unstage/discard callbacks (Fork-style) */
+  onStageFile?: (path: string) => void;
+  onUnstageFile?: (path: string) => void;
+  onDiscardFile?: (path: string) => void;
 }
 
 interface SearchMatch {
@@ -271,7 +275,7 @@ function getLanguageFromPath(filePath: string | undefined): string {
 
 // ========== 主组件 ==========
 
-function DiffView({ commitOid, filePath, isStaged, onRefresh }: DiffViewProps) {
+function DiffView({ commitOid, filePath, isStaged, onRefresh, onStageFile, onUnstageFile, onDiscardFile }: DiffViewProps) {
   const { t } = useI18();
   const [diff, setDiff] = useState<GitDiff[]>([]);
   const [loading, setLoading] = useState(false);
@@ -1029,6 +1033,35 @@ function DiffView({ commitOid, filePath, isStaged, onRefresh }: DiffViewProps) {
           onClick={handleOpenInDiffTool} title="Open in External Tool">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
         </button>
+
+        {/* Per-file Stage/Unstage/Discard (Fork-style, working dir only) */}
+        {!commitOid && filePath && (
+          <>
+            <div className="h-4 w-px bg-gray-700" />
+            {isStaged ? (
+              <button
+                className="px-3 py-1 text-xs rounded transition-colors"
+                style={{ background: '#3c3c3c', color: '#e0e0e0' }}
+                onClick={() => onUnstageFile?.(filePath)}
+              >Unstage</button>
+            ) : (
+              <button
+                className="px-3 py-1 text-xs rounded transition-colors"
+                style={{ background: '#0e7a0d', color: '#fff' }}
+                onClick={() => onStageFile?.(filePath)}
+              >Stage</button>
+            )}
+            <button
+              className="px-3 py-1 text-xs rounded transition-colors"
+              style={{ background: 'transparent', color: '#f44747', border: '1px solid #f44747' }}
+              onClick={() => {
+                if (window.confirm(`Discard changes in ${filePath}?`)) {
+                  onDiscardFile?.(filePath);
+                }
+              }}
+            >Discard</button>
+          </>
+        )}
 
         {/* 行级暂存按钮 */}
         {selectedLines.size > 0 && (
