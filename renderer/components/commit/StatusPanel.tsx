@@ -131,15 +131,14 @@ function StatusPanel({
         onClick={() => onFileSelect(file.path)}
         onContextMenu={(e) => handleContextMenu(e, file, section)}
       >
-        <div className="w-6 h-6 flex items-center justify-center flex-shrink-0"
+        <div style={{ width: 22, height: 22, borderRadius: 4, border: `1.5px solid ${isStaged ? '#4ec9b0' : '#555'}`, background: isStaged ? '#4ec9b022' : 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
           onClick={(e) => { e.stopPropagation(); isStaged ? onUnstage?.(file.path) : onStage?.(file.path); }}>
-          <input type="checkbox" checked={isStaged} onChange={() => {}}
-            className="w-3.5 h-3.5 rounded border-[#3c3c3c] bg-[#3c3c3c] text-green-500 cursor-pointer" />
+          {isStaged && (<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4ec9b0" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>)}
         </div>
         <span className={`text-xs font-mono font-bold ${style.text} w-4 text-center flex-shrink-0`}>
           {style.label}
         </span>
-        <span className={`flex-1 text-sm truncate ${style.text}`}>
+        <span className="flex-1 text-sm truncate" style={{ color: '#e0e0e0' }}>
           {file.path}
         </span>
         {viewMode === 'combined' && (
@@ -198,13 +197,12 @@ function StatusPanel({
           onClick={() => onFileSelect(node.file!.path)}
           onContextMenu={(e) => handleContextMenu(e, node.file!, node.file!.section)}
         >
-          <div className="w-6 h-6 flex items-center justify-center flex-shrink-0"
+          <div style={{ width: 22, height: 22, borderRadius: 4, border: `1.5px solid ${isStaged ? '#4ec9b0' : '#555'}`, background: isStaged ? '#4ec9b022' : 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
             onClick={(e) => { e.stopPropagation(); isStaged ? onUnstage?.(node.file!.path) : onStage?.(node.file!.path); }}>
-            <input type="checkbox" checked={isStaged} onChange={() => {}}
-              className="w-3.5 h-3.5 rounded border-[#3c3c3c] bg-[#3c3c3c] text-green-500 cursor-pointer" />
+            {isStaged && (<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4ec9b0" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>)}
           </div>
           <span className={`text-xs font-mono font-bold ${style.text} w-4 text-center flex-shrink-0`}>{style.label}</span>
-          <span className={`flex-1 text-sm truncate ${style.text}`}>{node.name}</span>
+          <span className="flex-1 text-sm truncate" style={{ color: '#e0e0e0' }}>{node.name}</span>
         </div>
       );
     }

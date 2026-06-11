@@ -207,13 +207,11 @@ function CommitBar({ hasStaged, onCommit, isCommitting = false, stagedCount = 0 
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={hasStaged ? i18n.commitDialog.messagePlaceholder : '先暂存文件才能提交...'}
-            disabled={!hasStaged}
+            placeholder={hasStaged ? i18n.commitDialog.messagePlaceholder : '输入提交信息... (需先暂存文件)'}
             className={`
               w-full bg-[#1e1e1e] border border-[#3c3c3c] rounded px-3 py-2 text-sm text-white
               placeholder:text-gray-500 resize-none outline-none
               focus:border-primary-500 focus:ring-1 focus:ring-primary-500
-              disabled:opacity-50 disabled:cursor-not-allowed
             `}
             rows={2}
             style={{ minHeight: '60px', maxHeight: '120px' }}

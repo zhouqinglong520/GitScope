@@ -403,9 +403,6 @@ function MainLayout() {
         {/* 提交图 */}
         <div className="flex-1 overflow-hidden">
           <CommitGraph
-            commits={filteredCommits}
-            branches={branches}
-            currentBranch={currentRepo?.currentBranch || undefined}
             selectedCommit={selectedCommit}
             onCommitSelect={handleCommitSelect}
             onCreateBranch={handleCreateBranch}
@@ -415,7 +412,6 @@ function MainLayout() {
             onCherryPick={handleCherryPick}
             onRevert={handleRevert}
             onSavePatch={handleSavePatch}
-            onInteractiveRebase={handleInteractiveRebase}
           />
         </div>
       </div>
@@ -515,6 +511,7 @@ function MainLayout() {
                 <DiffView
                   commitOid={selectedCommit}
                   filePath={selectedFile}
+                  onRefresh={refresh}
                 />
               ) : (
                 <div className="h-full flex items-center justify-center" style={{ color: 'var(--text-muted)' }}>

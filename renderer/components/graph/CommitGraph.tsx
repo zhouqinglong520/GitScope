@@ -446,13 +446,15 @@ interface CommitGraphProps {
   onCherryPick?: (oid: string) => void;
   onRevert?: (oid: string) => void;
   onSavePatch?: (oid: string) => void;
+  selectedCommit?: string | null;
 }
 
 function CommitGraph({
   onCommitSelect, onCheckout, onCreateBranch, onCreateTag,
-  onReset, onCherryPick, onRevert, onSavePatch,
+  onReset, onCherryPick, onRevert, onSavePatch, selectedCommit: propSelectedCommit,
 }: CommitGraphProps) {
-  const { commits, branches, selectedCommit } = useRepoStore();
+  const { commits, branches } = useRepoStore();
+  const selectedCommit = propSelectedCommit ?? null;
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
@@ -686,10 +688,11 @@ function CommitGraph({
       {/* 表头 */}
       <div className="px-3 py-1.5 border-b border-panel-border bg-[#1e1e1e] flex items-center text-xs text-gray-400 flex-shrink-0">
         <span style={{ width: graphWidth }} className="flex-shrink-0" />
-        <span className="flex-1">提交</span>
-        <span className="w-24 flex-shrink-0 text-right">作者</span>
-        <span className="w-20 flex-shrink-0 text-right">日期</span>
-        <div className="flex items-center gap-1 ml-2 pl-2 border-l border-[#3c3c3c]">
+        <span className="flex-1 min-w-0">提交</span>
+        <span style={{ width: 110 }} className="flex-shrink-0 text-center">作者</span>
+        <span style={{ width: 80 }} className="flex-shrink-0 text-right">日期</span>
+        <span style={{ width: 70 }} className="flex-shrink-0 text-right">HASH</span>
+        <div className="flex items-center gap-1 ml-2 pl-2 border-l border-[#3c3c3c] flex-shrink-0">
           <button
             className={`px-1.5 py-0.5 text-[10px] rounded ${highlightMode === 'all' ? 'text-[#00d4aa] bg-[#00d4aa22]' : 'text-gray-500 hover:text-gray-300 hover:bg-[#3c3c3c]'}`}
             onClick={() => setHighlightMode('all')} title="全部高亮"
@@ -774,22 +777,24 @@ function CommitGraph({
                       </div>
                     )}
 
-                    <span className="flex-1 text-sm text-gray-200 truncate mr-3">
+                    <span className="flex-1 min-w-0 text-sm text-gray-200 truncate mr-3">
                       {node.commit.message}
                     </span>
 
-                    <div className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-medium flex-shrink-0 mr-2"
-                      style={{ backgroundColor: getAvatarColor(node.commit.authorEmail), boxShadow: '0 1px 3px rgba(0, 0, 0, 0.3)' }}
-                    >
-                      {node.commit.authorName.charAt(0).toUpperCase()}
+                    <div style={{ width: 110 }} className="flex items-center gap-1.5 flex-shrink-0 mr-3">
+                      <div className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-medium flex-shrink-0"
+                        style={{ backgroundColor: getAvatarColor(node.commit.authorEmail), boxShadow: '0 1px 3px rgba(0, 0, 0, 0.3)' }}>
+                        {node.commit.authorName.charAt(0).toUpperCase()}
+                      </div>
+                      <span className="text-xs text-gray-400 truncate flex-1">{node.commit.authorName}</span>
                     </div>
 
-                    <span className="text-xs text-gray-400 truncate flex-shrink-0 mr-3" style={{ maxWidth: 90 }}>
-                      {node.commit.authorName}
+                    <span className="text-xs text-gray-500 flex-shrink-0 text-right" style={{ width: 80 }}>
+                      {formatRelativeTime(node.commit.authorTimestamp)}
                     </span>
 
-                    <span className="text-xs text-gray-500 flex-shrink-0">
-                      {formatRelativeTime(node.commit.authorTimestamp)}
+                    <span className="text-xs font-mono text-gray-500 flex-shrink-0 text-right" style={{ width: 70 }}>
+                      {node.commit.shortOid}
                     </span>
                   </>
                 )}
