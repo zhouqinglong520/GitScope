@@ -8,8 +8,8 @@ directories:
 
 publish:
   provider: github
-  repo: gitgui
-  owner: majie-team
+  repo: GitScope
+  owner: zhouqinglong520
   releaseType: release
 
 files:
