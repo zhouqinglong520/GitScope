@@ -6,6 +6,12 @@ directories:
   output: release
   buildResources: resources
 
+publish:
+  provider: github
+  repo: gitgui
+  owner: majie-team
+  releaseType: release
+
 files:
   - dist/**/*
   - package.json
