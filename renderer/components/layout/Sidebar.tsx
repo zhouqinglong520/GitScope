@@ -146,6 +146,16 @@ function ChangesSection() {
     }
   };
 
+  // 构建部分暂存文件集合（同时出现在 staged 和 unstaged 中）
+  const stagedPaths = new Set(staged.map(f => f.path));
+  const unstagedPaths = new Set(unstaged.map(f => f.path));
+  const partialPaths = new Set([...stagedPaths].filter(p => unstagedPaths.has(p)));
+
+  // 分类显示
+  const fullyStaged = staged.filter(f => !unstagedPaths.has(f.path));
+  const partiallyStaged = staged.filter(f => unstagedPaths.has(f.path));
+  const pureUnstaged = unstaged.filter(f => !stagedPaths.has(f.path));
+
   return (
     <div style={{ paddingLeft: 12, paddingRight: 8 }}>
       {/* 操作按钮行 */}
@@ -162,19 +172,37 @@ function ChangesSection() {
         )}
       </div>
 
-      {/* 已暂存文件 */}
-      {staged.length > 0 && (
+      {/* 已暂存文件（完全暂存） */}
+      {fullyStaged.length > 0 && (
         <>
           <div style={{ fontSize: 10, color: 'var(--text-faint)', fontWeight: 600, padding: '4px 0 2px', textTransform: 'uppercase' }}>已暂存</div>
-          {staged.map((f) => <ChangeFileRow key={'s-' + f.path} file={f} isStaged={true} onToggle={() => unstageFile(f.path)} onClick={() => handleFileSelect(f.path)} onDiscard={() => handleDiscard(f)} getStatusBadge={getStatusBadge} refresh={refresh} />)}
+          {fullyStaged.map((f) => <ChangeFileRow key={'s-' + f.path} file={f} isStaged={true} onToggle={() => unstageFile(f.path)} onClick={() => handleFileSelect(f.path)} onDiscard={() => handleDiscard(f)} getStatusBadge={getStatusBadge} refresh={refresh} />)}
         </>
       )}
 
-      {/* 未暂存文件 */}
-      {unstaged.length > 0 && (
+      {/* 部分暂存文件 */}
+      {partiallyStaged.length > 0 && (
+        <>
+          <div style={{ fontSize: 10, color: '#dcdcaa', fontWeight: 600, padding: '4px 0 2px', textTransform: 'uppercase' }}>部分暂存</div>
+          {partiallyStaged.map((f) => <ChangeFileRow key={'p-' + f.path} file={f} isStaged={true} isPartial={true} onToggle={() => unstageFile(f.path)} onClick={() => handleFileSelect(f.path)} onDiscard={() => handleDiscard(f)} getStatusBadge={getStatusBadge} refresh={refresh} />)}
+        </>
+      )}
+
+      {/* 未暂存文件（排除部分暂存的） */}
+      {pureUnstaged.length > 0 && (
         <>
           <div style={{ fontSize: 10, color: 'var(--text-faint)', fontWeight: 600, padding: '4px 0 2px', textTransform: 'uppercase' }}>未暂存</div>
-          {unstaged.map((f) => <ChangeFileRow key={'u-' + f.path} file={f} isStaged={false} onToggle={() => stageFile(f.path)} onClick={() => handleFileSelect(f.path)} onDiscard={() => handleDiscard(f)} getStatusBadge={getStatusBadge} refresh={refresh} />)}
+          {pureUnstaged.map((f) => <ChangeFileRow key={'u-' + f.path} file={f} isStaged={false} onToggle={() => stageFile(f.path)} onClick={() => handleFileSelect(f.path)} onDiscard={() => handleDiscard(f)} getStatusBadge={getStatusBadge} refresh={refresh} />)}
+        </>
+      )}
+
+      {/* 部分暂存文件的未暂存部分（合并显示） */}
+      {partiallyStaged.length > 0 && (
+        <>
+          {partiallyStaged.map((f) => {
+            const unstagedFile = unstaged.find(uf => uf.path === f.path);
+            return unstagedFile ? <ChangeFileRow key={'pu-' + f.path} file={unstagedFile} isStaged={false} isPartial={true} onToggle={() => stageFile(f.path)} onClick={() => handleFileSelect(f.path)} onDiscard={() => handleDiscard(unstagedFile)} getStatusBadge={getStatusBadge} refresh={refresh} /> : null;
+          })}
         </>
       )}
 
@@ -208,7 +236,7 @@ function ChangesSection() {
   );
 }
 
-function ChangeFileRow({ file, isStaged, onToggle, onClick, onDiscard, getStatusBadge, refresh, isUntracked }: {
+function ChangeFileRow({ file, isStaged, onToggle, onClick, onDiscard, getStatusBadge, refresh, isUntracked, isPartial }: {
   file: GitFileStatus;
   isStaged: boolean;
   onToggle: () => void;
@@ -217,6 +245,7 @@ function ChangeFileRow({ file, isStaged, onToggle, onClick, onDiscard, getStatus
   getStatusBadge: (s: string) => { label: string; color: string };
   refresh: () => Promise<void>;
   isUntracked?: boolean;
+  isPartial?: boolean;
 }) {
   const badge = isUntracked ? { label: '?', color: '#808080' } : getStatusBadge(file.status);
   const { showContextMenu, ContextMenuWrapper } = useContextMenu(() => {
@@ -236,6 +265,7 @@ function ChangeFileRow({ file, isStaged, onToggle, onClick, onDiscard, getStatus
         </div>
         <span style={{ fontSize: 10, fontWeight: 700, color: badge.color, width: 12, textAlign: 'center', flexShrink: 0 }}>{badge.label}</span>
         <span className="truncate" style={{ fontSize: 11, color: 'var(--text-primary)', flex: 1, minWidth: 0 }}>{file.path}</span>
+        {isPartial && <span style={{ fontSize: 8, color: '#dcdcaa', flexShrink: 0, padding: '0 2px' }} title="部分暂存">◐</span>}
       </div>
       {ContextMenuWrapper}
     </>

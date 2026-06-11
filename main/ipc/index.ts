@@ -116,13 +116,10 @@ function registerIpcHandlers() {
   });
 
   /** 提交 */
-  ipcMain.handle('git:commit', async (_, message: string, options?: { amend?: boolean; author?: { name: string; email: string } }) => {
+  ipcMain.handle('git:commit', async (_, message: string, options?: { amend?: boolean; sign?: boolean; author?: { name: string; email: string } }) => {
     if (options?.amend) {
-      // amend 提交
-      return await gitService.commit({
-        message,
-        author: options.author,
-      });
+      // amend 提交：使用 CLI --amend
+      return await gitService.commitAmend(message, options.author);
     }
     return await gitService.commit({ message, author: options?.author });
   });

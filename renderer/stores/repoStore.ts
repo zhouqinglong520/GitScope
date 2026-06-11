@@ -206,6 +206,23 @@ const initialState = {
   isLoadingMore: false,
 };
 
+/** 每个仓库的数据缓存（切换 Tab 时保留） */
+interface RepoCacheEntry {
+  commits: GitCommit[];
+  filteredCommits: GitCommit[];
+  branches: GitBranch[];
+  currentBranch: GitBranch | null;
+  status: GitStatus | null;
+  tags: GitTag[];
+  stashes: { id: string; message: string; date?: string }[];
+  authorStats: AuthorStats[];
+  ahead: number;
+  behind: number;
+  hasMoreCommits: boolean;
+  timestamp: number; // 缓存时间戳
+}
+const repoDataCache = new Map<string, RepoCacheEntry>();
+
 /**
  * 仓库状态管理 Hook
  */
@@ -214,6 +231,26 @@ export const useRepoStore = create<RepoState>((set, get) => ({
 
   // 多仓库 Tab Actions
   setActiveRepo: (repoId) => {
+    const currentState = get();
+
+    // 保存当前仓库数据到缓存
+    if (currentState.activeRepoId && currentState.currentRepo) {
+      repoDataCache.set(currentState.activeRepoId, {
+        commits: currentState.commits,
+        filteredCommits: currentState.filteredCommits,
+        branches: currentState.branches,
+        currentBranch: currentState.currentBranch,
+        status: currentState.status,
+        tags: currentState.tags,
+        stashes: currentState.stashes,
+        authorStats: currentState.authorStats,
+        ahead: currentState.ahead,
+        behind: currentState.behind,
+        hasMoreCommits: currentState.hasMoreCommits,
+        timestamp: Date.now(),
+      });
+    }
+
     set((state) => ({
       repos: state.repos.map((r) => ({
         ...r,
@@ -225,7 +262,42 @@ export const useRepoStore = create<RepoState>((set, get) => ({
     // 加载该仓库的数据
     const repo = get().repos.find((r) => r.id === repoId);
     if (repo) {
-      get().loadRepoData(repo.path);
+      // 先从缓存恢复（立即显示），然后后台刷新
+      const cached = repoDataCache.get(repoId);
+      if (cached) {
+        const newCurrentBranch = cached.currentBranch;
+        set({
+          commits: cached.commits,
+          filteredCommits: cached.filteredCommits,
+          branches: cached.branches,
+          currentBranch: cached.currentBranch,
+          status: cached.status,
+          tags: cached.tags,
+          stashes: cached.stashes,
+          authorStats: cached.authorStats,
+          ahead: cached.ahead,
+          behind: cached.behind,
+          hasMoreCommits: cached.hasMoreCommits,
+          currentRepo: {
+            path: repo.path,
+            name: repo.name,
+            currentBranch: newCurrentBranch?.name || null,
+            isGitRepo: true,
+            remotes: [],
+          },
+          // 清除前一个仓库的选中状态
+          selectedCommitDetail: null,
+          showCommitDetail: false,
+          fileHistory: null,
+          showFileHistory: false,
+        });
+      }
+      // 后台刷新获取最新数据（先切换后端仓库指向，再加载数据）
+      window.electronAPI.git.openRepository(repo.path).then(() => {
+        get().loadRepoData(repo.path);
+      }).catch((err: unknown) => {
+        console.error('[Store] 切换仓库失败:', err);
+      });
     }
   },
 
@@ -244,6 +316,9 @@ export const useRepoStore = create<RepoState>((set, get) => ({
   },
 
   closeRepo: (repoId) => {
+    // 清除该仓库的缓存
+    repoDataCache.delete(repoId);
+
     set((state) => {
       const index = state.repos.findIndex((r) => r.id === repoId);
       const newRepos = state.repos.filter((r) => r.id !== repoId);
@@ -485,22 +560,44 @@ export const useRepoStore = create<RepoState>((set, get) => ({
 
       const newCurrentBranch = branches.find((b) => b.current) || null;
 
-      set((state) => ({
-        branches,
-        commits,
-        filteredCommits: commits,
-        status,
-        tags,
-        stashes,
-        authorStats,
-        currentBranch: newCurrentBranch,
-        ahead: aheadBehind.ahead,
-        behind: aheadBehind.behind,
-        hasMoreCommits: commits.length >= 100,
-        repos: state.repos.map((repo) =>
-          repo.path === path ? { ...repo, currentBranch: newCurrentBranch?.name || null } : repo
-        ),
-      }));
+      set((state) => {
+        const newState = {
+          branches,
+          commits,
+          filteredCommits: commits,
+          status,
+          tags,
+          stashes,
+          authorStats,
+          currentBranch: newCurrentBranch,
+          ahead: aheadBehind.ahead,
+          behind: aheadBehind.behind,
+          hasMoreCommits: commits.length >= 100,
+          repos: state.repos.map((repo) =>
+            repo.path === path ? { ...repo, currentBranch: newCurrentBranch?.name || null } : repo
+          ),
+        };
+
+        // 更新当前仓库的缓存
+        if (state.activeRepoId) {
+          repoDataCache.set(state.activeRepoId, {
+            commits: newState.commits,
+            filteredCommits: newState.filteredCommits,
+            branches: newState.branches,
+            currentBranch: newState.currentBranch,
+            status: newState.status,
+            tags: newState.tags,
+            stashes: newState.stashes,
+            authorStats: newState.authorStats,
+            ahead: newState.ahead,
+            behind: newState.behind,
+            hasMoreCommits: newState.hasMoreCommits,
+            timestamp: Date.now(),
+          });
+        }
+
+        return newState;
+      });
     } catch (error) {
       console.error('加载仓库数据失败:', error);
       set({ error: `加载失败: ${error}` });

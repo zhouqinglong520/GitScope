@@ -807,6 +807,25 @@ class GitService {
     }
   }
 
+  /** Amend 提交（修改上一次提交） */
+  async commitAmend(message?: string, author?: { name: string; email: string }): Promise<string> {
+    if (!this.dir) throw new Error('仓库未打开');
+
+    const args = ['commit', '--amend'];
+    if (message) {
+      args.push('-m', message);
+    } else {
+      args.push('--no-edit');
+    }
+    if (author) {
+      args.push('--author', `${author.name} <${author.email}>`);
+    }
+    await this.gitCliExec(args);
+    this.invalidateCache(['log', 'status', 'branches', 'aheadBehind']);
+    const { stdout } = await execFileAsync('git', ['rev-parse', 'HEAD'], { cwd: this.dir });
+    return stdout.trim();
+  }
+
   /**
    * 克隆仓库
    */
