@@ -653,18 +653,54 @@ function DiffView({ commitOid, filePath, isStaged, onRefresh, onStageFile, onUns
     return getLanguageFromPath(filePath || diff[0]?.newPath || diff[0]?.oldPath);
   }, [filePath, diff]);
 
+  // ===== Compute per-file stats =====
+  const fileStats = useMemo(() => {
+    const stats = new Map<string, { additions: number; deletions: number; hunks: number }>();
+    diff.forEach(fd => {
+      let add = 0, del = 0;
+      fd.hunks.forEach(h => {
+        h.lines.forEach(l => {
+          if (l.type === 'add') add++;
+          else if (l.type === 'delete') del++;
+        });
+      });
+      const key: string = (fd.newPath ?? fd.oldPath) ?? '';
+      stats.set(key, { additions: add, deletions: del, hunks: fd.hunks.length });
+    });
+    return stats;
+  }, [diff]);
+
   // ===== Unified 视图渲染 =====
   
   const renderUnifiedView = () => {
     let globalLineIndex = 0;
     
     return (
-      <div className="font-mono text-sm">
-        {diff.map((fileDiff, fileIndex) => (
+      <div style={{ fontFamily: 'ui-monospace, "Cascadia Code", "SF Mono", Menlo, Consolas, monospace', fontSize: 12 }}>
+        {diff.map((fileDiff, fileIndex) => {
+          const fp: string = (fileDiff.newPath ?? fileDiff.oldPath) ?? '';
+          const fstat = fileStats.get(fp);
+          const changeType = fileDiff.newPath === '/dev/null' ? 'D' : fileDiff.oldPath === '/dev/null' ? 'A' : 'M';
+          const changeColor = changeType === 'D' ? '#e06c75' : changeType === 'A' ? '#4ec9b0' : '#e5c07b';
+          return (
           <div key={fileIndex}>
-            {/* 文件头 */}
-            <div className="bg-[#2d2d30] text-gray-300 px-4 py-2 text-xs border-b border-[#3c3c3c] sticky top-0 z-10">
-              <span className="text-blue-400">{fileDiff.newPath || fileDiff.oldPath}</span>
+            {/* File header — SourceGit-style */}
+            <div style={{
+              background: '#252526', color: '#e0e0e0', padding: '6px 12px',
+              borderBottom: '1px solid #3c3c3c', position: 'sticky', top: 0, zIndex: 10,
+              display: 'flex', alignItems: 'center', gap: 8,
+            }}>
+              <span style={{ fontSize: 10, fontWeight: 700, color: changeColor, background: `${changeColor}22`, padding: '1px 6px', borderRadius: 3, fontFamily: 'monospace' }}>
+                {changeType}
+              </span>
+              <span style={{ fontSize: 12, color: '#9cdcfe', fontFamily: 'monospace' }}>{fp}</span>
+              {fstat && (
+                <span style={{ marginLeft: 'auto', fontSize: 10, display: 'flex', gap: 8 }}>
+                  <span style={{ color: '#4ec9b0' }}>+{fstat.additions}</span>
+                  <span style={{ color: '#e06c75' }}>-{fstat.deletions}</span>
+                  <span style={{ color: '#808080' }}>{fstat.hunks} hunk{fstat.hunks > 1 ? 's' : ''}</span>
+                </span>
+              )}
             </div>
             
             {fileDiff.hunks.map((hunk, hunkIndex) => {
@@ -681,18 +717,19 @@ function DiffView({ commitOid, filePath, isStaged, onRefresh, onStageFile, onUns
                   content.push(
                     <div
                       key={`ctx-${gi}`}
-                      className={`flex h-5 cursor-pointer hover:bg-[#2a2d2e] ${isSelected ? 'bg-blue-900/30' : ''}`}
+                      style={{ display: 'flex', height: 20, cursor: 'pointer', background: isSelected ? 'rgba(9,71,113,0.4)' : 'transparent' }}
+                      className="hover:bg-[#2a2d2e]"
                       onClick={(e) => handleLineClick(hunkStartLine + lineIdx, e)}
                     >
-                      <span className="w-14 text-right pr-2 text-gray-600 select-none border-r border-[#3c3c3c]">{line.oldLineNumber || ''}</span>
-                      <span className="w-14 text-right pr-2 text-gray-600 select-none border-r border-[#3c3c3c]">{line.newLineNumber || ''}</span>
-                      <span className="w-5 text-center select-none text-gray-600"> </span>
-                      <span className="flex-1 px-2 text-gray-300">{renderLineContent(line)}</span>
+                      <span style={{ width: 3, flexShrink: 0 }} />
+                      <span style={{ width: 50, textAlign: 'right', paddingRight: 8, color: '#606060', userSelect: 'none', borderRight: '1px solid #3c3c3c', fontSize: 11, lineHeight: '20px' }}>{line.oldLineNumber || ''}</span>
+                      <span style={{ width: 50, textAlign: 'right', paddingRight: 8, color: '#606060', userSelect: 'none', borderRight: '1px solid #3c3c3c', fontSize: 11, lineHeight: '20px' }}>{line.newLineNumber || ''}</span>
+                      <span style={{ width: 20, textAlign: 'center', userSelect: 'none', color: '#606060', lineHeight: '20px' }}> </span>
+                      <span style={{ flex: 1, paddingLeft: 8, color: '#d4d4d4', whiteSpace: 'pre', lineHeight: '20px' }}>{renderLineContent(line)}</span>
                     </div>
                   );
                   lineIdx++;
                 } else if (group.type === 'modify') {
-                  // 词级 diff 配对渲染
                   const delLines = group.deleteLines;
                   const addLines = group.addLines;
                   const pairCount = Math.max(delLines.length, addLines.length);
@@ -701,7 +738,6 @@ function DiffView({ commitOid, filePath, isStaged, onRefresh, onStageFile, onUns
                     const delLine = p < delLines.length ? delLines[p] : null;
                     const addLine = p < addLines.length ? addLines[p] : null;
                     
-                    // 计算词级 diff
                     let wordDiff: { oldSegments: WordDiffSegment[]; newSegments: WordDiffSegment[] } | null = null;
                     if (delLine && addLine) {
                       wordDiff = diffWords(delLine.content, addLine.content);
@@ -712,13 +748,15 @@ function DiffView({ commitOid, filePath, isStaged, onRefresh, onStageFile, onUns
                       content.push(
                         <div
                           key={`del-${gi}-${p}`}
-                          className={`flex h-5 bg-red-900/20 cursor-pointer hover:bg-red-900/30 ${isSelected ? 'bg-blue-900/30' : ''}`}
+                          style={{ display: 'flex', height: 20, cursor: 'pointer', background: isSelected ? 'rgba(9,71,113,0.4)' : 'rgba(248,81,73,0.1)' }}
+                          className="hover:bg-red-900/20"
                           onClick={(e) => handleLineClick(hunkStartLine + lineIdx, e)}
                         >
-                          <span className="w-14 text-right pr-2 text-gray-600 select-none border-r border-[#3c3c3c]">{delLine.oldLineNumber || ''}</span>
-                          <span className="w-14 text-right pr-2 text-gray-600 select-none border-r border-[#3c3c3c]"></span>
-                          <span className="w-5 text-center select-none text-red-400 font-bold">-</span>
-                          <span className="flex-1 px-2 text-red-400">
+                          <span style={{ width: 3, flexShrink: 0, background: '#e06c75' }} />
+                          <span style={{ width: 50, textAlign: 'right', paddingRight: 8, color: '#808080', userSelect: 'none', borderRight: '1px solid #3c3c3c', fontSize: 11, lineHeight: '20px' }}>{delLine.oldLineNumber || ''}</span>
+                          <span style={{ width: 50, textAlign: 'right', paddingRight: 8, color: '#808080', userSelect: 'none', borderRight: '1px solid #3c3c3c', fontSize: 11, lineHeight: '20px' }}></span>
+                          <span style={{ width: 20, textAlign: 'center', userSelect: 'none', color: '#f48771', fontWeight: 700, lineHeight: '20px' }}>-</span>
+                          <span style={{ flex: 1, paddingLeft: 8, color: '#f48771', whiteSpace: 'pre', lineHeight: '20px' }}>
                             {wordDiff ? renderWordDiff(wordDiff.oldSegments, 'delete') : renderWhitespace(delLine.content)}
                           </span>
                         </div>
@@ -731,13 +769,15 @@ function DiffView({ commitOid, filePath, isStaged, onRefresh, onStageFile, onUns
                       content.push(
                         <div
                           key={`add-${gi}-${p}`}
-                          className={`flex h-5 bg-green-900/20 cursor-pointer hover:bg-green-900/30 ${isSelected ? 'bg-blue-900/30' : ''}`}
+                          style={{ display: 'flex', height: 20, cursor: 'pointer', background: isSelected ? 'rgba(9,71,113,0.4)' : 'rgba(78,201,176,0.08)' }}
+                          className="hover:bg-green-900/20"
                           onClick={(e) => handleLineClick(hunkStartLine + lineIdx, e)}
                         >
-                          <span className="w-14 text-right pr-2 text-gray-600 select-none border-r border-[#3c3c3c]"></span>
-                          <span className="w-14 text-right pr-2 text-gray-600 select-none border-r border-[#3c3c3c]">{addLine.newLineNumber || ''}</span>
-                          <span className="w-5 text-center select-none text-green-400 font-bold">+</span>
-                          <span className="flex-1 px-2 text-green-400">
+                          <span style={{ width: 3, flexShrink: 0, background: '#4ec9b0' }} />
+                          <span style={{ width: 50, textAlign: 'right', paddingRight: 8, color: '#808080', userSelect: 'none', borderRight: '1px solid #3c3c3c', fontSize: 11, lineHeight: '20px' }}></span>
+                          <span style={{ width: 50, textAlign: 'right', paddingRight: 8, color: '#808080', userSelect: 'none', borderRight: '1px solid #3c3c3c', fontSize: 11, lineHeight: '20px' }}>{addLine.newLineNumber || ''}</span>
+                          <span style={{ width: 20, textAlign: 'center', userSelect: 'none', color: '#4ec9b0', fontWeight: 700, lineHeight: '20px' }}>+</span>
+                          <span style={{ flex: 1, paddingLeft: 8, color: '#4ec9b0', whiteSpace: 'pre', lineHeight: '20px' }}>
                             {wordDiff ? renderWordDiff(wordDiff.newSegments, 'add') : renderWhitespace(addLine.content)}
                           </span>
                         </div>
@@ -751,13 +791,15 @@ function DiffView({ commitOid, filePath, isStaged, onRefresh, onStageFile, onUns
                     content.push(
                       <div
                         key={`delonly-${gi}-${di}`}
-                        className={`flex h-5 bg-red-900/20 cursor-pointer hover:bg-red-900/30 ${isSelected ? 'bg-blue-900/30' : ''}`}
+                        style={{ display: 'flex', height: 20, cursor: 'pointer', background: isSelected ? 'rgba(9,71,113,0.4)' : 'rgba(248,81,73,0.1)' }}
+                        className="hover:bg-red-900/20"
                         onClick={(e) => handleLineClick(hunkStartLine + lineIdx, e)}
                       >
-                        <span className="w-14 text-right pr-2 text-gray-600 select-none border-r border-[#3c3c3c]">{line.oldLineNumber || ''}</span>
-                        <span className="w-14 text-right pr-2 text-gray-600 select-none border-r border-[#3c3c3c]"></span>
-                        <span className="w-5 text-center select-none text-red-400 font-bold">-</span>
-                        <span className="flex-1 px-2 text-red-400">{renderWhitespace(line.content)}</span>
+                        <span style={{ width: 3, flexShrink: 0, background: '#e06c75' }} />
+                        <span style={{ width: 50, textAlign: 'right', paddingRight: 8, color: '#808080', userSelect: 'none', borderRight: '1px solid #3c3c3c', fontSize: 11, lineHeight: '20px' }}>{line.oldLineNumber || ''}</span>
+                        <span style={{ width: 50, textAlign: 'right', paddingRight: 8, color: '#808080', userSelect: 'none', borderRight: '1px solid #3c3c3c', fontSize: 11, lineHeight: '20px' }}></span>
+                        <span style={{ width: 20, textAlign: 'center', userSelect: 'none', color: '#f48771', fontWeight: 700, lineHeight: '20px' }}>-</span>
+                        <span style={{ flex: 1, paddingLeft: 8, color: '#f48771', whiteSpace: 'pre', lineHeight: '20px' }}>{renderWhitespace(line.content)}</span>
                       </div>
                     );
                     lineIdx++;
@@ -768,13 +810,15 @@ function DiffView({ commitOid, filePath, isStaged, onRefresh, onStageFile, onUns
                     content.push(
                       <div
                         key={`addonly-${gi}-${ai}`}
-                        className={`flex h-5 bg-green-900/20 cursor-pointer hover:bg-green-900/30 ${isSelected ? 'bg-blue-900/30' : ''}`}
+                        style={{ display: 'flex', height: 20, cursor: 'pointer', background: isSelected ? 'rgba(9,71,113,0.4)' : 'rgba(78,201,176,0.08)' }}
+                        className="hover:bg-green-900/20"
                         onClick={(e) => handleLineClick(hunkStartLine + lineIdx, e)}
                       >
-                        <span className="w-14 text-right pr-2 text-gray-600 select-none border-r border-[#3c3c3c]"></span>
-                        <span className="w-14 text-right pr-2 text-gray-600 select-none border-r border-[#3c3c3c]">{line.newLineNumber || ''}</span>
-                        <span className="w-5 text-center select-none text-green-400 font-bold">+</span>
-                        <span className="flex-1 px-2 text-green-400">{renderWhitespace(line.content)}</span>
+                        <span style={{ width: 3, flexShrink: 0, background: '#4ec9b0' }} />
+                        <span style={{ width: 50, textAlign: 'right', paddingRight: 8, color: '#808080', userSelect: 'none', borderRight: '1px solid #3c3c3c', fontSize: 11, lineHeight: '20px' }}></span>
+                        <span style={{ width: 50, textAlign: 'right', paddingRight: 8, color: '#808080', userSelect: 'none', borderRight: '1px solid #3c3c3c', fontSize: 11, lineHeight: '20px' }}>{line.newLineNumber || ''}</span>
+                        <span style={{ width: 20, textAlign: 'center', userSelect: 'none', color: '#4ec9b0', fontWeight: 700, lineHeight: '20px' }}>+</span>
+                        <span style={{ flex: 1, paddingLeft: 8, color: '#4ec9b0', whiteSpace: 'pre', lineHeight: '20px' }}>{renderWhitespace(line.content)}</span>
                       </div>
                     );
                     lineIdx++;
@@ -790,21 +834,28 @@ function DiffView({ commitOid, filePath, isStaged, onRefresh, onStageFile, onUns
                 <div key={`${fileIndex}-${hunkIndex}`} ref={(el) => {
                   if (el) hunkRefs.current.set(`${fileIndex}-${hunkIndex}`, el);
                 }}>
-                  {/* Hunk header */}
+                  {/* Hunk header — SourceGit style */}
                   <div
-                    className="bg-blue-900/20 text-blue-400 px-2 py-1 text-[10px] cursor-pointer hover:bg-blue-900/30 flex items-center gap-2"
+                    style={{
+                      background: 'rgba(59,130,246,0.08)', color: '#569cd6',
+                      padding: '3px 12px', fontSize: 10, cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', gap: 8,
+                      borderBottom: '1px solid rgba(59,130,246,0.15)',
+                    }}
+                    className="hover:bg-blue-900/15"
                     onClick={() => selectHunk(hunk.lines, hunkStartLine)}
-                    title="点击选中整个 hunk"
+                    title="Click to select entire hunk"
                   >
-                    <span>@@ -{hunk.oldStart},{hunk.oldLines} +{hunk.newStart},{hunk.newLines} @@</span>
-                    <span className="text-gray-500 text-[9px]">点击选中</span>
+                    <span style={{ fontFamily: 'monospace', letterSpacing: 0.5 }}>@@ -{hunk.oldStart},{hunk.oldLines} +{hunk.newStart},{hunk.newLines} @@</span>
+                    <span style={{ marginLeft: 'auto', color: '#606060', fontSize: 9 }}>select</span>
                   </div>
                   {hunkContent}
                 </div>
               );
             })}
           </div>
-        ))}
+          );
+        })}
       </div>
     );
   };
