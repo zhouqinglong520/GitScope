@@ -503,8 +503,13 @@ function MainLayout() {
 
           {/* 右：Diff 对比 */}
           <div className="flex-1 flex flex-col overflow-hidden">
-            <div className="panel-header">
-              {t('detail.diff')}
+            <div className="panel-header flex items-center gap-2">
+              <span>{t('detail.diff')}</span>
+              {selectedFile && (
+                <span style={{ fontSize: 11, color: '#9cdcfe', fontFamily: 'monospace', fontWeight: 400 }}>
+                  — {selectedFile.split('/').pop()}
+                </span>
+              )}
             </div>
             <div className="flex-1 overflow-hidden">
               {selectedFile || selectedCommit ? (
