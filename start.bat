@@ -46,16 +46,22 @@ if %errorlevel% neq 0 (
 )
 echo [OK] 渲染进程构建完成
 
-REM 构建主进程
+REM 构建主进程和预加载脚本
 echo.
-echo [3/3] 构建主进程 ^(TypeScript^)...
+echo [3/3] 构建主进程和预加载脚本 ^(TypeScript^)^...
+call npx tsc -p tsconfig.preload.json
+if %errorlevel% neq 0 (
+    echo [错误] 预加载脚本构建失败
+    pause
+    exit /b 1
+)
 call npx tsc -p tsconfig.main.json
 if %errorlevel% neq 0 (
     echo [错误] 主进程构建失败
     pause
     exit /b 1
 )
-echo [OK] 主进程构建完成
+echo [OK] 主进程和预加载脚本构建完成
 
 REM 启动 Electron
 echo.

@@ -31,8 +31,9 @@ echo ""
 echo "🏗️  构建渲染进程 (Vite)..."
 npx vite build
 
-# 构建主进程
-echo "🏗️  构建主进程 (TypeScript)..."
+# 构建主进程和预加载脚本
+echo "🏗️  构建主进程和预加载脚本 (TypeScript)..."
+npx tsc -p tsconfig.preload.json
 npx tsc -p tsconfig.main.json
 
 echo ""
