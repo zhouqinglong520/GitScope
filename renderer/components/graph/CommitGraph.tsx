@@ -424,14 +424,31 @@ function getAvatarColor(email: string): string {
 }
 
 function formatRelativeTime(timestamp: number): string {
-  const now = Date.now() / 1000;
-  const diff = now - timestamp;
-  if (diff < 60) return '刚刚';
-  if (diff < 3600) return `${Math.floor(diff / 60)}分钟前`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}小时前`;
-  if (diff < 2592000) return `${Math.floor(diff / 86400)}天前`;
-  if (diff < 31536000) return `${Math.floor(diff / 2592000)}个月前`;
-  return `${Math.floor(diff / 31536000)}年前`;
+  const date = new Date(timestamp * 1000);
+  const now = new Date();
+  
+  const isToday = date.toDateString() === now.toDateString();
+  const isThisYear = date.getFullYear() === now.getFullYear();
+  
+  if (isToday) {
+    // 今天：显示具体时间（时分秒）
+    return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  } else if (isThisYear) {
+    // 今年：显示月日时分
+    return `${date.getMonth() + 1}月${date.getDate()}日 ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+  } else {
+    // 其他：显示完整日期时分
+    return `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+  }
+}
+
+// 计算对比度颜色，确保文字在背景色上可读
+function getContrastColor(hexColor: string): string {
+  const r = parseInt(hexColor.slice(1, 3), 16);
+  const g = parseInt(hexColor.slice(3, 5), 16);
+  const b = parseInt(hexColor.slice(5, 7), 16);
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance > 0.5 ? '#1e1e1e' : '#ffffff';
 }
 
 // ============================================================
@@ -705,15 +722,16 @@ function CommitGraph({
   }
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col bg-[#1e1e1e]">
       {/* 表头 */}
-      <div className="px-3 py-1.5 border-b border-panel-border flex items-center text-xs text-gray-400 flex-shrink-0" style={{ backgroundColor: '#1e1e1e' }}>
-        <span style={{ width: graphWidth }} className="flex-shrink-0" />
-        <span className="flex-1 min-w-0">提交</span>
-        <span style={{ width: 110 }} className="flex-shrink-0 text-center">作者</span>
-        <span style={{ width: 80 }} className="flex-shrink-0 text-right">日期</span>
-        <span style={{ width: 70 }} className="flex-shrink-0 text-right">HASH</span>
-        <div className="flex items-center gap-1 ml-2 pl-2 border-l border-[#3c3c3c] flex-shrink-0">
+      <div className="flex items-center text-xs text-gray-400 flex-shrink-0 border-b border-[#3c3c3c]" style={{ height: 26 }}>
+        <div className="flex-1 flex items-center" style={{ paddingLeft: graphWidth + 12 }}>
+          <span>提交</span>
+        </div>
+        <span style={{ width: 120 }} className="flex-shrink-0 text-center">作者</span>
+        <span style={{ width: 90 }} className="flex-shrink-0 text-right pr-2">日期</span>
+        <span style={{ width: 75 }} className="flex-shrink-0 text-right pr-4">HASH</span>
+        <div className="flex items-center gap-1 px-3 border-l border-[#3c3c3c] flex-shrink-0">
           <button
             className={`px-1.5 py-0.5 text-[10px] rounded ${highlightMode === 'all' ? 'text-[#00d4aa] bg-[#00d4aa22]' : 'text-gray-500 hover:text-gray-300 hover:bg-[#3c3c3c]'}`}
             onClick={() => setHighlightMode('all')} title="全部高亮"
@@ -728,97 +746,113 @@ function CommitGraph({
         </div>
       </div>
 
-      {/* 滚动区域 */}
-      <div ref={containerRef} className="flex-1 overflow-y-auto bg-[#1e1e1e]" onScroll={handleScroll}>
+      {/* 滚动区域 - Fork 风格完全合并布局 */}
+      <div ref={containerRef} className="flex-1 overflow-y-auto" onScroll={handleScroll}>
         <div style={{ height: totalHeight, position: 'relative' }}>
-          {/* Canvas 分支图 */}
-          <div style={{ position: 'absolute', left: 0, top: 0, width: graphWidth, height: totalHeight, pointerEvents: 'none' }}>
+          {/* Canvas 分支图 - 左侧固定宽度 */}
+          <div style={{ position: 'absolute', left: 0, top: 0, width: graphWidth, height: totalHeight, pointerEvents: 'none', zIndex: 1 }}>
             <canvas ref={canvasRef} style={{ display: 'block' }} />
           </div>
 
-          {/* 提交记录列表 */}
+          {/* 提交记录列表 - Fork 风格，每行根据实际分支宽度展示 */}
           {graphNodes.slice(firstVisibleRow, lastVisibleRow + 1).map((node) => {
-            const isSelected = selectedCommit === node.commit.oid;
             const isCollapsed = collapsedMergeOids.has(node.commit.oid);
             const isStash = node.commit.oid.startsWith('stash-') || node.commit.shortOid.startsWith('stash@');
+            
+            // 计算该行实际使用的最大 lane 宽度，但确保不超过分支图总宽度
+            // 找到同一行的所有节点，计算最大 lane
+            const nodesInSameRow = graphNodes.filter(n => n.row === node.row);
+            const maxLaneInRow = Math.max(...nodesInSameRow.map(n => n.lane));
+            // 使用最小宽度：当前行最大 lane 宽度 和 分支图宽度 中的较小值，确保内容可见不被遮挡
+            const contentStartX = Math.min((maxLaneInRow + 1) * LANE_WIDTH + 8, graphWidth + 8);
 
             return (
               <div
                 key={node.commit.oid}
                 onClick={() => !isStash && onCommitSelect?.(node.commit.oid)}
                 onContextMenu={(e) => !isStash && handleContextMenu(e, node.commit.oid)}
-                className={`absolute left-0 right-0 flex items-center px-3 cursor-pointer transition-colors ${
-                  isSelected ? 'bg-[#2d2d30]' : isStash ? 'bg-[#2a2518]' : 'hover:bg-[#2a2d2e]'
+                className={`absolute left-0 right-0 flex items-center cursor-pointer ${
+                  isStash ? 'bg-[#252525]' : ''
                 }`}
-                style={{ top: node.row * ROW_HEIGHT, height: ROW_HEIGHT, paddingLeft: graphWidth + 4, paddingRight: 12 }}
+                style={{ top: node.row * ROW_HEIGHT, height: ROW_HEIGHT, zIndex: 2 }}
               >
-                {isStash ? (
-                  <span className="font-mono text-xs flex-shrink-0 mr-3" style={{ minWidth: 55, color: '#e8c547' }}>
-                    {node.commit.shortOid}
-                  </span>
-                ) : (
-                  <>
-                    {/* 分支标签 */}
-                    {node.branchNames.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mr-2 flex-shrink-0">
-                        {node.branchNames.slice(0, 3).map((branchName) => {
-                          const isCurrent = branches.find(br => br.current && br.name === branchName);
-                          const isRemote = branchName.startsWith('origin/');
-                          const displayName = isRemote ? branchName.replace(/^origin\//, '') : branchName;
-                          return (
-                            <span key={branchName} className="text-xs px-1.5 py-0.5 rounded flex-shrink-0 max-w-[140px] truncate"
-                              title={branchName}
-                              style={{
-                                backgroundColor: isCurrent ? `${node.color}44` : `${node.color}22`,
-                                color: node.color,
-                                border: `1px solid ${isCurrent ? node.color : `${node.color}55`}`,
-                                fontWeight: isCurrent ? 600 : 400,
-                              }}
-                            >
-                              {isCurrent ? '● ' : isRemote ? '◯ ' : ''}{displayName}
-                            </span>
-                          );
-                        })}
-                        {node.branchNames.length > 3 && (
-                          <span className="text-xs text-gray-500 flex-shrink-0">+{node.branchNames.length - 3}</span>
-                        )}
-                      </div>
-                    )}
-
-                    {/* 折叠指示器 */}
-                    {node.isMergeCommit && (
-                      <button
-                        className={`flex-shrink-0 mr-2 w-4 h-4 flex items-center justify-center rounded text-[10px] ${
-                          isCollapsed ? 'bg-orange-500/20 text-orange-400' : 'bg-gray-700 text-gray-400'
-                        } hover:bg-[#4f4f4f]`}
-                        onClick={(e) => { e.stopPropagation(); toggleCollapse(node.commit.oid); }}
-                        title={isCollapsed ? `展开 (${node.collapsedCommitCount} 个提交)` : '折叠'}
-                      >
-                        {isCollapsed ? `+${node.collapsedCommitCount}` : '−'}
-                      </button>
-                    )}
-
-                    <span className="flex-1 min-w-0 text-sm text-gray-200 truncate mr-3">
-                      {node.commit.message}
-                    </span>
-
-                    <div style={{ width: 100 }} className="flex items-center gap-1.5 flex-shrink-0 mr-3">
-                      <div className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-medium flex-shrink-0"
-                        style={{ backgroundColor: getAvatarColor(node.commit.authorEmail), boxShadow: '0 1px 3px rgba(0, 0, 0, 0.3)' }}>
-                        {node.commit.authorName.charAt(0).toUpperCase()}
-                      </div>
-                      <span className="text-xs text-gray-400 truncate flex-1">{node.commit.authorName}</span>
+                {/* Fork 风格：提交记录从节点右侧开始 */}
+                <div className="flex-1 flex items-center min-w-0" style={{ paddingLeft: contentStartX, paddingRight: 8 }}>
+                  {/* 分支标签（Fork 风格：紧挨着节点） */}
+                  {!isStash && node.branchNames.length > 0 && (
+                    <div className="flex flex-wrap gap-1 flex-shrink-0">
+                      {node.branchNames.slice(0, 2).map((branchName) => {
+                        const isCurrent = branches.find(br => br.current && br.name === branchName);
+                        const isRemote = branchName.startsWith('origin/');
+                        const displayName = isRemote ? branchName.replace(/^origin\//, '') : branchName;
+                        return (
+                          <span key={branchName} 
+                            className="text-[11px] px-1.5 py-0.5 rounded-lg flex-shrink-0 max-w-[160px] truncate"
+                            title={branchName}
+                            style={{
+                              backgroundColor: `${node.color}33`,
+                              color: getContrastColor(node.color),
+                              border: `1px solid ${node.color}66`,
+                              fontWeight: isCurrent ? 600 : 400,
+                            }}
+                          >
+                            {isCurrent ? '●' : isRemote ? '○' : ''}{displayName}
+                          </span>
+                        );
+                      })}
+                      {node.branchNames.length > 2 && (
+                        <span className="text-[11px] text-gray-400 flex-shrink-0 bg-gray-700/40 px-1.5 py-0.5 rounded-lg">
+                          +{node.branchNames.length - 2}
+                        </span>
+                      )}
                     </div>
+                  )}
 
-                    <span className="text-xs text-gray-500 flex-shrink-0 text-right" style={{ width: 80 }}>
-                      {formatRelativeTime(node.commit.authorTimestamp)}
-                    </span>
-
-                    <span className="text-xs font-mono text-gray-500 flex-shrink-0 text-right" style={{ width: 70 }}>
+                  {isStash ? (
+                    <span className="font-mono text-xs flex-shrink-0" style={{ color: '#e8c547' }}>
                       {node.commit.shortOid}
                     </span>
-                  </>
-                )}
+                  ) : (
+                    <>
+                      {/* 提交消息 - Fork 风格，紧跟分支标签 */}
+                      <span className="flex-1 min-w-0 text-sm text-gray-200 truncate ml-2">
+                        {node.commit.message}
+                      </span>
+
+                      {/* 折叠指示器 - Fork 风格 */}
+                      {node.isMergeCommit && (
+                        <button
+                          className={`flex-shrink-0 w-4 h-4 flex items-center justify-center rounded text-[10px] ml-2 ${
+                            isCollapsed ? 'bg-orange-500/30 text-orange-400' : 'bg-gray-700/50 text-gray-400'
+                          } hover:bg-[#4a4a4a]`}
+                          onClick={(e) => { e.stopPropagation(); toggleCollapse(node.commit.oid); }}
+                          title={isCollapsed ? `展开 (${node.collapsedCommitCount} 个提交)` : '折叠'}
+                        >
+                          {isCollapsed ? `+${node.collapsedCommitCount}` : '−'}
+                        </button>
+                      )}
+
+                      {/* 作者 */}
+                      <div className="flex items-center gap-1 flex-shrink-0 ml-3" style={{ width: '100px' }}>
+                        <div className="w-3.5 h-3.5 rounded-full flex items-center justify-center text-[9px] font-medium flex-shrink-0"
+                          style={{ backgroundColor: getAvatarColor(node.commit.authorEmail) }}>
+                          {node.commit.authorName.charAt(0).toUpperCase()}
+                        </div>
+                        <span className="text-xs text-gray-300 truncate">{node.commit.authorName}</span>
+                      </div>
+
+                      {/* 日期 */}
+                      <span className="text-xs text-gray-400 flex-shrink-0 text-right ml-2" style={{ width: '80px' }}>
+                        {formatRelativeTime(node.commit.authorTimestamp)}
+                      </span>
+
+                      {/* HASH */}
+                      <span className="text-xs font-mono text-gray-400 flex-shrink-0 text-right ml-2" style={{ width: '70px' }}>
+                        {node.commit.shortOid}
+                      </span>
+                    </>
+                  )}
+                </div>
               </div>
             );
           })}

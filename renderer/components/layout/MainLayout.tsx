@@ -348,7 +348,7 @@ function MainLayout() {
     >
     <div className="flex-1 flex overflow-hidden" ref={containerRef}>
 
-      {/* ========== 中栏：提交图 + 提交列表 ========== */}
+      {/* ========== 中栏：提交图（分支和提交合并显示）========== */}
       <div
         className="flex flex-col overflow-hidden"
         style={{ width: `${centerRatio * 100}%` }}
@@ -361,44 +361,6 @@ function MainLayout() {
           onFilterChange={updateCommitFilter}
           onClearFilter={clearCommitFilter}
         />
-
-        {/* 分支信息栏 */}
-        <div className="h-8 flex items-center px-3" style={{ background: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-subtle)' }}>
-          <div className="flex items-center gap-1.5 overflow-x-auto">
-            {branches.map((branch) => (
-              <span
-                key={branch.name}
-                className={`badge ${branch.current ? 'badge-green' : 'badge-gray'} text-xs`}
-              >
-                {branch.name}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        {/* 提交图搜索/筛选栏 */}
-        <div className="h-9 flex items-center gap-2 px-3" style={{ background: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-subtle)' }}>
-          <input
-            className="input px-2 py-1 text-xs w-40"
-            placeholder={t('commitGraph.searchPlaceholder') || '搜索提交...'}
-            value={graphSearch}
-            onChange={e => { setGraphSearch(e.target.value); updateCommitFilter({ search: e.target.value }); }}
-          />
-          <div className="flex gap-1">
-            {(['all', 'today', 'week', 'month'] as const).map(d => {
-              const labels: Record<string, string> = { all: t('commitGraph.filterAll') || '全部', today: t('commitGraph.today') || '今天', week: t('commitGraph.thisWeek') || '本周', month: t('commitGraph.thisMonth') || '本月' };
-              return (
-                <button
-                  key={d}
-                  className={`px-2 py-0.5 rounded text-xs transition-colors ${graphDateFilter === d ? 'text-white' : ''}`}
-                  style={{ background: graphDateFilter === d ? 'var(--accent)' : 'transparent', color: graphDateFilter === d ? 'white' : 'var(--text-muted)' }}
-                  onClick={() => { setGraphDateFilter(d); const now = Date.now() / 1000; if (d === 'all') updateCommitFilter({ startDate: undefined, endDate: undefined }); else if (d === 'today') updateCommitFilter({ startDate: now - 86400 }); else if (d === 'week') updateCommitFilter({ startDate: now - 604800 }); else if (d === 'month') updateCommitFilter({ startDate: now - 2592000 }); }}
-                >{labels[d]}</button>
-              );
-            })}
-          </div>
-          <span className="text-[11px] ml-auto" style={{ color: 'var(--text-faint)' }}>{filteredCommits.length} 提交</span>
-        </div>
 
         {/* 提交图 */}
         <div className="flex-1 overflow-hidden">
