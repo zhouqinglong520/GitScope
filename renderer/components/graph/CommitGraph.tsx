@@ -486,23 +486,8 @@ function CommitGraph({
   const totalHeight = graphNodes.length * ROW_HEIGHT;
   const graphWidth = Math.max(72, (maxLane + 1) * LANE_WIDTH + 12);
 
-  // 空状态处理
-  if (!commits || commits.length === 0) {
-    return (
-      <div className="h-full flex flex-col bg-[#1e1e1e]">
-        <div className="px-3 py-1.5 border-b border-panel-border flex items-center text-xs text-gray-400 flex-shrink-0">
-          <span>提交</span>
-        </div>
-        <div className="flex-1 flex items-center justify-center text-gray-500">
-          <div className="text-center">
-            <div className="text-4xl mb-2">📭</div>
-            <div>暂无提交记录</div>
-            <div className="text-sm text-gray-600 mt-1">请打开一个 Git 仓库查看提交历史</div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // 空状态处理 — 注意：必须在所有 Hooks 之后，否则违反 Rules of Hooks
+  const isEmptyState = !commits || commits.length === 0;
 
   // 容器尺寸
   useEffect(() => {
@@ -700,6 +685,24 @@ function CommitGraph({
   // ========== 可见行计算 ==========
   const firstVisibleRow = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - VISIBLE_BUFFER);
   const lastVisibleRow = Math.min(graphNodes.length - 1, Math.ceil((scrollTop + containerHeight) / ROW_HEIGHT) + VISIBLE_BUFFER);
+
+  // 空状态渲染（所有 Hooks 已执行完毕）
+  if (isEmptyState) {
+    return (
+      <div className="h-full flex flex-col bg-[#1e1e1e]">
+        <div className="px-3 py-1.5 border-b border-panel-border flex items-center text-xs text-gray-400 flex-shrink-0">
+          <span>提交</span>
+        </div>
+        <div className="flex-1 flex items-center justify-center text-gray-500">
+          <div className="text-center">
+            <div className="text-4xl mb-2">📭</div>
+            <div>暂无提交记录</div>
+            <div className="text-sm text-gray-600 mt-1">请打开一个 Git 仓库查看提交历史</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full flex flex-col">
