@@ -6,6 +6,9 @@ export {};
 
 const { app, BrowserWindow, shell, Menu } = require('electron');
 const path = require('path');
+
+// 禁用 GPU 硬件加速（解决虚拟机/远程桌面黑屏问题）
+app.disableHardwareAcceleration();
 const { registerIpcHandlers } = require('./ipc/index');
 const { createAppMenu, setMainWindow, addRecentRepo, rebuildMenu } = require('./menu');
 
