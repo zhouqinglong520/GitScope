@@ -184,7 +184,7 @@ function ChangesSection() {
       {fullyStaged.length > 0 && (
         <>
           <div style={{ fontSize: 10, color: 'var(--text-faint)', fontWeight: 600, padding: '4px 0 2px', textTransform: 'uppercase' }}>已暂存</div>
-          {fullyStaged.map((f) => <ChangeFileRow key={'s-' + f.path} file={f} isStaged={true} onToggle={() => unstageFile(f.path)} onClick={() => handleFileSelect(f.path)} onDiscard={() => handleDiscard(f)} getStatusBadge={getStatusBadge} refresh={refresh} />)}
+          {fullyStaged.map((f, i) => <ChangeFileRow key={'s-' + (f.path || i)} file={f} isStaged={true} onToggle={() => unstageFile(f.path)} onClick={() => handleFileSelect(f.path)} onDiscard={() => handleDiscard(f)} getStatusBadge={getStatusBadge} refresh={refresh} />)}
         </>
       )}
 
@@ -192,7 +192,7 @@ function ChangesSection() {
       {partiallyStaged.length > 0 && (
         <>
           <div style={{ fontSize: 10, color: '#dcdcaa', fontWeight: 600, padding: '4px 0 2px', textTransform: 'uppercase' }}>部分暂存</div>
-          {partiallyStaged.map((f) => <ChangeFileRow key={'p-' + f.path} file={f} isStaged={true} isPartial={true} onToggle={() => unstageFile(f.path)} onClick={() => handleFileSelect(f.path)} onDiscard={() => handleDiscard(f)} getStatusBadge={getStatusBadge} refresh={refresh} />)}
+          {partiallyStaged.map((f, i) => <ChangeFileRow key={'p-' + (f.path || i)} file={f} isStaged={true} isPartial={true} onToggle={() => unstageFile(f.path)} onClick={() => handleFileSelect(f.path)} onDiscard={() => handleDiscard(f)} getStatusBadge={getStatusBadge} refresh={refresh} />)}
         </>
       )}
 
@@ -200,16 +200,16 @@ function ChangesSection() {
       {pureUnstaged.length > 0 && (
         <>
           <div style={{ fontSize: 10, color: 'var(--text-faint)', fontWeight: 600, padding: '4px 0 2px', textTransform: 'uppercase' }}>未暂存</div>
-          {pureUnstaged.map((f) => <ChangeFileRow key={'u-' + f.path} file={f} isStaged={false} onToggle={() => stageFile(f.path)} onClick={() => handleFileSelect(f.path)} onDiscard={() => handleDiscard(f)} getStatusBadge={getStatusBadge} refresh={refresh} />)}
+          {pureUnstaged.map((f, i) => <ChangeFileRow key={'u-' + (f.path || i)} file={f} isStaged={false} onToggle={() => stageFile(f.path)} onClick={() => handleFileSelect(f.path)} onDiscard={() => handleDiscard(f)} getStatusBadge={getStatusBadge} refresh={refresh} />)}
         </>
       )}
 
       {/* 部分暂存文件的未暂存部分（合并显示） */}
       {partiallyStaged.length > 0 && (
         <>
-          {partiallyStaged.map((f) => {
+          {partiallyStaged.map((f, i) => {
             const unstagedFile = unstaged.find(uf => uf.path === f.path);
-            return unstagedFile ? <ChangeFileRow key={'pu-' + f.path} file={unstagedFile} isStaged={false} isPartial={true} onToggle={() => stageFile(f.path)} onClick={() => handleFileSelect(f.path)} onDiscard={() => handleDiscard(unstagedFile)} getStatusBadge={getStatusBadge} refresh={refresh} /> : null;
+            return unstagedFile ? <ChangeFileRow key={'pu-' + (f.path || i)} file={unstagedFile} isStaged={false} isPartial={true} onToggle={() => stageFile(f.path)} onClick={() => handleFileSelect(f.path)} onDiscard={() => handleDiscard(unstagedFile)} getStatusBadge={getStatusBadge} refresh={refresh} /> : null;
           })}
         </>
       )}
@@ -218,7 +218,7 @@ function ChangesSection() {
       {untracked.length > 0 && (
         <>
           <div style={{ fontSize: 10, color: 'var(--text-faint)', fontWeight: 600, padding: '4px 0 2px', textTransform: 'uppercase' }}>未跟踪</div>
-          {untracked.map((f) => <ChangeFileRow key={'t-' + f.path} file={f} isStaged={false} onToggle={() => stageFile(f.path)} onClick={() => handleFileSelect(f.path)} onDiscard={() => handleDiscard(f)} getStatusBadge={getStatusBadge} refresh={refresh} isUntracked={true} />)}
+          {untracked.map((f, i) => <ChangeFileRow key={'t-' + (f.path || i)} file={f} isStaged={false} onToggle={() => stageFile(f.path)} onClick={() => handleFileSelect(f.path)} onDiscard={() => handleDiscard(f)} getStatusBadge={getStatusBadge} refresh={refresh} isUntracked={true} />)}
         </>
       )}
 

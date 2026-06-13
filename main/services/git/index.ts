@@ -577,8 +577,14 @@ class GitService {
           }
         }
 
-        const isClean = staged.length === 0 && unstaged.length === 0 && untracked.length === 0;
-        const result = { current: currentBranch, isClean, staged, unstaged, untracked };
+        // Filter out entries with empty paths
+        const filterEmpty = (arr: GitFileStatus[]) => arr.filter(f => f.path && f.path !== '');
+        const staged2 = filterEmpty(staged);
+        const unstaged2 = filterEmpty(unstaged);
+        const untracked2 = filterEmpty(untracked);
+
+        const isClean = staged2.length === 0 && unstaged2.length === 0 && untracked2.length === 0;
+        const result = { current: currentBranch, isClean, staged: staged2, unstaged: unstaged2, untracked: untracked2 };
 
         // 更新缓存
         this._cache.status.data = result;
@@ -621,8 +627,14 @@ class GitService {
         }
       }
 
-      const isClean = staged.length === 0 && unstaged.length === 0 && untracked.length === 0;
-      const result = { current: currentBranch, isClean, staged, unstaged, untracked };
+      // Filter out entries with empty paths
+      const filterEmpty = (arr: GitFileStatus[]) => arr.filter(f => f.path && f.path !== '');
+      const stagedF = filterEmpty(staged);
+      const unstagedF = filterEmpty(unstaged);
+      const untrackedF = filterEmpty(untracked);
+
+      const isClean = stagedF.length === 0 && unstagedF.length === 0 && untrackedF.length === 0;
+      const result = { current: currentBranch, isClean, staged: stagedF, unstaged: unstagedF, untracked: untrackedF };
 
       this._cache.status.data = result;
       this._cache.status.ts = Date.now();

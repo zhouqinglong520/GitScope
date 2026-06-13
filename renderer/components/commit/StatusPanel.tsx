@@ -171,7 +171,7 @@ function StatusPanel({
     );
   };
 
-  const renderFile = (file: GitFileStatus, section: 'staged' | 'unstaged' | 'untracked') => {
+  const renderFile = (file: GitFileStatus, section: 'staged' | 'unstaged' | 'untracked', idx: number = 0) => {
     const style = getStatusStyle(file.status);
     const isSelected = selectedFile === file.path;
     const isStaged = section === 'staged';
@@ -179,7 +179,7 @@ function StatusPanel({
     const statusColor = getStatusColor(file.status);
     return (
       <div
-        key={`${section}-${file.path}`}
+        key={`${section}-${file.path || idx}`}
         className={`sp-file group flex items-center gap-2 cursor-pointer transition-colors
           ${isSelected ? 'bg-[#094771]' : 'hover:bg-[#2a2d2e]'}`}
         onClick={() => onFileSelect(file.path)}
@@ -369,7 +369,7 @@ function StatusPanel({
         ) : viewMode === 'combined' ? (
           // 组合列表
           <div className="py-1">
-            {allFiles.map(f => renderFile(f, f.section))}
+            {allFiles.map((f, i) => renderFile(f, f.section, i))}
             {allFiles.length === 0 && <div className="text-center text-gray-500 text-sm py-4">无匹配文件</div>}
           </div>
         ) : (
@@ -388,7 +388,7 @@ function StatusPanel({
                     Unstage All
                   </button>
                 </div>
-                <div className="py-1">{staged.map(f => renderFile(f, 'staged'))}</div>
+                <div className="py-1">{staged.map((f, i) => renderFile(f, 'staged', i))}</div>
               </div>
             )}
             {unstaged.length > 0 && (
@@ -404,7 +404,7 @@ function StatusPanel({
                     Stage All
                   </button>
                 </div>
-                <div className="py-1">{unstaged.map(f => renderFile(f, 'unstaged'))}</div>
+                <div className="py-1">{unstaged.map((f, i) => renderFile(f, 'unstaged', i))}</div>
               </div>
             )}
             {untracked.length > 0 && (
@@ -420,7 +420,7 @@ function StatusPanel({
                     Stage All
                   </button>
                 </div>
-                <div className="py-1">{untracked.map(f => renderFile(f, 'untracked'))}</div>
+                <div className="py-1">{untracked.map((f, i) => renderFile(f, 'untracked', i))}</div>
               </div>
             )}
           </>
