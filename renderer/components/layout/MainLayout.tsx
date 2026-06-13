@@ -522,7 +522,7 @@ function MainLayout() {
                   onUnstageFile={handleUnstage}
                   onDiscardFile={async (path) => {
                     try {
-                      await window.electronAPI.git.discardChanges([path]);
+                      await window.electronAPI.git.discardChanges(path);
                       await refresh();
                     } catch (e: any) { alert('Discard failed: ' + e.message); }
                   }}

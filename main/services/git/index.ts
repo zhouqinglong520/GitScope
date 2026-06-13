@@ -699,16 +699,21 @@ class GitService {
   /** 添加文件到暂存区（写操作，失效相关缓存） */
   async add(files: string[]): Promise<void> {
     if (!this.dir) throw new Error('仓库未打开');
+    if (files.length === 0) return;
 
     try {
       for (const file of files) {
+        if (!file || file === '') continue; // skip empty paths
         await git.add({ fs: isoFs, dir: this.dir, filepath: file });
       }
       this.invalidateCache(['status']);
     } catch (error) {
       console.error('[GitService] add 失败，尝试 git CLI:', error);
       // 降级到 git CLI
-      await this.gitCliExec(['add', ...files]);
+      const validFiles = files.filter(f => f && f !== '');
+      if (validFiles.length > 0) {
+        await this.gitCliExec(['add', '--', ...validFiles]);
+      }
     }
   }
 
@@ -733,14 +738,19 @@ class GitService {
   /** 从暂存区移除（写操作，失效缓存） */
   async reset(files: string[]): Promise<void> {
     if (!this.dir) throw new Error('仓库未打开');
+    if (files.length === 0) return;
 
     try {
       for (const file of files) {
+        if (!file || file === '') continue;
         await git.resetIndex({ fs: isoFs, dir: this.dir, filepath: file });
       }
       this.invalidateCache(['status']);
     } catch {
-      await this.gitCliExec(['reset', 'HEAD', '--', ...files]);
+      const validFiles = files.filter(f => f && f !== '');
+      if (validFiles.length > 0) {
+        await this.gitCliExec(['reset', 'HEAD', '--', ...validFiles]);
+      }
     }
   }
 

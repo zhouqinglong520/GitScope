@@ -156,7 +156,7 @@ function StatusPanel({
               if (!window.confirm(section === 'untracked' ? `删除 ${file.path}?` : `放弃 ${file.path} 的更改?`)) return;
               try {
                 if (section === 'untracked') await window.electronAPI.git.deleteUntrackedFile(file.path);
-                else await window.electronAPI.git.discardChanges([file.path]);
+                else await window.electronAPI.git.discardChanges(file.path);
                 onRefresh?.();
               } catch (e) { console.error(e); }
             }}
@@ -466,7 +466,7 @@ function StatusPanel({
             <div className="px-3 py-2 text-sm text-red-400 hover:bg-[#094771] cursor-pointer flex items-center gap-2"
               onClick={async () => {
                 if (window.confirm(t('fileActions.discardConfirm'))) {
-                  try { await window.electronAPI.git.discardChanges([contextMenu.file.path]); onRefresh?.(); }
+                  try { await window.electronAPI.git.discardChanges(contextMenu.file.path); onRefresh?.(); }
                   catch (e) { console.error(e); }
                 }
                 closeContextMenu();
