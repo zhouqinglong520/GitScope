@@ -43,8 +43,12 @@ function createWindow() {
 
   // 加载页面
   if (isDev) {
-    // 开发模式：加载 Vite 开发服务器
-    mainWindow.loadURL('http://localhost:5173');
+    // 开发模式：尝试加载 Vite 开发服务器，失败则回退到构建文件
+    const devURL = 'http://localhost:5173';
+    mainWindow.loadURL(devURL).catch((err: any) => {
+      console.warn('[GitGUI] Vite dev server not reachable, falling back to built files:', err.message);
+      mainWindow?.loadFile(path.join(__dirname, '../renderer/index.html'));
+    });
     // 开发模式打开开发者工具
     mainWindow.webContents.openDevTools();
   } else {
