@@ -185,6 +185,7 @@ function StatusPanel({
         onClick={() => onFileSelect(file.path)}
         onDoubleClick={() => isStaged ? onUnstage?.(file.path) : onStage?.(file.path)}
         onContextMenu={(e) => handleContextMenu(e, file, section)}
+        title={`Double-click to ${isStaged ? 'unstage' : 'stage'}`}
       >
         {/* Stage/Unstage checkbox toggle — bold visual distinction */}
         <div style={{
@@ -266,6 +267,7 @@ function StatusPanel({
           onClick={() => onFileSelect(node.file!.path)}
           onDoubleClick={() => isStaged ? onUnstage?.(node.file!.path) : onStage?.(node.file!.path)}
           onContextMenu={(e) => handleContextMenu(e, node.file!, node.file!.section)}
+          title={`Double-click to ${isStaged ? 'unstage' : 'stage'}`}
         >
           <div style={{
             width: 18, height: 18, borderRadius: 3, flexShrink: 0,
