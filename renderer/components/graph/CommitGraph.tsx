@@ -484,7 +484,25 @@ function CommitGraph({
   );
 
   const totalHeight = graphNodes.length * ROW_HEIGHT;
-  const graphWidth = Math.max(GRAPH_MIN_WIDTH, (maxLane + 2) * LANE_WIDTH + 12);
+  const graphWidth = Math.max(72, (maxLane + 1) * LANE_WIDTH + 12);
+
+  // 空状态处理
+  if (!commits || commits.length === 0) {
+    return (
+      <div className="h-full flex flex-col bg-[#1e1e1e]">
+        <div className="px-3 py-1.5 border-b border-panel-border flex items-center text-xs text-gray-400 flex-shrink-0">
+          <span>提交</span>
+        </div>
+        <div className="flex-1 flex items-center justify-center text-gray-500">
+          <div className="text-center">
+            <div className="text-4xl mb-2">📭</div>
+            <div>暂无提交记录</div>
+            <div className="text-sm text-gray-600 mt-1">请打开一个 Git 仓库查看提交历史</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // 容器尺寸
   useEffect(() => {
@@ -686,7 +704,7 @@ function CommitGraph({
   return (
     <div className="h-full flex flex-col">
       {/* 表头 */}
-      <div className="px-3 py-1.5 border-b border-panel-border bg-[#1e1e1e] flex items-center text-xs text-gray-400 flex-shrink-0">
+      <div className="px-3 py-1.5 border-b border-panel-border flex items-center text-xs text-gray-400 flex-shrink-0" style={{ backgroundColor: '#1e1e1e' }}>
         <span style={{ width: graphWidth }} className="flex-shrink-0" />
         <span className="flex-1 min-w-0">提交</span>
         <span style={{ width: 110 }} className="flex-shrink-0 text-center">作者</span>
@@ -710,8 +728,8 @@ function CommitGraph({
       {/* 滚动区域 */}
       <div ref={containerRef} className="flex-1 overflow-y-auto bg-[#1e1e1e]" onScroll={handleScroll}>
         <div style={{ height: totalHeight, position: 'relative' }}>
-          {/* 左侧分支图 Canvas — 全高度，滚动容器自然裁剪 */}
-          <div style={{ position: 'absolute', left: 0, top: 0, width: graphWidth, height: totalHeight, zIndex: 10, backgroundColor: '#1e1e1e', borderRight: '1px solid #3c3c3c', pointerEvents: 'none' }}>
+          {/* Canvas 分支图 */}
+          <div style={{ position: 'absolute', left: 0, top: 0, width: graphWidth, height: totalHeight, pointerEvents: 'none' }}>
             <canvas ref={canvasRef} style={{ display: 'block' }} />
           </div>
 
@@ -729,7 +747,7 @@ function CommitGraph({
                 className={`absolute left-0 right-0 flex items-center px-3 cursor-pointer transition-colors ${
                   isSelected ? 'bg-[#2d2d30]' : isStash ? 'bg-[#2a2518]' : 'hover:bg-[#2a2d2e]'
                 }`}
-                style={{ top: node.row * ROW_HEIGHT, height: ROW_HEIGHT, paddingLeft: graphWidth + 12, paddingRight: 12 }}
+                style={{ top: node.row * ROW_HEIGHT, height: ROW_HEIGHT, paddingLeft: graphWidth + 4, paddingRight: 12 }}
               >
                 {isStash ? (
                   <span className="font-mono text-xs flex-shrink-0 mr-3" style={{ minWidth: 55, color: '#e8c547' }}>
@@ -737,28 +755,15 @@ function CommitGraph({
                   </span>
                 ) : (
                   <>
-                    {/* 折叠指示器 */}
-                    {node.isMergeCommit && (
-                      <button
-                        className={`flex-shrink-0 mr-1.5 w-4 h-4 flex items-center justify-center rounded text-[10px] ${
-                          isCollapsed ? 'bg-orange-500/20 text-orange-400' : 'bg-gray-700 text-gray-400'
-                        } hover:bg-[#4f4f4f]`}
-                        onClick={(e) => { e.stopPropagation(); toggleCollapse(node.commit.oid); }}
-                        title={isCollapsed ? `展开 (${node.collapsedCommitCount} 个提交)` : '折叠'}
-                      >
-                        {isCollapsed ? `+${node.collapsedCommitCount}` : '−'}
-                      </button>
-                    )}
-
                     {/* 分支标签 */}
                     {node.branchNames.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mr-2">
+                      <div className="flex flex-wrap gap-1 mr-2 flex-shrink-0">
                         {node.branchNames.slice(0, 3).map((branchName) => {
                           const isCurrent = branches.find(br => br.current && br.name === branchName);
                           const isRemote = branchName.startsWith('origin/');
                           const displayName = isRemote ? branchName.replace(/^origin\//, '') : branchName;
                           return (
-                            <span key={branchName} className="text-xs px-1.5 py-0 rounded flex-shrink-0 max-w-[140px] truncate"
+                            <span key={branchName} className="text-xs px-1.5 py-0.5 rounded flex-shrink-0 max-w-[140px] truncate"
                               title={branchName}
                               style={{
                                 backgroundColor: isCurrent ? `${node.color}44` : `${node.color}22`,
@@ -777,11 +782,24 @@ function CommitGraph({
                       </div>
                     )}
 
+                    {/* 折叠指示器 */}
+                    {node.isMergeCommit && (
+                      <button
+                        className={`flex-shrink-0 mr-2 w-4 h-4 flex items-center justify-center rounded text-[10px] ${
+                          isCollapsed ? 'bg-orange-500/20 text-orange-400' : 'bg-gray-700 text-gray-400'
+                        } hover:bg-[#4f4f4f]`}
+                        onClick={(e) => { e.stopPropagation(); toggleCollapse(node.commit.oid); }}
+                        title={isCollapsed ? `展开 (${node.collapsedCommitCount} 个提交)` : '折叠'}
+                      >
+                        {isCollapsed ? `+${node.collapsedCommitCount}` : '−'}
+                      </button>
+                    )}
+
                     <span className="flex-1 min-w-0 text-sm text-gray-200 truncate mr-3">
                       {node.commit.message}
                     </span>
 
-                    <div style={{ width: 110 }} className="flex items-center gap-1.5 flex-shrink-0 mr-3">
+                    <div style={{ width: 100 }} className="flex items-center gap-1.5 flex-shrink-0 mr-3">
                       <div className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-medium flex-shrink-0"
                         style={{ backgroundColor: getAvatarColor(node.commit.authorEmail), boxShadow: '0 1px 3px rgba(0, 0, 0, 0.3)' }}>
                         {node.commit.authorName.charAt(0).toUpperCase()}
