@@ -15,6 +15,7 @@ export interface DialogState {
   renameBranch: string | null;   // 预填分支名
   switchBranch: boolean;
   mergeBranch: string | null;    // 预填来源分支
+  updateBranch: string | null;   // 预填分支名（用于更新操作）
   newTag: boolean;
   deleteTag: string | null;      // 预填标签名
   pushTag: string | null;        // 预填标签名
@@ -42,6 +43,7 @@ export const initialDialogState: DialogState = {
   renameBranch: null,
   switchBranch: false,
   mergeBranch: null,
+  updateBranch: null,
   newTag: false,
   deleteTag: null,
   pushTag: null,

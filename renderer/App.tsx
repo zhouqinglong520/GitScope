@@ -10,7 +10,7 @@ import Sidebar from './components/layout/Sidebar';
 import QuickLaunch, { type QuickLaunchCommand } from './components/quicklaunch/QuickLaunch';
 import { useRepoStore } from './stores/repoStore';
 import { useMenuEvents, initialDialogState, dialogReducer, type DialogState, type DialogAction } from './hooks/useMenuEvents';
-import { NewBranchDialog, DeleteBranchDialog, RenameBranchDialog, MergeBranchDialog, SwitchBranchDialog } from './components/dialogs/BranchDialogs';
+import { NewBranchDialog, DeleteBranchDialog, RenameBranchDialog, MergeBranchDialog, SwitchBranchDialog, UpdateBranchDialog } from './components/dialogs/BranchDialogs';
 import { NewTagDialog, DeleteTagDialog, PushTagDialog } from './components/dialogs/TagDialogs';
 import { InitRepoDialog, RemotesManagerDialog, GitignoreEditorDialog, StashMenuDialog } from './components/dialogs/RepoDialogs';
 import { StaleBranchesDialog } from './components/dialogs/StaleBranchesDialog';
@@ -22,9 +22,12 @@ import { ActivityManagerDialog } from './components/dialogs/ActivityManagerDialo
 import { PastePatchDialog } from './components/dialogs/PastePatchDialog';
 import { PartialStashDialog } from './components/dialogs/PartialStashDialog';
 import { RebaseUpdateRefsDialog } from './components/dialogs/RebaseUpdateRefsDialog';
-import { zhCN } from './i18n/zh-CN';
+import { useI18, setLocale } from './i18n';
 
-function useI18n() { return zhCN; }
+function useI18n() { 
+  const { messages } = useI18();
+  return messages; 
+}
 
 // ===== 克隆仓库弹窗（Fork 风格） =====
 type CloneProtocol = 'https' | 'ssh';
@@ -287,6 +290,8 @@ function App() {
     { id: 'stale-branches', label: '清理陈旧分支', description: '查询并批量删除已合并分支', category: '分支', action: () => { dispatch({ type: 'SHOW', dialog: 'staleBranches' }); } },
     { id: 'git-flow', label: 'Git Flow', description: 'Feature/Release/Hotfix 工作流', category: '分支', action: () => { dispatch({ type: 'SHOW', dialog: 'gitFlow' }); } },
     { id: 'external-tools', label: '外部工具设置', description: '配置 Diff/Merge 外部工具', category: '设置', action: () => { dispatch({ type: 'SHOW', dialog: 'externalTools' }); } },
+    { id: 'language-zh', label: '中文', description: '切换到中文界面', category: '设置', action: () => { setLocale('zh-CN'); window.electronAPI.app.setLocale('zh-CN'); } },
+    { id: 'language-en', label: 'English', description: 'Switch to English interface', category: '设置', action: () => { setLocale('en-US'); window.electronAPI.app.setLocale('en-US'); } },
     { id: 'github-notifications', label: 'GitHub 通知', description: '查看 GitHub 仓库通知', category: '远程', action: () => { dispatch({ type: 'SHOW', dialog: 'githubNotifications' }); } },
     // P2 QuickLaunch 入口
     { id: 'treemap', label: '仓库磁盘占用', description: 'Treemap 可视化仓库文件大小', category: '仓库', action: () => { dispatch({ type: 'SHOW', dialog: 'treemap' }); } },
@@ -357,6 +362,12 @@ function App() {
       {currentRepo && (
         <div className="h-10 bg-[#171b22] flex items-center justify-between px-3 border-b border-panel-border">
           <div className="flex items-center gap-1">
+            {/* Quick Launch — 放在最左侧 */}
+            <button onClick={() => setShowQuickLaunch(true)} className="flex items-center gap-2 px-3 py-1.5 bg-[#252b34] hover:bg-[#2f353e] rounded text-xs text-gray-400 transition-colors mr-2">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+              <span>Quick Launch</span>
+              <kbd className="px-1.5 py-0.5 bg-[#171b22] rounded text-[10px]">Ctrl+K</kbd>
+            </button>
             <button onClick={() => window.dispatchEvent(new CustomEvent('showPushPullDialog', { detail: 'fetch' }))} className="btn-icon flex items-center gap-1.5 px-2 text-xs" title={`${i18n.toolbar.fetch} (Ctrl+Shift+F)`}>
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
               <span>{i18n.toolbar.fetch}</span>
@@ -382,13 +393,6 @@ function App() {
               <svg className="w-4 h-4 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
               <span className="text-xs text-primary-400 font-medium">{currentRepo.currentBranch}</span>
               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-            </button>
-          </div>
-          <div className="flex items-center gap-2">
-            <button onClick={() => setShowQuickLaunch(true)} className="flex items-center gap-2 px-3 py-1.5 bg-[#252b34] hover:bg-[#2f353e] rounded text-xs text-gray-400 transition-colors">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-              <span>Quick Launch</span>
-              <kbd className="px-1.5 py-0.5 bg-[#171b22] rounded text-[10px]">Ctrl+K</kbd>
             </button>
           </div>
         </div>
@@ -441,6 +445,7 @@ function App() {
       {dialogs.renameBranch !== null && dialogs.renameBranch !== false && <RenameBranchDialog onClose={() => closeDialog('renameBranch')} branchName={typeof dialogs.renameBranch === 'string' ? dialogs.renameBranch : undefined} />}
       {dialogs.switchBranch && <SwitchBranchDialog onClose={() => closeDialog('switchBranch')} />}
       {dialogs.mergeBranch !== null && dialogs.mergeBranch !== false && <MergeBranchDialog onClose={() => closeDialog('mergeBranch')} sourceBranch={typeof dialogs.mergeBranch === 'string' ? dialogs.mergeBranch : undefined} />}
+      {dialogs.updateBranch !== null && dialogs.updateBranch !== false && <UpdateBranchDialog onClose={() => closeDialog('updateBranch')} branchName={typeof dialogs.updateBranch === 'string' ? dialogs.updateBranch : undefined} />}
       {dialogs.newTag && <NewTagDialog onClose={() => closeDialog('newTag')} defaultRef={newTagDefaultRef} />}
       {dialogs.deleteTag !== null && dialogs.deleteTag !== false && <DeleteTagDialog onClose={() => closeDialog('deleteTag')} tagName={typeof dialogs.deleteTag === 'string' ? dialogs.deleteTag : undefined} />}
       {dialogs.pushTag !== null && dialogs.pushTag !== false && <PushTagDialog onClose={() => closeDialog('pushTag')} tagName={typeof dialogs.pushTag === 'string' ? dialogs.pushTag : undefined} />}

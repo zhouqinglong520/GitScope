@@ -1,0 +1,9 @@
+schema_version: 1
+module_path: main_process
+title: Electron Main Process & IPC Orchestration
+scope:
+    - main/
+source_files: []
+depends_on: []
+related_to:
+    - path: renderer

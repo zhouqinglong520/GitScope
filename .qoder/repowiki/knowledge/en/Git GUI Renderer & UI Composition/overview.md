@@ -1,0 +1,1 @@
+Renders the multi-repository Git client interface using React, managing global state and orchestrating specialized dialogs for version control operations.

@@ -1,0 +1,9 @@
+schema_version: 1
+module_path: renderer
+title: Git GUI Renderer & UI Composition
+scope:
+    - renderer/
+source_files: []
+depends_on: []
+related_to:
+    - path: main_process

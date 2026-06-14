@@ -1,0 +1,255 @@
+# 知识卡导出索引文件
+schema_version: 1
+locale: en-US
+branch: main
+exported_at: "2026-06-10T12:48:48Z"
+modules:
+    "":
+        dir_name: GitScope Electron Application Orchestrator
+        title: GitScope Electron Application Orchestrator
+        scope:
+            - .gitignore
+            - package.json
+            - package-lock.json
+            - tsconfig.json
+            - tsconfig.main.json
+            - tsconfig.preload.json
+            - vite.config.ts
+            - vitest.config.ts
+            - postcss.config.js
+            - tailwind.config.js
+            - electron-builder.yml
+            - start.bat
+            - start.sh
+            - .package.json.swp
+            - README.md
+            - doc\CHANGELOG.md
+            - doc\DESIGN_TOKENS.md
+            - doc\FORK_COMPARISON.md
+            - doc\PROJECT_STATUS.md
+            - docs\FEATURE_STATUS.md
+            - docs\PLAYWRIGHT_GUIDE.md
+            - docs\PRD.md
+            - docs\TECH_DESIGN.md
+            - docs\TEST_AND_OPTIMIZATION_PLAN.md
+            - docs\TEST_EXECUTION_GUIDE.md
+            - main\index.ts
+            - main\ipc\index.ts
+            - main\menu.ts
+            - main\services\ai\index.ts
+            - main\services\credential\index.ts
+            - main\services\git\index.ts
+            - main\services\gitee\index.ts
+            - main\services\terminal\index.ts
+            - main\utils\index.ts
+            - playwright-report\data\0fbf44e032e8db0e0323f9cef9f1a1f78d7828ec.md
+            - playwright-report\data\108e7b78c597d2c2212ae4a472540defef54b5fd.md
+            - playwright-report\data\25ec93bc9ece09a01a6d56acea9cb43ffe92e77d.md
+            - playwright-report\data\424fe7b39d83f1d4a0d86b84e4bafcb743869ca8.md
+            - playwright-report\data\4a1230516cf2543e165187d840ad520c558c9de3.md
+            - playwright-report\data\650c410548cd1882e560fdac34c54a399f5828c0.md
+            - playwright-report\data\6acad6b53111820105f37a68c3a4321b81e6c4c4.webm
+            - playwright-report\data\77edecf3e1e20dadf612672d62f42efa492a44e6.webm
+            - playwright-report\data\7e41c059aeb95ac7217dafb84e5845afe3701add.md
+            - playwright-report\data\892a6559f3fe2f011a470da323690987dceeaae8.md
+            - playwright-report\data\8de7721cb0a7409271c704b50ed7a1a631eaf7ca.png
+            - playwright-report\data\905a1f8cab58dfc5673ac8b401a9e05bde3a1383.md
+            - playwright-report\data\9d3ff85d1a598057d9294483cf8fc49df86bee40.md
+            - playwright-report\data\a4add109105f18a9f70478f04b197cdcf1c9f8c8.md
+            - playwright-report\data\b48f55e7149c534e4cdb2ffaa71536ce8465f0b1.md
+            - playwright-report\data\bdd6658ccb0136e6c612100592f6c8bf23c83583.md
+            - playwright-report\data\ca02faeb90c27df14cddc471c0c4e73ea5537542.md
+            - playwright-report\data\d024dc9285187497cb00b844eb1c6afad6182d1c.md
+            - playwright-report\data\d3a566ac94635951403c0db170a28d92cbc93977.md
+            - playwright-report\data\db0f99f0061beae258dbe67fc4d5ce5ff4cc4f79.md
+            - playwright-report\data\eb29effe8eb41df130ba00f34c76372bf3a3415d.md
+            - playwright-report\data\f1df3f80cabf240243060246886c48e0e824f305.md
+            - playwright-report\data\f55009c740fe35e6c31f30e593d5288effb8ebb2.md
+            - playwright-report\index.html
+            - playwright.config.ts
+            - preload\index.ts
+            - renderer\@types\css.d.ts
+            - renderer\@types\highlight-languages.d.ts
+            - renderer\@types\highlight.d.ts
+            - renderer\@types\xterm.d.ts
+            - renderer\App.tsx
+            - renderer\components\bisect\BisectPanel.css
+            - renderer\components\bisect\BisectPanel.tsx
+            - renderer\components\blame\BlameView.tsx
+            - renderer\components\branch\BranchSelector.tsx
+            - renderer\components\branch\TagPanel.css
+            - renderer\components\branch\TagPanel.tsx
+            - renderer\components\commandpreview\CommandPreviewDialog.css
+            - renderer\components\commandpreview\CommandPreviewDialog.tsx
+            - renderer\components\commit\CommitDialog.tsx
+            - renderer\components\commit\CommitList.tsx
+            - renderer\components\commit\StatusPanel.css
+            - renderer\components\commit\StatusPanel.tsx
+            - renderer\components\commitbar\CommitBar.tsx
+            - renderer\components\commitdetail\CommitDetailPanel.tsx
+            - renderer\components\common\Button.tsx
+            - renderer\components\conflict\ConflictResolutionPanel.tsx
+            - renderer\components\conflict\ConflictWarningDialog.tsx
+            - renderer\components\contextmenu\ContextMenu.tsx
+            - renderer\components\customactions\CustomActionsPanel.css
+            - renderer\components\customactions\CustomActionsPanel.tsx
+            - renderer\components\dialogs\ActivityManagerDialog.tsx
+            - renderer\components\dialogs\BranchDialogs.tsx
+            - renderer\components\dialogs\ExternalToolsDialog.tsx
+            - renderer\components\dialogs\GitFlowDialog.tsx
+            - renderer\components\dialogs\GitHubNotificationsPanel.tsx
+            - renderer\components\dialogs\PartialStashDialog.tsx
+            - renderer\components\dialogs\PastePatchDialog.tsx
+            - renderer\components\dialogs\RebaseUpdateRefsDialog.tsx
+            - renderer\components\dialogs\RepoDialogs.tsx
+            - renderer\components\dialogs\StaleBranchesDialog.tsx
+            - renderer\components\dialogs\TagDialogs.tsx
+            - renderer\components\dialogs\TreemapDialog.tsx
+            - renderer\components\diff\DiffView.tsx
+            - renderer\components\difftree\DiffFileTree.css
+            - renderer\components\difftree\DiffFileTree.tsx
+            - renderer\components\dragdrop\DragDropContext.css
+            - renderer\components\dragdrop\DragDropContext.tsx
+            - renderer\components\filehistory\CodeHistory.tsx
+            - renderer\components\filehistory\FileHistory.tsx
+            - renderer\components\filehistory\FileHistoryPanel.tsx
+            - renderer\components\filter\AuthorFilter.tsx
+            - renderer\components\filter\CommitFilterBar.tsx
+            - renderer\components\gitee\GiteePanel.css
+            - renderer\components\gitee\GiteePanel.tsx
+            - renderer\components\graph\CommitGraph.tsx
+            - renderer\components\imagediff\ImageDiffView.tsx
+            - renderer\components\layout\MainLayout.tsx
+            - renderer\components\layout\RemotesSection.tsx
+            - renderer\components\layout\Sidebar.tsx
+            - renderer\components\lfs\LfsPanel.css
+            - renderer\components\lfs\LfsPanel.tsx
+            - renderer\components\notification\NotificationToast.css
+            - renderer\components\notification\NotificationToast.tsx
+            - renderer\components\operations\CherryPickDialog.css
+            - renderer\components\operations\CherryPickDialog.tsx
+            - renderer\components\operations\PushPullDialog.tsx
+            - renderer\components\patch\PatchPanel.css
+            - renderer\components\patch\PatchPanel.tsx
+            - renderer\components\quicklaunch\QuickLaunch.tsx
+            - renderer\components\rebase\InteractiveRebaseDialog.tsx
+            - renderer\components\rebase\RebaseDialog.css
+            - renderer\components\reflog\ReflogPanel.css
+            - renderer\components\reflog\ReflogPanel.tsx
+            - renderer\components\reflogvisual\ReflogVisualPanel.css
+            - renderer\components\reflogvisual\ReflogVisualPanel.tsx
+            - renderer\components\repo\RepoList.tsx
+            - renderer\components\repomanager\RepoManagerDialog.css
+            - renderer\components\repomanager\RepoManagerDialog.tsx
+            - renderer\components\settings\SettingsDialog.css
+            - renderer\components\settings\SettingsDialog.tsx
+            - renderer\components\shortcuts\ShortcutsDialog.css
+            - renderer\components\shortcuts\ShortcutsDialog.tsx
+            - renderer\components\stash\StashDialog.tsx
+            - renderer\components\submodule\SubmodulePanel.css
+            - renderer\components\submodule\SubmodulePanel.tsx
+            - renderer\components\terminal\TerminalPanel.css
+            - renderer\components\terminal\TerminalPanel.tsx
+            - renderer\components\worktree\WorktreePanel.css
+            - renderer\components\worktree\WorktreePanel.tsx
+            - renderer\hooks\useCommon.ts
+            - renderer\hooks\useI18n.ts
+            - renderer\hooks\useMenuEvents.ts
+            - renderer\i18n\en-US.ts
+            - renderer\i18n\index.ts
+            - renderer\i18n\zh-CN.ts
+            - renderer\index.html
+            - renderer\main.tsx
+            - renderer\stores\repoStore.ts
+            - renderer\styles\index.css
+            - resources\icons\icon-512.png
+            - resources\icons\icon.ico
+            - resources\icons\icon.png
+            - screenshots\electron-test\01-empty-state-electron.png
+            - screenshots\electron-test\02-quick-launch-electron.png
+            - screenshots\v0.2\01-main-ui.png
+            - screenshots\v0.2\02-quick-launch.png
+            - screenshots\v0.2\03-branch-context-menu.png
+            - screenshots\v0.2\04-tags-expanded.png
+            - screenshots\v0.2\05-stash-expanded.png
+            - screenshots\v0.2\06-files-expanded.png
+            - screenshots\v0.2\07-file-context-menu.png
+            - shared\types\git.ts
+            - shared\types\index.ts
+            - shared\types\ipc.ts
+            - shared\utils\index.ts
+            - test-results\.last-run.json
+            - test-results\p0-smoke-tests-P0-冒烟测试---G-25724-P0-10-Quick-Launch-打开、搜索和关闭-chromium\error-context.md
+            - test-results\p0-smoke-tests-P0-冒烟测试---G-25724-P0-10-Quick-Launch-打开、搜索和关闭-chromium\test-failed-1.png
+            - test-results\p0-smoke-tests-P0-冒烟测试---G-25724-P0-10-Quick-Launch-打开、搜索和关闭-chromium\video.webm
+            - test-results\p0-smoke-tests-P0-冒烟测试---G-25724-P0-10-Quick-Launch-打开、搜索和关闭-firefox\error-context.md
+            - test-results\p0-smoke-tests-P0-冒烟测试---G-25724-P0-10-Quick-Launch-打开、搜索和关闭-webkit\error-context.md
+            - test-results\p0-smoke-tests-P0-冒烟测试---GitScope-码界-P0-1-应用启动成功，基础UI元素可见-chromium\error-context.md
+            - test-results\p0-smoke-tests-P0-冒烟测试---GitScope-码界-P0-1-应用启动成功，基础UI元素可见-chromium\test-failed-1.png
+            - test-results\p0-smoke-tests-P0-冒烟测试---GitScope-码界-P0-1-应用启动成功，基础UI元素可见-chromium\video.webm
+            - test-results\p0-smoke-tests-P0-冒烟测试---GitScope-码界-P0-1-应用启动成功，基础UI元素可见-firefox\error-context.md
+            - test-results\p0-smoke-tests-P0-冒烟测试---GitScope-码界-P0-1-应用启动成功，基础UI元素可见-webkit\error-context.md
+            - test-results\p0-smoke-tests-P0-冒烟测试---GitScope-码界-UI-交互元素点击测试-firefox\error-context.md
+            - test-results\p0-smoke-tests-P0-冒烟测试---GitScope-码界-UI-交互元素点击测试-webkit\error-context.md
+            - test-results\p0-smoke-tests-P0-冒烟测试---GitScope-码界-键盘快捷键响应测试-firefox\error-context.md
+            - test-results\p0-smoke-tests-P0-冒烟测试---GitScope-码界-键盘快捷键响应测试-webkit\error-context.md
+            - test-results\p0-smoke-tests-P0-冒烟测试---GitScope-码界-页面-DOM-结构完整性-firefox\error-context.md
+            - test-results\p0-smoke-tests-P0-冒烟测试---GitScope-码界-页面-DOM-结构完整性-webkit\error-context.md
+            - test-results\user-flow-tests-用户流程模拟测试-用户流程：UI-元素点击探索-firefox\error-context.md
+            - test-results\user-flow-tests-用户流程模拟测试-用户流程：UI-元素点击探索-webkit\error-context.md
+            - test-results\user-flow-tests-用户流程模拟测试-用户流程：应用界面探索-firefox\error-context.md
+            - test-results\user-flow-tests-用户流程模拟测试-用户流程：应用界面探索-webkit\error-context.md
+            - test-results\user-flow-tests-用户流程模拟测试-用户流程：快捷键组合测试-firefox\error-context.md
+            - test-results\user-flow-tests-用户流程模拟测试-用户流程：快捷键组合测试-webkit\error-context.md
+            - test-results\user-flow-tests-用户流程模拟测试-自动截图记录-firefox\error-context.md
+            - test-results\user-flow-tests-用户流程模拟测试-自动截图记录-webkit\error-context.md
+            - test-screenshots\01-app-loaded.png
+            - test-screenshots\02-after-click.png
+            - test-screenshots\03-ui-exploration.png
+            - test-screenshots\after-2s.png
+            - test-screenshots\initial-state.png
+            - test-screenshots\keyboard-01.png
+            - test-screenshots\keyboard-02.png
+            - test-screenshots\keyboard-03.png
+            - test-screenshots\keyboard-04.png
+            - test-screenshots\keyboard-05.png
+            - tests\featureTests\gitCommands.test.ts
+            - tests\featureTests\repoOperations.test.ts
+            - tests\getLanguageFromPath.test.ts
+            - tests\gitUtils.test.ts
+            - tests\p0-smoke-tests.spec.ts
+            - tests\setup.ts
+            - tests\user-flow-tests.spec.ts
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    main_process:
+        dir_name: Electron Main Process & IPC Orchestration
+        title: Electron Main Process & IPC Orchestration
+        scope:
+            - main/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: renderer
+    renderer:
+        dir_name: Git GUI Renderer & UI Composition
+        title: Git GUI Renderer & UI Composition
+        scope:
+            - renderer/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: main_process
+    shared:
+        dir_name: Shared Types and Utilities
+        title: Shared Types and Utilities
+        scope:
+            - shared/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []

@@ -1,0 +1,5 @@
+- The module is structured into two sub-packages: `types` for data structures and `utils` for helper functions.
+- `types/git.ts` defines core Git domain models (commits, branches, diffs) and visualization helpers like `ColorPool`.
+- `types/ipc.ts` establishes the contract for Electron inter-process communication via typed API interfaces (`IpcGitApi`, etc.).
+- `utils/index.ts` offers locale-aware formatting and common string/number manipulation utilities used across main and renderer processes.
+- Entry points `types/index.ts` and `utils/index.ts` consolidate exports for easy consumption by other modules.

@@ -1,0 +1,3 @@
+- Hybrid Git engine using `isomorphic-git` for core operations and `child_process` CLI fallback for advanced features like diff/merge.
+- Pseudo-terminal emulation via `node-pty` for the integrated shell.
+- Secure credential storage using Electron's `safeStorage` API with JSON file persistence.

@@ -2,17 +2,20 @@
  * i18n 国际化 hook
  */
 
-import { useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { zhCN, type I18nKeys } from './zh-CN';
 import { enUS } from './en-US';
 
 // 当前语言
-let currentLocale = 'zh-CN';
+let currentLocale = localStorage.getItem('majie_locale') || 'zh-CN';
 
 const messages: Record<string, I18nKeys> = {
   'zh-CN': zhCN,
   'en-US': enUS,
 };
+
+// 语言变更回调列表
+let localeChangeListeners: (() => void)[] = [];
 
 /**
  * 获取当前语言
@@ -25,9 +28,22 @@ export function getLocale(): string {
  * 设置当前语言
  */
 export function setLocale(locale: string) {
-  if (messages[locale]) {
+  if (messages[locale] && locale !== currentLocale) {
     currentLocale = locale;
+    localStorage.setItem('majie_locale', locale);
+    // 通知所有监听器
+    localeChangeListeners.forEach(listener => listener());
   }
+}
+
+/**
+ * 添加语言变更监听器
+ */
+export function addLocaleChangeListener(listener: () => void): () => void {
+  localeChangeListeners.push(listener);
+  return () => {
+    localeChangeListeners = localeChangeListeners.filter(l => l !== listener);
+  };
 }
 
 /**
@@ -60,6 +76,15 @@ export function tWithDefault(key: string, defaultValue: string): string {
  * React Hook: 使用国际化
  */
 export function useI18() {
+  const [, forceUpdate] = useState({});
+
+  useEffect(() => {
+    const unsubscribe = addLocaleChangeListener(() => {
+      forceUpdate({});
+    });
+    return unsubscribe;
+  }, []);
+
   const translate = useCallback((key: string): string => {
     return t(key);
   }, []);

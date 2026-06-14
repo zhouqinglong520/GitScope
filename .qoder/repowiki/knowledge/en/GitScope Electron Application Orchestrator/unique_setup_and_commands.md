@@ -1,0 +1,1 @@
+npm run dev: Concurrently boots the Vite dev server and compiles Main/Preload processes for hot-reloading development.

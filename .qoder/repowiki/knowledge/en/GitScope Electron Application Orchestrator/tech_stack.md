@@ -1,0 +1,1 @@
+Electron 33 with contextIsolation enabled for security; React 19 and Zustand for state management in the Renderer; Vite for Renderer bundling and TypeScript for cross-process type safety

@@ -1,0 +1,4 @@
+- Entry point (`main/index.ts`) initializes the `BrowserWindow`, applies security hardening (context isolation, sandbox), and registers global IPC handlers via `main/ipc/index.ts`.
+- The IPC layer acts as a facade, delegating business logic to modular services in `main/services/`: `git` (hybrid isomorphic-git/CLI engine), `terminal` (node-pty wrapper), `credential` (safeStorage encryption), `gitee` (OAuth/API client), and `ai` (LLM provider adapter).
+- UI chrome is managed by `main/menu.ts`, which uses `electron-store` for persistent recent-repository tracking and dynamically rebuilds the application menu.
+- Dependency flow is unidirectional: Renderer -> IPC Handlers -> Domain Services -> System/Network resources.

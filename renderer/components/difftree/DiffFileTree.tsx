@@ -2,10 +2,12 @@
  * Diff 文件树组件
  * 按目录结构折叠展示变更文件列表
  * 替代扁平文件列表，大 PR 50+ 文件时快速定位
+ * 支持 Fork 风格右键菜单
  */
 
 import React, { useState, useMemo, useCallback } from 'react';
 import './DiffFileTree.css';
+import { useContextMenu, type MenuItem } from '../contextmenu/ContextMenu';
 
 interface FileEntry {
   path: string;
@@ -98,12 +100,40 @@ function TreeNodeItem({
       return a.name.localeCompare(b.name);
     });
 
+    // 目录右键菜单
+    const { showContextMenu: showDirMenu, ContextMenuWrapper: DirMenuWrapper } = useContextMenu(() => {
+      const items: MenuItem[] = [
+        {
+          id: 'show-in-explorer',
+          label: 'Show in File Explorer',
+          onClick: () => {
+            window.electronAPI.shell.openPath(node.fullPath);
+          },
+        },
+        { id: 'divider-1', label: '', divider: true },
+        {
+          id: 'copy-path',
+          label: 'Copy Path',
+          shortcut: 'Ctrl+C',
+          onClick: () => { navigator.clipboard.writeText(node.fullPath); },
+        },
+        {
+          id: 'copy-full-path',
+          label: 'Copy Full Path',
+          shortcut: 'Ctrl+Shift+C',
+          onClick: () => { navigator.clipboard.writeText(node.fullPath); },
+        },
+      ];
+      return items;
+    });
+
     return (
       <div className="dft-dir">
         <div
           className="dft-dir-header"
           style={{ paddingLeft: depth * 16 + 8 }}
           onClick={() => setExpanded(!expanded)}
+          onContextMenu={showDirMenu}
         >
           <svg
             className={`dft-arrow ${expanded ? 'dft-arrow-open' : ''}`}
@@ -130,6 +160,7 @@ function TreeNodeItem({
             defaultExpanded={false}
           />
         ))}
+        {DirMenuWrapper}
       </div>
     );
   }
@@ -139,11 +170,106 @@ function TreeNodeItem({
   const isSelected = selectedFile === node.fullPath;
   const fileStats = node.file ? { add: node.file.additions, del: node.file.deletions } : null;
 
+  // 文件右键菜单
+  const { showContextMenu: showFileMenu, ContextMenuWrapper: FileMenuWrapper } = useContextMenu(() => {
+    const items: MenuItem[] = [
+      {
+        id: 'open',
+        label: 'Open',
+        shortcut: 'Ctrl+Shift+Alt+O',
+        onClick: () => {
+          window.electronAPI.shell.openPath(node.fullPath);
+        },
+      },
+      {
+        id: 'diff-vscode',
+        label: 'Diff in VS Code',
+        shortcut: 'Ctrl+D',
+        onClick: () => {
+          // 在 VS Code 中打开 diff
+        },
+      },
+      {
+        id: 'show-in-explorer',
+        label: 'Show in File Explorer',
+        onClick: () => {
+          window.electronAPI.shell.showItemInFolder(node.fullPath);
+        },
+      },
+      { id: 'divider-1', label: '', divider: true },
+      {
+        id: 'reset-file',
+        label: 'Reset File to',
+        children: [
+          {
+            id: 'reset-at-commit',
+            label: 'State At Commit...',
+            onClick: () => {
+              // 重置到提交状态
+            },
+          },
+          {
+            id: 'reset-before-commit',
+            label: 'State Before Commit...',
+            onClick: () => {
+              // 重置到提交前状态
+            },
+          },
+        ],
+      },
+      { id: 'divider-2', label: '', divider: true },
+      {
+        id: 'blame',
+        label: 'Blame/Timeline...',
+        onClick: () => {
+          window.dispatchEvent(new CustomEvent('showBlame', { detail: node.fullPath }));
+        },
+      },
+      {
+        id: 'history',
+        label: 'History...',
+        onClick: () => {
+          onViewHistory?.(node.fullPath);
+        },
+      },
+      {
+        id: 'show-in-tree',
+        label: 'Show in File Tree',
+        onClick: () => {
+          // 在文件树中显示
+        },
+      },
+      { id: 'divider-3', label: '', divider: true },
+      {
+        id: 'save-as',
+        label: 'Save as...',
+        onClick: () => {
+          // 另存为
+        },
+      },
+      { id: 'divider-4', label: '', divider: true },
+      {
+        id: 'copy-path',
+        label: 'Copy Path',
+        shortcut: 'Ctrl+C',
+        onClick: () => { navigator.clipboard.writeText(node.fullPath); },
+      },
+      {
+        id: 'copy-full-path',
+        label: 'Copy Full Path',
+        shortcut: 'Ctrl+Shift+C',
+        onClick: () => { navigator.clipboard.writeText(node.fullPath); },
+      },
+    ];
+    return items;
+  });
+
   return (
     <div
       className={`dft-file ${isSelected ? 'dft-file-selected' : ''}`}
       style={{ paddingLeft: depth * 16 + 8 }}
       onClick={() => onFileSelect(node.fullPath)}
+      onContextMenu={showFileMenu}
     >
       <span className="dft-file-spacer" />
       {status && (
@@ -186,6 +312,7 @@ function TreeNodeItem({
           </button>
         )}
       </div>
+      {FileMenuWrapper}
     </div>
   );
 }
@@ -312,22 +439,67 @@ export default function DiffFileTree({
           filteredFiles.map(file => {
             const status = STATUS_ICONS[file.status];
             const isSelected = selectedFile === file.path;
+            
+            // 平铺视图文件右键菜单
+            const { showContextMenu, ContextMenuWrapper } = useContextMenu(() => {
+              const items: MenuItem[] = [
+                {
+                  id: 'open',
+                  label: 'Open',
+                  shortcut: 'Ctrl+Shift+Alt+O',
+                  onClick: () => { window.electronAPI.shell.openPath(file.path); },
+                },
+                {
+                  id: 'diff-vscode',
+                  label: 'Diff in VS Code',
+                  shortcut: 'Ctrl+D',
+                  onClick: () => {},
+                },
+                {
+                  id: 'show-in-explorer',
+                  label: 'Show in File Explorer',
+                  onClick: () => { window.electronAPI.shell.showItemInFolder(file.path); },
+                },
+                { id: 'divider-1', label: '', divider: true },
+                {
+                  id: 'reset-file',
+                  label: 'Reset File to',
+                  children: [
+                    { id: 'reset-at-commit', label: 'State At Commit...', onClick: () => {} },
+                    { id: 'reset-before-commit', label: 'State Before Commit...', onClick: () => {} },
+                  ],
+                },
+                { id: 'divider-2', label: '', divider: true },
+                { id: 'blame', label: 'Blame/Timeline...', onClick: () => { window.dispatchEvent(new CustomEvent('showBlame', { detail: file.path })); } },
+                { id: 'history', label: 'History...', onClick: () => { onViewHistory?.(file.path); } },
+                { id: 'divider-3', label: '', divider: true },
+                { id: 'save-as', label: 'Save as...', onClick: () => {} },
+                { id: 'divider-4', label: '', divider: true },
+                { id: 'copy-path', label: 'Copy Path', shortcut: 'Ctrl+C', onClick: () => { navigator.clipboard.writeText(file.path); } },
+                { id: 'copy-full-path', label: 'Copy Full Path', shortcut: 'Ctrl+Shift+C', onClick: () => { navigator.clipboard.writeText(file.path); } },
+              ];
+              return items;
+            });
+
             return (
-              <div
-                key={file.path}
-                className={`dft-file ${isSelected ? 'dft-file-selected' : ''}`}
-                onClick={() => onFileSelect(file.path)}
-              >
-                {status && (
-                  <span className="dft-status-badge" style={{ color: status.color }}>
-                    {status.label}
+              <div key={file.path}>
+                <div
+                  className={`dft-file ${isSelected ? 'dft-file-selected' : ''}`}
+                  onClick={() => onFileSelect(file.path)}
+                  onContextMenu={showContextMenu}
+                >
+                  {status && (
+                    <span className="dft-status-badge" style={{ color: status.color }}>
+                      {status.label}
+                    </span>
+                  )}
+                  <span className="dft-name" title={file.path}>{file.path}</span>
+                  <span className="dft-file-stats">
+                    <span className="dft-stat-add">+{file.additions}</span>
+                    <span className="dft-stat-del">-{file.deletions}</span>
                   </span>
-                )}
-                <span className="dft-name" title={file.path}>{file.path}</span>
-                <span className="dft-file-stats">
-                  <span className="dft-stat-add">+{file.additions}</span>
-                  <span className="dft-stat-del">-{file.deletions}</span>
-                </span>
+                </div>
+                {ContextMenuWrapper}
               </div>
             );
           })

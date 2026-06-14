@@ -1,0 +1,3 @@
+- Services are implemented as singleton classes or modules exported via `module.exports` for direct require-based access in IPC handlers.
+- IPC handlers consistently use try-catch blocks to capture service errors and return null or error objects to prevent main process crashes.
+- Git service methods implement a caching strategy with TTL invalidation for read-heavy operations like branch listing and status checks.

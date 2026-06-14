@@ -1,0 +1,1 @@
+Provides shared TypeScript interfaces, types, and utility functions for Git operations and Electron IPC communication.

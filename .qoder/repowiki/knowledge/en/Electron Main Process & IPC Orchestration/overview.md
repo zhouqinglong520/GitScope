@@ -1,0 +1,1 @@
+Manages the Electron application lifecycle, window creation, and routes renderer requests to specialized Git, terminal, and integration services.

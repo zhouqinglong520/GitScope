@@ -539,12 +539,12 @@ export const useRepoStore = create<RepoState>((set, get) => ({
    */
   loadRepoData: async (path: string) => {
     try {
-      const [branches, commits, status, tags, aheadBehind] = await Promise.all([
+      // 优先加载关键数据，减少初始加载量
+      const [branches, commits, status, tags] = await Promise.all([
         window.electronAPI.git.getBranches(),
-        window.electronAPI.git.getLog({ depth: 300, all: true }),
+        window.electronAPI.git.getLog({ depth: 100, all: true }),
         window.electronAPI.git.getStatus(),
         window.electronAPI.git.getTags().catch(() => []),
-        window.electronAPI.git.getAheadBehind().catch(() => ({ ahead: 0, behind: 0 })),
       ]);
 
       // 获取 stash 列表
@@ -555,8 +555,19 @@ export const useRepoStore = create<RepoState>((set, get) => ({
         date: s.dateStr,
       }));
 
-      // 获取作者统计
-      const authorStats = await window.electronAPI.git.getAuthorStats().catch(() => []);
+      // 延迟加载非关键数据
+      window.electronAPI.git.getAheadBehind().then((aheadBehind) => {
+        set({ ahead: aheadBehind.ahead, behind: aheadBehind.behind });
+      }).catch(() => {
+        set({ ahead: 0, behind: 0 });
+      });
+
+      // 延迟加载作者统计（不影响主流程）
+      window.electronAPI.git.getAuthorStats().then((authorStats) => {
+        set({ authorStats });
+      }).catch(() => {
+        set({ authorStats: [] });
+      });
 
       const newCurrentBranch = branches.find((b) => b.current) || null;
 
@@ -568,10 +579,10 @@ export const useRepoStore = create<RepoState>((set, get) => ({
           status,
           tags,
           stashes,
-          authorStats,
+          authorStats: [],
           currentBranch: newCurrentBranch,
-          ahead: aheadBehind.ahead,
-          behind: aheadBehind.behind,
+          ahead: 0,
+          behind: 0,
           hasMoreCommits: commits.length >= 100,
           repos: state.repos.map((repo) =>
             repo.path === path ? { ...repo, currentBranch: newCurrentBranch?.name || null } : repo

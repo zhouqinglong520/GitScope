@@ -1639,6 +1639,53 @@ class GitService {
     return { ahead: 0, behind: 0 };
   }
 
+  /**
+   * 获取所有本地分支的跟踪状态（ahead/behind）
+   * 返回一个映射：分支名 -> 跟踪状态
+   */
+  async getBranchTrackingStatus(): Promise<Record<string, { ahead: number; behind: number; upstream: string | null }>> {
+    if (!this.dir) return {};
+
+    try {
+      // 获取所有本地分支
+      const { stdout: branchesOutput } = await execFileAsync('git', ['branch', '--format=%(refname:short)'], { cwd: this.dir });
+      const localBranches = branchesOutput.trim().split('\n').filter(Boolean);
+
+      const result: Record<string, { ahead: number; behind: number; upstream: string | null }> = {};
+
+      for (const branch of localBranches) {
+        try {
+          // 获取上游分支
+          const { stdout: upstreamOutput } = await execFileAsync('git', ['rev-parse', '--abbrev-ref', `${branch}@{upstream}`], { cwd: this.dir });
+          const upstream = upstreamOutput.trim() || null;
+
+          if (upstream) {
+            // 获取 ahead/behind 数量
+            const { stdout: countOutput } = await execFileAsync('git', ['rev-list', '--count', '--left-right', `${branch}@{upstream}...${branch}`], { cwd: this.dir });
+            const parts = countOutput.trim().split('\t');
+            if (parts.length === 2) {
+              result[branch] = {
+                behind: parseInt(parts[0], 10) || 0,
+                ahead: parseInt(parts[1], 10) || 0,
+                upstream,
+              };
+            } else {
+              result[branch] = { ahead: 0, behind: 0, upstream };
+            }
+          } else {
+            result[branch] = { ahead: 0, behind: 0, upstream: null };
+          }
+        } catch {
+          result[branch] = { ahead: 0, behind: 0, upstream: null };
+        }
+      }
+
+      return result;
+    } catch {
+      return {};
+    }
+  }
+
   // ========== 辅助方法 ==========
 
   /**

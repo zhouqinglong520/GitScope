@@ -58,40 +58,83 @@ function Sidebar({ onOpenRepo, onShowDialog }: SidebarProps) {
   const isExpanded = (section: SectionType) => expandedSections.has(section);
 
   return (
-    <div className="flex flex-col h-full" style={{ background: 'var(--bg-elevated)' }}>
-      <div className="h-9 flex items-center justify-between px-3" style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--bg-overlay)' }}>
-        <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>{i18n.sidebar.repositories}</span>
-        <button onClick={onOpenRepo} className="btn-icon" title={i18n.sidebar.addRepo}>
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-        </button>
-      </div>
-      <div className="flex-1 overflow-y-auto">
+    <div className="flex flex-col h-full" style={{ background: '#1a1d21' }}>
+      {/* ===== 上半部分：仓库信息和操作 ===== */}
+      <div className="flex flex-col border-b" style={{ borderColor: '#2d333b' }}>
+        {/* 仓库标题栏 */}
+        <div className="h-9 flex items-center justify-between px-3" style={{ background: '#15181c' }}>
+          <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: '#8b949e' }}>{i18n.sidebar.repositories}</span>
+          <button onClick={onOpenRepo} className="btn-icon" title={i18n.sidebar.addRepo}>
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+          </button>
+        </div>
+        
+        {/* 仓库列表 */}
+        <div className="max-h-48 overflow-y-auto">
+          <RepoSection />
+        </div>
+        
+        {/* 操作快捷入口 */}
         {status && (
-          <Section title={`${i18n.sidebar.changes} (${status.staged.length + status.unstaged.length + status.untracked.length})`} expanded={isExpanded('changes')} onToggle={() => toggleSection('changes')} icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>}>
+          <Section title={`Local Changes (${status.staged.length + status.unstaged.length + status.untracked.length})`} expanded={isExpanded('changes')} onToggle={() => toggleSection('changes')} icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>}>
             <ChangesSection />
           </Section>
         )}
-        <Section title={i18n.sidebar.repositories} expanded={isExpanded('repositories')} onToggle={() => toggleSection('repositories')} icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg>}>
-          <RepoSection />
-        </Section>
-        <Section title={i18n.branch.local} expanded={isExpanded('branches')} onToggle={() => toggleSection('branches')} icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>}>
+        
+        {/* 搜索框 */}
+        <div className="px-3 py-2">
+          <div className="relative">
+            <svg className="absolute left-2 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input 
+              type="text" 
+              placeholder="Filter" 
+              style={{
+                width: '100%',
+                padding: '4px 8px 4px 24px',
+                fontSize: 11,
+                background: '#15181c',
+                border: '1px solid #2d333b',
+                borderRadius: 4,
+                color: '#e6edf3',
+                outline: 'none',
+                boxSizing: 'border-box',
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  window.dispatchEvent(new CustomEvent('focusCommits'));
+                }
+              }}
+            />
+          </div>
+        </div>
+      </div>
+      
+      {/* ===== 下半部分：Git 对象列表 ===== */}
+      <div className="flex-1 overflow-y-auto" style={{ background: '#1a1d21' }}>
+        <Section title="Branches" expanded={isExpanded('branches')} onToggle={() => toggleSection('branches')} icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>}>
           <BranchSection onShowDialog={onShowDialog} pinnedItems={pinnedItems} togglePin={togglePin} />
           {/* P1: 分支区操作入口 */}
           <div style={{ display: 'flex', gap: 0, padding: '4px 12px' }}>
-            <button onClick={() => onShowDialog?.('staleBranches')} style={{ flex: 1, padding: '4px 0', fontSize: 10, color: 'var(--text-faint)', background: 'none', border: `1px solid var(--border-subtle)`, borderRadius: 4, cursor: 'pointer', borderRight: 'none' }} title="查询并删除已合并分支">清理陈旧</button>
-            <button onClick={() => onShowDialog?.('gitFlow')} style={{ flex: 1, padding: '4px 0', fontSize: 10, color: 'var(--text-faint)', background: 'none', border: `1px solid var(--border-subtle)`, borderRadius: 4, cursor: 'pointer' }} title="Git Flow 工作流">Git Flow</button>
+            <button onClick={() => onShowDialog?.('staleBranches')} style={{ flex: 1, padding: '4px 0', fontSize: 10, color: '#6e7681', background: 'none', border: `1px solid #30363d`, borderRadius: 4, cursor: 'pointer', borderRight: 'none' }} title="查询并删除已合并分支">清理陈旧</button>
+            <button onClick={() => onShowDialog?.('gitFlow')} style={{ flex: 1, padding: '4px 0', fontSize: 10, color: '#6e7681', background: 'none', border: `1px solid #30363d`, borderRadius: 4, cursor: 'pointer' }} title="Git Flow 工作流">Git Flow</button>
           </div>
         </Section>
         {tags && tags.length > 0 && (
-          <Section title="标签" expanded={isExpanded('tags')} onToggle={() => toggleSection('tags')} icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z" /></svg>}>
+          <Section title="Tags" expanded={isExpanded('tags')} onToggle={() => toggleSection('tags')} icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z" /></svg>}>
             <TagsSection onShowDialog={onShowDialog} pinnedItems={pinnedItems} togglePin={togglePin} />
           </Section>
         )}
         {stashes && stashes.length > 0 && (
-          <Section title={`Stash (${stashes.length})`} expanded={isExpanded('stashes')} onToggle={() => toggleSection('stashes')} icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>}>
+          <Section title={`Stashes (${stashes.length})`} expanded={isExpanded('stashes')} onToggle={() => toggleSection('stashes')} icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>}>
             <StashSection />
           </Section>
         )}
+        {/* Submodules 占位（如有） */}
+        {/* <Section title="Submodules" expanded={false} onToggle={() => {}} icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" /></svg>}>
+          <div className="px-3 py-2 text-xs text-gray-500">暂无子模块</div>
+        </Section> */}
       </div>
     </div>
   );
@@ -303,10 +346,10 @@ function RepoSection() {
   const { repos, activeRepoId, currentRepo, setActiveRepo } = useRepoStore();
   const { showContextMenu, ContextMenuWrapper } = useContextMenu(() => {
     const items: MenuItem[] = [
-      { id: 'open-in-explorer', label: '在资源管理器中打开', onClick: () => { if (currentRepo) window.electronAPI.shell.openPath(currentRepo.path); } },
-      { id: 'copy-path', label: '复制路径', onClick: () => { if (currentRepo) navigator.clipboard.writeText(currentRepo.path); } },
+      { id: 'rename', label: 'Rename Repository', onClick: () => { if (currentRepo) { /* 触发重命名对话框 */ } } },
+      { id: 'copy-path', label: 'Copy Repository Path', onClick: () => { if (currentRepo) navigator.clipboard.writeText(currentRepo.path); } },
       { id: 'divider-1', label: '', divider: true },
-      { id: 'remove', label: '从列表中移除', onClick: () => { if (activeRepoId) useRepoStore.getState().closeRepo(activeRepoId); } },
+      { id: 'settings', label: 'Settings for This Repository...', onClick: () => { /* 触发设置对话框 */ } },
     ];
     return items;
   });
@@ -314,10 +357,22 @@ function RepoSection() {
   return (
     <>
       {repos.map((repo) => (
-        <div key={repo.id} onClick={() => setActiveRepo(repo.id)} onContextMenu={showContextMenu} className={`sidebar-item ${activeRepoId === repo.id ? 'sidebar-item-active' : ''}`} style={{ paddingLeft: 28 }}>
+        <div key={repo.id} onClick={() => setActiveRepo(repo.id)} className={`sidebar-item ${activeRepoId === repo.id ? 'sidebar-item-active' : ''}`} style={{ paddingLeft: 28, display: 'flex', alignItems: 'center' }}>
           <svg className="w-4 h-4 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg>
           <div className="flex-1 min-w-0"><div className="text-sm truncate">{repo.name}</div><div className="text-xs text-gray-500 truncate">{repo.path}</div></div>
-          {repo.currentBranch && <span className="text-xs text-primary-400">{repo.currentBranch}</span>}
+          {repo.currentBranch && <span className="text-xs text-primary-400 mr-2">{repo.currentBranch}</span>}
+          {/* 设置按钮 */}
+          <button 
+            onContextMenu={showContextMenu}
+            onClick={(e) => { e.stopPropagation(); showContextMenu(e); }}
+            className="p-1 hover:bg-[#252b34] rounded transition-colors"
+            title="Repository settings"
+          >
+            <svg className="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          </button>
         </div>
       ))}
       {ContextMenuWrapper}
@@ -328,6 +383,30 @@ function RepoSection() {
 /* ======================== 分支列表 — 右键触发专业弹窗 ======================== */
 function BranchSection({ onShowDialog, pinnedItems, togglePin }: { onShowDialog?: (dialog: string, payload?: string | null) => void; pinnedItems: Set<string>; togglePin: (key: string) => void }) {
   const { branches, refresh } = useRepoStore();
+  const [trackingStatus, setTrackingStatus] = React.useState<Record<string, { ahead: number; behind: number; upstream: string | null }>>({});
+  const [isLoadingTracking, setIsLoadingTracking] = React.useState(false);
+
+  // 加载分支跟踪状态
+  React.useEffect(() => {
+    const loadTrackingStatus = async () => {
+      setIsLoadingTracking(true);
+      try {
+        const status = await window.electronAPI.git.getBranchTrackingStatus();
+        setTrackingStatus(status);
+      } catch (err) {
+        console.error('[Sidebar] 获取分支跟踪状态失败:', err);
+      } finally {
+        setIsLoadingTracking(false);
+      }
+    };
+
+    loadTrackingStatus();
+    // 刷新时重新加载
+    const handleRefresh = () => loadTrackingStatus();
+    window.addEventListener('sidebar:refresh', handleRefresh);
+    return () => window.removeEventListener('sidebar:refresh', handleRefresh);
+  }, [branches]);
+
   const localBranches = branches.filter((b) => !b.remote);
   const remoteBranches = branches.filter((b) => b.remote);
   // Pin 排序：pinned 优先，再按最新提交时间降序
@@ -350,11 +429,29 @@ function BranchSection({ onShowDialog, pinnedItems, togglePin }: { onShowDialog?
     window.dispatchEvent(new CustomEvent('showBranchDialog', { detail: { dialog, payload } }));
   };
 
+  // 双击打开更新操作对话框
+  const handleBranchDoubleClick = (branchName: string) => {
+    // 总是弹出更新对话框，让用户选择操作（pull/rebase/fetch等）
+    showBranchDialog('updateBranch', branchName);
+  };
+
   return (
     <>
-      {sortedLocal.map((branch) => (
-        <BranchItem key={branch.name} branch={branch} onDoubleClick={() => checkoutLocalBranch(branch.name)} onRefresh={refresh} showDialog={showBranchDialog} isPinned={pinnedItems.has('branch:' + branch.name)} onTogglePin={() => togglePin('branch:' + branch.name)} />
-      ))}
+      {sortedLocal.map((branch) => {
+        const status = trackingStatus[branch.name];
+        return (
+          <BranchItem 
+            key={branch.name} 
+            branch={branch} 
+            trackingStatus={status}
+            onDoubleClick={() => handleBranchDoubleClick(branch.name)} 
+            onRefresh={refresh} 
+            showDialog={showBranchDialog} 
+            isPinned={pinnedItems.has('branch:' + branch.name)} 
+            onTogglePin={() => togglePin('branch:' + branch.name)} 
+          />
+        );
+      })}
       {sortedRemote.length > 0 && (
         <>
           <div className="px-3 py-1 text-xs font-semibold text-gray-500 uppercase mt-2">{zhCN.branch.remote}</div>
@@ -367,8 +464,9 @@ function BranchSection({ onShowDialog, pinnedItems, togglePin }: { onShowDialog?
   );
 }
 
-function BranchItem({ branch, onDoubleClick, onRefresh, showDialog, isPinned, onTogglePin }: {
+function BranchItem({ branch, trackingStatus, onDoubleClick, onRefresh, showDialog, isPinned, onTogglePin }: {
   branch: { name: string; current: boolean };
+  trackingStatus?: { ahead: number; behind: number; upstream: string | null };
   onDoubleClick: () => void;
   onRefresh: () => Promise<void>;
   showDialog: (dialog: string, payload?: string | null) => void;
@@ -379,46 +477,192 @@ function BranchItem({ branch, onDoubleClick, onRefresh, showDialog, isPinned, on
   const { showContextMenu, ContextMenuWrapper } = useContextMenu(() => {
     const items: MenuItem[] = [
       {
-        id: 'new-branch', label: '新建分支...', shortcut: 'Ctrl+Shift+N',
-        onClick: () => { showDialog('newBranch'); },
-      },
-      {
-        id: 'checkout', label: '切换到此分支',
+        id: 'checkout', label: 'Checkout...',
         onClick: async () => { try { await window.electronAPI.git.checkout(branchName); await onRefresh(); } catch (err) { console.error('[Sidebar] 切换分支失败:', err); } },
       },
       { id: 'divider-1', label: '', divider: true },
       {
-        id: 'pin', label: isPinned ? '取消固定' : '📌 固定到顶部',
-        onClick: () => { onTogglePin(); },
+        id: 'pull', label: trackingStatus?.upstream ? `Pull '${trackingStatus.upstream}'...` : 'Pull...',
+        onClick: () => { showDialog('pull', branchName); },
       },
       {
-        id: 'merge', label: '合并到当前分支...',
-        onClick: () => { showDialog('mergeBranch', branchName); },
-      },
-      {
-        id: 'rebase', label: '变基到当前分支...',
-        onClick: () => { window.dispatchEvent(new CustomEvent('showInteractiveRebase', { detail: { oid: branchName } })); },
+        id: 'push', label: trackingStatus?.upstream ? 'Push to origin...' : 'Push...',
+        onClick: () => { showDialog('push', branchName); },
       },
       { id: 'divider-2', label: '', divider: true },
       {
-        id: 'rename', label: '重命名...',
+        id: 'new-branch', label: 'New Branch...', shortcut: 'Ctrl+Shift+B',
+        onClick: () => { showDialog('newBranch'); },
+      },
+      {
+        id: 'new-tag', label: 'New Tag...', shortcut: 'Ctrl+Shift+T',
+        onClick: () => { showDialog('newTag', branchName); },
+      },
+      { id: 'divider-3', label: '', divider: true },
+      {
+        id: 'merge', label: 'Merge into Current Branch...',
+        onClick: () => { showDialog('mergeBranch', branchName); },
+      },
+      {
+        id: 'rebase', label: 'Rebase onto Current Branch...',
+        onClick: () => { window.dispatchEvent(new CustomEvent('showInteractiveRebase', { detail: { oid: branchName } })); },
+      },
+      { id: 'divider-4', label: '', divider: true },
+      {
+        id: 'tracking', label: 'Tracking',
+        children: trackingStatus?.upstream ? [
+          {
+            id: 'tracking-remove',
+            label: `Remove tracking reference`,
+            onClick: async () => { 
+              try { 
+                await window.electronAPI.git.unsetUpstream(branchName); 
+                await onRefresh(); 
+              } catch (err) { 
+                console.error('[Sidebar] 取消上游分支失败:', err); 
+              } 
+            },
+          },
+          { id: 'tracking-divider', label: '', divider: true },
+          {
+            id: 'tracking-set',
+            label: trackingStatus.upstream,
+            onClick: () => {},
+          },
+        ] : [
+          {
+            id: 'tracking-set',
+            label: 'Set upstream...',
+            onClick: () => { showDialog('setUpstream', branchName); },
+          },
+        ],
+      },
+      { id: 'divider-5', label: '', divider: true },
+      {
+        id: 'rename', label: 'Rename...', shortcut: 'F2',
         onClick: () => { showDialog('renameBranch', branchName); },
       },
       {
-        id: 'delete', label: '删除...',
+        id: 'delete', label: 'Delete...', shortcut: 'Delete',
         onClick: () => { showDialog('deleteBranch', branchName); },
+      },
+      { id: 'divider-6', label: '', divider: true },
+      {
+        id: 'copy-name', label: 'Copy Branch Name', shortcut: 'Ctrl+C',
+        onClick: () => { navigator.clipboard.writeText(branchName); },
+      },
+      {
+        id: 'pin', label: isPinned ? 'Unpin' : 'Pin',
+        onClick: () => { onTogglePin(); },
       },
     ];
     return items;
   });
 
+  // 构建跟踪状态显示（参考 Fork 风格）
+  const renderTrackingStatus = () => {
+    if (!trackingStatus || (!trackingStatus.ahead && !trackingStatus.behind)) {
+      return null;
+    }
+    
+    const parts = [];
+    // 落后显示（绿色向下箭头）
+    if (trackingStatus.behind > 0) {
+      parts.push(
+        <span key="behind" style={{ 
+          color: '#22c55e', 
+          fontSize: 11, 
+          fontWeight: 500,
+          marginLeft: 8,
+        }} title={`落后 ${trackingStatus.behind} 个提交`}>
+          ↓{trackingStatus.behind}
+        </span>
+      );
+    }
+    // 领先显示（黄色向上箭头）
+    if (trackingStatus.ahead > 0) {
+      parts.push(
+        <span key="ahead" style={{ 
+          color: '#eab308', 
+          fontSize: 11, 
+          fontWeight: 500,
+          marginLeft: 4,
+        }} title={`领先 ${trackingStatus.ahead} 个提交`}>
+          ↑{trackingStatus.ahead}
+        </span>
+      );
+    }
+    
+    return <>{parts}</>;
+  };
+
+  // 计算显示的数字（参考 Fork 显示提交数量）
+  const totalCommits = (trackingStatus?.ahead || 0) + (trackingStatus?.behind || 0);
+
   return (
     <>
-      <div onContextMenu={showContextMenu} onDoubleClick={onDoubleClick} className={`sidebar-item ${branch.current ? 'sidebar-item-active' : ''}`} style={{ paddingLeft: 28 }}>
-        <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke={getBranchColor(branchName, branch.current)} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-        <span className="text-sm truncate flex-1">{branchName}</span>
-        {isPinned && <span style={{ color: '#e8c547', fontSize: 10, marginRight: 4 }} title="已固定">📌</span>}
-        {branch.current && <span className="sidebar-item-meta" style={{ color: 'var(--accent)' }}>●</span>}
+      <div 
+        onContextMenu={showContextMenu} 
+        onDoubleClick={onDoubleClick} 
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          padding: '3px 6px 3px 22px',
+          cursor: 'pointer',
+          transition: 'background-color 0.15s',
+          backgroundColor: branch.current ? '#2563eb' : 'transparent',
+          color: branch.current ? 'white' : undefined,
+          borderRadius: 4,
+          margin: '1px 2px',
+        }}
+        onMouseEnter={(e) => {
+          if (!branch.current) {
+            (e.currentTarget as HTMLElement).style.backgroundColor = 'rgba(255,255,255,0.06)';
+          }
+        }}
+        onMouseLeave={(e) => {
+          if (!branch.current) {
+            (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent';
+          }
+        }}
+        title={trackingStatus?.upstream ? `上游分支: ${trackingStatus.upstream}` : '无上流分支'}
+      >
+        {/* 当前分支复选标记 */}
+        {branch.current && (
+          <span style={{ 
+            fontSize: 14, 
+            marginRight: 4,
+            fontWeight: 600,
+            opacity: 0.9,
+          }}>✓</span>
+        )}
+        
+        {/* 分支图标 */}
+        <svg className="w-3.5 h-3.5 flex-shrink-0 mr-2" fill="none" stroke={branch.current ? 'white' : getBranchColor(branchName, branch.current)} viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+        </svg>
+        
+        {/* 分支名称 */}
+        <span className="text-sm truncate flex-1" style={{ fontSize: 12.5 }}>{branchName}</span>
+        
+        {/* 固定标记 */}
+        {isPinned && <span style={{ color: '#eab308', fontSize: 10, marginRight: 4 }} title="已固定">📌</span>}
+        
+        {/* 跟踪状态 */}
+        {renderTrackingStatus()}
+        
+        {/* 当前分支提交数量（参考 Fork 风格显示在最右侧） */}
+        {branch.current && totalCommits > 0 && (
+          <span style={{ 
+            marginLeft: 8, 
+            fontSize: 11.5, 
+            fontWeight: 600,
+            opacity: 0.85,
+            fontFamily: 'SF Mono, Monaco, Menlo, monospace',
+          }}>
+            {totalCommits}
+          </span>
+        )}
       </div>
       {ContextMenuWrapper}
     </>
@@ -432,10 +676,100 @@ function RemoteBranchItem({ branch, onCheckout, onRefresh }: {
   onRefresh: () => Promise<void>;
 }) {
   const branchName = branch.name;
+  const localBranchName = branchName.replace(/^origin\//, '');
   const { showContextMenu, ContextMenuWrapper } = useContextMenu(() => {
     const items: MenuItem[] = [
-      { id: 'checkout', label: '创建本地跟踪分支', onClick: onCheckout },
-      { id: 'copy', label: '复制分支名', onClick: () => { navigator.clipboard.writeText(branchName); } },
+      {
+        id: 'checkout', label: 'Checkout...',
+        onClick: onCheckout,
+      },
+      { id: 'divider-1', label: '', divider: true },
+      {
+        id: 'pull', label: `Pull into '${localBranchName}'...`,
+        shortcut: 'Ctrl+Shift+L',
+        onClick: async () => {
+          try {
+            await window.electronAPI.git.pull(localBranchName);
+            await onRefresh();
+          } catch (err) {
+            console.error('[Sidebar] Pull 失败:', err);
+          }
+        },
+      },
+      { id: 'divider-2', label: '', divider: true },
+      {
+        id: 'merge', label: `Merge into '${localBranchName}'...`,
+        onClick: () => {
+          window.dispatchEvent(new CustomEvent('showBranchDialog', { 
+            detail: { dialog: 'mergeBranch', payload: branchName } 
+          }));
+        },
+      },
+      {
+        id: 'rebase', label: `Rebase '${localBranchName}' on '${branchName}'...`,
+        onClick: () => {
+          window.dispatchEvent(new CustomEvent('showInteractiveRebase', { 
+            detail: { oid: branchName, base: localBranchName } 
+          }));
+        },
+      },
+      {
+        id: 'rebase-into', label: `Rebase into '${localBranchName}' on '${branchName}'...`,
+        onClick: async () => {
+          try {
+            await window.electronAPI.git.rebase(branchName);
+            await onRefresh();
+          } catch (err) {
+            console.error('[Sidebar] Rebase 失败:', err);
+          }
+        },
+      },
+      {
+        id: 'interactive-rebase', label: `Interactively Rebase '${localBranchName}' on '${branchName}'...`,
+        onClick: () => {
+          window.dispatchEvent(new CustomEvent('showInteractiveRebase', { 
+            detail: { oid: branchName, interactive: true } 
+          }));
+        },
+      },
+      { id: 'divider-3', label: '', divider: true },
+      {
+        id: 'new-branch', label: 'New Branch...',
+        shortcut: 'Ctrl+Shift+B',
+        onClick: () => {
+          window.dispatchEvent(new CustomEvent('showBranchDialog', { 
+            detail: { dialog: 'newBranch', payload: branchName } 
+          }));
+        },
+      },
+      {
+        id: 'new-tag', label: 'New Tag...',
+        shortcut: 'Ctrl+Shift+G',
+        onClick: () => {
+          window.dispatchEvent(new CustomEvent('showTagDialog', { 
+            detail: { dialog: 'newTag', payload: branchName } 
+          }));
+        },
+      },
+      { id: 'divider-4', label: '', divider: true },
+      {
+        id: 'delete', label: 'Delete...',
+        shortcut: 'Delete',
+        onClick: async () => {
+          try {
+            await window.electronAPI.git.deleteRemoteBranch(branchName);
+            await onRefresh();
+          } catch (err) {
+            console.error('[Sidebar] 删除远程分支失败:', err);
+          }
+        },
+      },
+      { id: 'divider-5', label: '', divider: true },
+      {
+        id: 'copy-name', label: 'Copy Branch Name',
+        shortcut: 'Ctrl+C',
+        onClick: () => { navigator.clipboard.writeText(branchName); },
+      },
     ];
     return items;
   });

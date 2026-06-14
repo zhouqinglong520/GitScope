@@ -84,6 +84,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getAuthorStats: () => ipcRenderer.invoke('git:getAuthorStats'),
     getFileDiff: (oid: string, filePath?: string) => ipcRenderer.invoke('git:getFileDiff', oid, filePath),
     getAheadBehind: () => ipcRenderer.invoke('git:getAheadBehind'),
+    getBranchTrackingStatus: () => ipcRenderer.invoke('git:getBranchTrackingStatus'),
 
     // ========== 冲突解决 ==========
     abortMerge: () => ipcRenderer.invoke('git:abortMerge'),
@@ -299,6 +300,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
         ipcRenderer.removeListener('window:maximize-changed', handler);
       };
     },
+  },
+
+  // ========== 应用服务 ==========
+  app: {
+    setLocale: (locale: string) => ipcRenderer.invoke('app:setLocale', locale),
+    getLocale: () => ipcRenderer.invoke('app:getLocale'),
   },
 
   // ========== IPC 事件监听 ==========

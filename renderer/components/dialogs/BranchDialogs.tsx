@@ -713,3 +713,232 @@ export function SwitchBranchDialog({ onClose }: SwitchBranchDialogProps) {
     </div>
   );
 }
+
+/* =================================================================== */
+/*  更新分支弹窗                                                        */
+/*  双击有更新的分支时弹出，提供 pull/rebase/fetch 等更新操作选择          */
+/* =================================================================== */
+interface UpdateBranchDialogProps {
+  onClose: () => void;
+  branchName?: string;
+  onCompleted?: () => void;
+}
+
+export function UpdateBranchDialog({ onClose, branchName, onCompleted }: UpdateBranchDialogProps) {
+  const { refresh } = useRepoStore();
+  const [selectedAction, setSelectedAction] = useState<'pull' | 'pullRebase' | 'fetch' | 'fetchAll'>('pull');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [trackingStatus, setTrackingStatus] = useState<{ ahead: number; behind: number; upstream: string | null } | null>(null);
+
+  // 加载分支跟踪状态
+  React.useEffect(() => {
+    const loadTrackingStatus = async () => {
+      try {
+        const status = await window.electronAPI.git.getBranchTrackingStatus();
+        setTrackingStatus(status[branchName || ''] || null);
+      } catch (err) {
+        console.error('[UpdateBranchDialog] 获取跟踪状态失败:', err);
+      }
+    };
+    loadTrackingStatus();
+  }, [branchName]);
+
+  const handleAction = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      switch (selectedAction) {
+        case 'pull':
+          await window.electronAPI.git.pull({ rebase: false });
+          break;
+        case 'pullRebase':
+          await window.electronAPI.git.pull({ rebase: true });
+          break;
+        case 'fetch':
+          await window.electronAPI.git.fetch();
+          break;
+        case 'fetchAll':
+          await window.electronAPI.git.fetch({ prune: true });
+          break;
+      }
+      await refresh();
+      onCompleted?.();
+      onClose();
+    } catch (e: any) {
+      setError(e.message || '操作失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getActionDescription = () => {
+    switch (selectedAction) {
+      case 'pull': return '从上游分支拉取最新提交（使用 merge）';
+      case 'pullRebase': return '从上游分支拉取并变基（使用 rebase）';
+      case 'fetch': return '仅获取远程更新，不合并';
+      case 'fetchAll': return '获取所有远程更新并清理已删除的分支';
+    }
+  };
+
+  const getCommandPreview = () => {
+    switch (selectedAction) {
+      case 'pull': return `git pull ${trackingStatus?.upstream?.split('/')[0] || 'origin'}`;
+      case 'pullRebase': return `git pull --rebase ${trackingStatus?.upstream?.split('/')[0] || 'origin'}`;
+      case 'fetch': return `git fetch ${trackingStatus?.upstream?.split('/')[0] || 'origin'}`;
+      case 'fetchAll': return 'git fetch --all --prune';
+    }
+  };
+
+  return (
+    <div style={D.overlay} onClick={e => e.target === e.currentTarget && !loading && onClose()}>
+      <div style={D.card(440)}>
+        <div style={D.header}>
+          <h3 style={D.title}>
+            <svg width="16" height="16" fill="none" stroke={COLOR.accent} strokeWidth={2} viewBox="0 0 24 24" style={{ marginRight: 8, verticalAlign: -2 }}>
+              <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            更新分支
+          </h3>
+          <button onClick={onClose} style={D.closeBtn} onMouseEnter={e => e.currentTarget.style.background = COLOR.btnHover} onMouseLeave={e => e.currentTarget.style.background = 'none'}>✕</button>
+        </div>
+        <div style={D.body}>
+          {/* 分支信息 */}
+          <div style={{ ...D.field, marginBottom: 16 }}>
+            <label style={D.label}>目标分支</label>
+            <div style={{ ...D.input, background: 'transparent', border: `1px solid ${COLOR.accentDim}`, color: COLOR.accent, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+              {branchName}
+              {trackingStatus?.upstream && (
+                <span style={{ fontSize: 11, color: COLOR.textFaint, marginLeft: 'auto' }}>
+                  → {trackingStatus.upstream}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* 状态提示 */}
+          {trackingStatus && (trackingStatus.ahead > 0 || trackingStatus.behind > 0) && (
+            <div style={{ 
+              background: COLOR.inputBg, 
+              borderRadius: 6, 
+              padding: '10px 12px', 
+              marginBottom: 16,
+              border: `1px solid ${COLOR.inputBorder}`,
+            }}>
+              <div style={{ fontSize: 12, color: COLOR.textMuted, marginBottom: 6 }}>分支状态</div>
+              <div style={{ display: 'flex', gap: 12, fontSize: 13 }}>
+                {trackingStatus.behind > 0 && (
+                  <span style={{ color: '#4ec9b0' }}>
+                    <span style={{ marginRight: 4 }}>↓</span>
+                    落后 <strong>{trackingStatus.behind}</strong> 个提交
+                  </span>
+                )}
+                {trackingStatus.ahead > 0 && (
+                  <span style={{ color: '#e8c547' }}>
+                    <span style={{ marginRight: 4 }}>↑</span>
+                    领先 <strong>{trackingStatus.ahead}</strong> 个提交
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* 操作选择 */}
+          <div style={D.field}>
+            <label style={D.label}>选择操作</label>
+            <div style={D.branchListWrap}>
+              <button 
+                onClick={() => setSelectedAction('pull')}
+                style={{ 
+                  ...D.branchItem(selectedAction === 'pull'),
+                  border: 'none',
+                  width: '100%',
+                  justifyContent: 'flex-start',
+                  padding: '10px 12px',
+                }}
+              >
+                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                <span style={{ flex: 1 }}>拉取更新</span>
+                <span style={{ fontSize: 10, color: COLOR.textFaint }}>Pull</span>
+              </button>
+              <button 
+                onClick={() => setSelectedAction('pullRebase')}
+                style={{ 
+                  ...D.branchItem(selectedAction === 'pullRebase'),
+                  border: 'none',
+                  width: '100%',
+                  justifyContent: 'flex-start',
+                  padding: '10px 12px',
+                }}
+              >
+                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                </svg>
+                <span style={{ flex: 1 }}>拉取并变基</span>
+                <span style={{ fontSize: 10, color: COLOR.textFaint }}>Rebase</span>
+              </button>
+              <button 
+                onClick={() => setSelectedAction('fetch')}
+                style={{ 
+                  ...D.branchItem(selectedAction === 'fetch'),
+                  border: 'none',
+                  width: '100%',
+                  justifyContent: 'flex-start',
+                  padding: '10px 12px',
+                }}
+              >
+                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <span style={{ flex: 1 }}>仅获取</span>
+                <span style={{ fontSize: 10, color: COLOR.textFaint }}>Fetch</span>
+              </button>
+              <button 
+                onClick={() => setSelectedAction('fetchAll')}
+                style={{ 
+                  ...D.branchItem(selectedAction === 'fetchAll'),
+                  border: 'none',
+                  width: '100%',
+                  justifyContent: 'flex-start',
+                  padding: '10px 12px',
+                }}
+              >
+                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                <span style={{ flex: 1 }}>获取全部</span>
+                <span style={{ fontSize: 10, color: COLOR.textFaint }}>Fetch All</span>
+              </button>
+            </div>
+          </div>
+
+          {/* 操作描述 */}
+          <div style={{ ...D.hint, marginBottom: 12 }}>
+            {getActionDescription()}
+          </div>
+
+          {/* 命令预览 */}
+          <div style={D.commandPreview}>
+            <span style={{ color: COLOR.textFaint }}>$ </span>
+            <span style={D.cmdHighlight}>{getCommandPreview().split(' ')[0]}</span>
+            {' ' + getCommandPreview().split(' ').slice(1).join(' ')}
+          </div>
+
+          {error && <div style={D.error}>⚠ {error}</div>}
+
+          <div style={D.footer}>
+            <button onClick={onClose} style={D.btnCancel}
+              onMouseEnter={e => e.currentTarget.style.background = COLOR.btnHover}
+              onMouseLeave={e => e.currentTarget.style.background = COLOR.btnBg}>取消</button>
+            <button onClick={handleAction} disabled={loading} style={D.btnPrimary(loading)}>
+              {loading ? '执行中...' : '执行'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

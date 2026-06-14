@@ -1,0 +1,1 @@
+React 18 with TypeScript, Zustand for global state management, and Tailwind CSS for utility-first styling.

@@ -1,0 +1,5 @@
+- Entry Point: `main.tsx` bootstraps the React application with global error handling.
+- Root Orchestration: `App.tsx` manages high-level layout (tabs, toolbar), multi-repo switching, and a centralized dialog registry driven by `useMenuEvents`.
+- State Management: `stores/repoStore.ts` uses Zustand to handle complex repository data (commits, branches, status) and synchronization logic.
+- Layout Engine: `components/layout/MainLayout.tsx` implements a draggable three-column architecture (Graph, Details, Diff) with integrated toolbars.
+- Event Bridge: Custom hooks like `useMenuEvents.ts` bridge IPC messages from the main process to UI actions and dialog triggers.

@@ -1,0 +1,3 @@
+- Interfaces use PascalCase naming with descriptive JSDoc comments for all properties.
+- Utility functions are pure and stateless, except for the global locale setting in `utils/index.ts`.
+- Type definitions are grouped by logical domain (e.g., Stash, Blame, LFS) using separator comments.

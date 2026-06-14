@@ -1,0 +1,3 @@
+- Components are organized into feature-specific subdirectories within `renderer/components/`, each containing both the `.tsx` logic and associated `.css` styles.
+- Global state interactions are encapsulated in custom hooks (e.g., `useRepoStore`, `useMenuEvents`) rather than being accessed directly in view components.
+- Dialog visibility is managed through a centralized reducer pattern in `App.tsx`, triggered by either menu events or local component state.

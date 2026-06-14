@@ -1,0 +1,1 @@
+Orchestrates a secure, multi-process Git GUI by bridging React UI components with native Node.js services through a strictly typed IPC boundary.

@@ -1,0 +1,4 @@
+- Adopts the standard Electron triad: a privileged Main process for native I/O, an isolated Renderer for UI, and a Preload script as the secure communication bridge.
+- Enforces strict context isolation where the Preload script exposes a curated `electronAPI` to the Renderer, preventing direct Node.js access while enabling IPC via `contextBridge`.
+- Centralizes cross-process contracts in a shared TypeScript module (`shared/types`), ensuring type safety for all IPC channels and Git data structures across the Main and Renderer boundaries.
+- Wires specialized native services (Git, Terminal, AI, Credentials) in the Main process, exposing them as discrete IPC handlers that the Renderer invokes asynchronously.

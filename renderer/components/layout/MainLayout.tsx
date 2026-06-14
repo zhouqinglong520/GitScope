@@ -11,8 +11,11 @@ import StatusPanel from '../commit/StatusPanel';
 import DiffView from '../diff/DiffView';
 import CommitBar from '../commitbar/CommitBar';
 import CommitFilterBar from '../filter/CommitFilterBar';
-import CommitDetailPanel from '../commitdetail/CommitDetailPanel';
+import CommitDetailPanel, { getFileDiff } from '../commitdetail/CommitDetailPanel';
 import DiffFileTree from '../difftree/DiffFileTree';
+import ChangesFileTree from '../changes/ChangesFileTree';
+import RepositoryFileTree from '../filetree/RepositoryFileTree';
+import LocalChangesPanel from './LocalChangesPanel';
 import FileHistory from '../filehistory/FileHistory';
 import CherryPickDialog from '../operations/CherryPickDialog';
 import { PushDialog, PullDialog, FetchDialog } from '../operations/PushPullDialog';
@@ -30,7 +33,7 @@ import CommandPreviewDialog, { getGitCommandPreview, shouldShowPreview } from '.
 import ShortcutsDialog from '../shortcuts/ShortcutsDialog';
 import { DragDropProvider } from '../dragdrop/DragDropContext';
 import { useRepoStore } from '../../stores/repoStore';
-import { useI18 } from '../../i18n';
+import { useI18, formatDate } from '../../i18n';
 import { zhCN } from '../../i18n/zh-CN';
 
 function MainLayout() {
@@ -59,6 +62,10 @@ function MainLayout() {
   const [pendingCmdAction, setPendingCmdAction] = useState<(() => void) | null>(null);
   const [cmdPreviewCommands, setCmdPreviewCommands] = useState<any[]>([]);
   const [autoFetchInterval, setAutoFetchInterval] = useState<ReturnType<typeof setInterval> | null>(null);
+  
+  // 右栏标签页状态
+  const [rightPanelTab, setRightPanelTab] = useState<'commit' | 'changes' | 'filetree'>('changes');
+
   const {
     commits,
     filteredCommits,
@@ -88,6 +95,23 @@ function MainLayout() {
   const [selectedCommit, setSelectedCommit] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [isCommitting, setIsCommitting] = useState(false);
+  const [fileDiff, setFileDiff] = useState<Array<{
+    oldLine?: number;
+    newLine?: number;
+    type: 'add' | 'remove' | 'keep' | 'header';
+    content: string;
+  }> | null>(null);
+
+  // 加载文件 diff
+  useEffect(() => {
+    if (selectedFile && selectedCommit) {
+      getFileDiff(selectedCommit, selectedFile).then(diff => {
+        setFileDiff(diff);
+      });
+    } else {
+      setFileDiff(null);
+    }
+  }, [selectedFile, selectedCommit]);
 
   // 三栏比例状态：中栏占比
   const [centerRatio, setCenterRatio] = useState(0.38);
@@ -389,245 +413,382 @@ function MainLayout() {
         id="right-panel"
         className="flex-1 flex flex-col overflow-hidden"
       >
-        {/* 上半：提交详情（可折叠） */}
-        <div style={{ height: `${detailRatio * 100}%` }} className="flex flex-col overflow-hidden border-b border-panel-border">
-          <CommitDetailPanel
-            detail={selectedCommitDetail}
-            isExpanded={showCommitDetail}
-            onToggle={() => setShowCommitDetail(!showCommitDetail)}
-            onViewFileDiff={handleViewFileDiff}
-            onViewFileHistory={handleViewFileHistory}
-          />
-        </div>
+        {/* 判断是否为本地仓库（无远程分支） */}
+        {(() => {
+          const isLocalRepo = !branches?.some(b => b.remote);
+          
+          if (isLocalRepo) {
+            // 本地仓库：显示 Fork 风格的 Local Changes 面板
+            return <LocalChangesPanel />;
+          }
+          
+          // 非本地仓库：显示原有的 Commit/Changes/FileTree 标签页
+          return (
+            <>
+              {/* Fork 风格标签页切换 */}
+              <div className="flex border-b border-panel-border bg-[#1e2127]">
+                <button
+                  onClick={() => setRightPanelTab('commit')}
+                  className={`flex-1 py-2 px-4 text-xs font-medium transition-colors relative ${
+                    rightPanelTab === 'commit' 
+                      ? 'text-[#9cdcfe]' 
+                      : 'text-gray-500 hover:text-gray-300'
+                  }`}
+                >
+                  Commit
+                  {rightPanelTab === 'commit' && (
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#9cdcfe]" />
+                  )}
+                </button>
+                <button
+                  onClick={() => setRightPanelTab('changes')}
+                  className={`flex-1 py-2 px-4 text-xs font-medium transition-colors relative ${
+                    rightPanelTab === 'changes' 
+                      ? 'text-[#9cdcfe]' 
+                      : 'text-gray-500 hover:text-gray-300'
+                  }`}
+                >
+                  Changes
+                  {rightPanelTab === 'changes' && (
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#9cdcfe]" />
+                  )}
+                </button>
+                <button
+                  onClick={() => setRightPanelTab('filetree')}
+                  className={`flex-1 py-2 px-4 text-xs font-medium transition-colors relative ${
+                    rightPanelTab === 'filetree' 
+                      ? 'text-[#9cdcfe]' 
+                      : 'text-gray-500 hover:text-gray-300'
+                  }`}
+                >
+                  File Tree
+                  {rightPanelTab === 'filetree' && (
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#9cdcfe]" />
+                  )}
+                </button>
+              </div>
 
-        {/* 详情/Diff 拖拽条 */}
-        <div
-          onMouseDown={handleDetailMouseDown}
-          className="resize-handle flex-shrink-0"
-        />
+              {/* Fork 风格：每个标签页对应单一完整视图 */}
+              <div className="flex-1 flex overflow-hidden">
+                {rightPanelTab === 'commit' ? (
+                  // Commit 模式：完整的提交详情面板（包含可展开的文件列表）
+                  <div className="flex-1 flex flex-col overflow-hidden">
+                    <CommitDetailPanel
+                      detail={selectedCommitDetail}
+                      isExpanded={showCommitDetail}
+                      onToggle={() => setShowCommitDetail(!showCommitDetail)}
+                      onViewFileDiff={handleViewFileDiff}
+                      onViewFileHistory={handleViewFileHistory}
+                    />
+                  </div>
+                ) : rightPanelTab === 'changes' ? (
+                  // Changes 模式：完全复刻 Fork 风格
+                  <div className="flex-1 flex flex-col overflow-hidden bg-[#1e1e1e]">
+                    {/* ========== 顶部信息栏 - Fork 风格 ========== */}
+                    {selectedCommitDetail && (
+                      <div className="bg-[#252526] border-b border-[#3c3c3c] px-4 py-2 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium text-white" style={{ backgroundColor: '#6e7681' }}>
+                            {selectedCommitDetail.commit.authorName.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-gray-300">{selectedCommitDetail.commit.authorName}</span>
+                            <span className="text-xs text-gray-500 font-mono">{selectedCommitDetail.commit.shortOid}</span>
+                            <span className="text-xs text-gray-500">{formatDate(selectedCommitDetail.commit.authorTimestamp)}</span>
+                          </div>
+                        </div>
+                        <div className="text-xs text-gray-400 truncate max-w-md">
+                          {selectedCommitDetail.commit.fullMessage.split('\n')[0]}
+                        </div>
+                      </div>
+                    )}
 
-        {/* 下半：文件列表 + Diff */}
-        <div className="flex-1 flex overflow-hidden">
-          {/* 左：文件列表（Fork 模式：选中提交时显示提交文件，否则显示工作区状态） */}
-          <div className="w-[260px] flex-shrink-0 border-r border-panel-border flex flex-col overflow-hidden">
-            <div className="panel-header">
-              {selectedCommit ? t('detail.fileChanges') : t('detail.fileChanges')}
-            </div>
-            <div className="flex-1 overflow-hidden">
-              {selectedCommit ? (
-                selectedCommitDetail ? (
-                  <DiffFileTree
-                    files={selectedCommitDetail.files.map(f => ({
-                      path: f.path,
-                      oldPath: f.oldPath,
-                      status: f.status,
-                      additions: f.additions,
-                      deletions: f.deletions,
-                    }))}
-                    selectedFile={selectedFile}
-                    onFileSelect={(path) => {
-                      setSelectedFile(path);
-                    }}
-                    onViewDiff={(oid, path) => {
-                      setSelectedFile(path);
-                    }}
-                    onViewHistory={handleViewFileHistory}
-                    commitOid={selectedCommit}
-                  />
-                ) : (
-                  <div className="h-full flex items-center justify-center" style={{ color: 'var(--text-muted)' }}>
-                    <div className="text-center">
-                      <svg className="w-6 h-6 mx-auto mb-2 animate-spin opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                      </svg>
-                      <p className="text-xs">加载提交详情...</p>
+                    {/* ========== 文件树 + Diff 区域 ========== */}
+                    <div className="flex-1 flex overflow-hidden">
+                      {/* 左侧文件树 */}
+                      <div className="w-[280px] flex-shrink-0 border-r border-[#3c3c3c] flex flex-col overflow-hidden bg-[#1e1e1e]">
+                        <div className="flex-1 overflow-auto">
+                          {selectedCommitDetail?.files.length ? (
+                            <ChangesFileTree
+                              files={selectedCommitDetail.files}
+                              selectedFile={selectedFile}
+                              onFileSelect={(path) => setSelectedFile(path)}
+                            />
+                          ) : (
+                            <div className="h-full flex items-center justify-center text-gray-500 text-xs p-4">
+                              选择一个提交查看变更
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* 右侧 Diff 视图 */}
+                      <div className="flex-1 flex flex-col overflow-hidden bg-[#1e1e1e]">
+                        {/* Diff 头部 */}
+                        <div className="bg-[#252526] border-b border-[#3c3c3c] px-4 py-1.5 flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-gray-400">Diff</span>
+                            {selectedFile && (
+                              <span className="text-xs text-[#9cdcfe] font-mono">— {selectedFile}</span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <button className="p-1 text-gray-500 hover:text-gray-300 hover:bg-[#2a2d2e] rounded transition-colors" title="查看原始文件">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                              </svg>
+                            </button>
+                            <button className="p-1 text-gray-500 hover:text-gray-300 hover:bg-[#2a2d2e] rounded transition-colors" title="复制路径">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+                        {/* Diff 内容 */}
+                        <div className="flex-1 overflow-hidden">
+                          {selectedFile && fileDiff ? (
+                            <div className="h-full overflow-auto">
+                              <div className="bg-[#1a1a1a]">
+                                {/* Diff 内容 */}
+                                <div className="overflow-x-auto">
+                                  <table className="w-full text-xs font-mono">
+                                    <tbody>
+                                      {fileDiff.map((line, index) => (
+                                        <tr key={index} className={line.type === 'header' ? 'bg-[#252526]' : ''}>
+                                          {/* 旧行号 */}
+                                          <td className="w-10 px-3 text-right select-none" style={{ backgroundColor: line.type === 'remove' ? '#3c1a1a' : line.type === 'add' ? '#1a3a1a' : 'transparent', color: '#8b949e' }}>
+                                            {line.oldLine || ''}
+                                          </td>
+                                          {/* 新行号 */}
+                                          <td className="w-10 px-3 text-right select-none" style={{ backgroundColor: line.type === 'add' ? '#1a3a1a' : line.type === 'remove' ? '#3c1a1a' : 'transparent', color: '#8b949e' }}>
+                                            {line.newLine || ''}
+                                          </td>
+                                          {/* 内容 */}
+                                          <td className="flex-1 px-3" style={{ 
+                                            backgroundColor: line.type === 'add' ? '#1a3a1a' : line.type === 'remove' ? '#3c1a1a' : 'transparent',
+                                            color: line.type === 'header' ? '#8b949e' : line.type === 'add' ? '#9ece6a' : line.type === 'remove' ? '#f778ba' : '#c9d1d9'
+                                          }}>
+                                            <span className={line.type === 'add' ? 'text-green-500' : line.type === 'remove' ? 'text-red-500' : ''}>
+                                              {line.type === 'add' ? '+' : line.type === 'remove' ? '-' : line.type === 'header' ? '' : ' '}
+                                            </span>
+                                            {line.content}
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
+                            </div>
+                          ) : selectedFile ? (
+                            <div className="h-full flex items-center justify-center text-gray-500">
+                              <p className="text-sm">加载中...</p>
+                            </div>
+                          ) : (
+                            <div className="h-full flex items-center justify-center text-gray-500">
+                              <p className="text-sm">选择一个文件查看差异</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </div>
-                )
-              ) : (
-                <StatusPanel
-                  status={status}
-                  onFileSelect={(path) => {
-                    setSelectedFile(path);
-                    setSelectedCommit(null);
-                  }}
-                  selectedFile={selectedFile}
-                  onStage={handleStage}
-                  onUnstage={handleUnstage}
-                  onStageAll={handleStageAll}
-                  onUnstageAll={handleUnstageAll}
-                  onViewHistory={handleViewFileHistory}
-                  onRefresh={refresh}
-                />
-              )}
-            </div>
-          </div>
+                ) : (
+                  // File Tree 模式：完整文件树
+                  <div className="flex-1 flex flex-col overflow-hidden bg-[#1e1e1e]">
+                    {/* 顶部信息栏 */}
+                    <div className="bg-[#252526] border-b border-[#3c3c3c] px-4 py-2 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium text-white" style={{ backgroundColor: '#6e7681' }}>
+                          {selectedCommitDetail?.commit.authorName.charAt(0).toUpperCase() || 'U'}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-gray-300">{selectedCommitDetail?.commit.authorName || 'Unknown'}</span>
+                          <span className="text-xs text-gray-500 font-mono">{selectedCommitDetail?.commit.shortOid || 'N/A'}</span>
+                          <span className="text-xs text-gray-500">{selectedCommitDetail ? formatDate(selectedCommitDetail.commit.authorTimestamp) : ''}</span>
+                        </div>
+                      </div>
+                      <div className="text-xs text-gray-400 truncate max-w-md">
+                        {selectedCommitDetail?.commit.fullMessage.split('\n')[0] || ''}
+                      </div>
+                    </div>
 
-          {/* 右：Diff 对比 */}
-          <div className="flex-1 flex flex-col overflow-hidden">
-            <div className="panel-header flex items-center gap-2">
-              <span>{t('detail.diff')}</span>
-              {selectedFile && (
-                <span style={{ fontSize: 11, color: '#9cdcfe', fontFamily: 'monospace', fontWeight: 400 }}>
-                  — {selectedFile.split('/').pop()}
-                </span>
-              )}
-            </div>
-            <div className="flex-1 overflow-hidden">
-              {selectedFile || selectedCommit ? (
-                <DiffView
-                  commitOid={selectedCommit}
-                  filePath={selectedFile}
-                  isStaged={!!status && status.staged.some(f => f.path === selectedFile)}
-                  onRefresh={refresh}
-                  onStageFile={handleStage}
-                  onUnstageFile={handleUnstage}
-                  onDiscardFile={async (path) => {
-                    try {
-                      await window.electronAPI.git.discardChanges(path);
-                      await refresh();
-                    } catch (e: any) { alert('Discard failed: ' + e.message); }
-                  }}
-                />
-              ) : (
-                <div className="h-full flex items-center justify-center" style={{ color: 'var(--text-muted)' }}>
-                  <div className="text-center animate-fade-in">
-                    <svg className="w-16 h-16 mx-auto mb-3 opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    <p className="text-sm">选择一个文件查看差异</p>
-                    <p className="text-xs mt-1" style={{ color: 'var(--text-faint)' }}>或选择一个提交查看变更</p>
+                    {/* 文件树 + 文件内容区域 */}
+                    <div className="flex-1 flex overflow-hidden">
+                      {/* 左侧文件树 */}
+                      <div className="w-[280px] flex-shrink-0 border-r border-[#3c3c3c] flex flex-col overflow-hidden bg-[#1e1e1e]">
+                        <div className="flex-1 overflow-auto">
+                          <RepositoryFileTree
+                            selectedFile={selectedFile}
+                            onFileSelect={(path) => setSelectedFile(path)}
+                          />
+                        </div>
+                      </div>
+
+                      {/* 右侧文件内容 */}
+                      <div className="flex-1 flex flex-col overflow-hidden bg-[#1e1e1e]">
+                        {/* 文件内容头部 */}
+                        <div className="bg-[#252526] border-b border-[#3c3c3c] px-4 py-1.5 flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-gray-400">File</span>
+                            {selectedFile && (
+                              <span className="text-xs text-[#9cdcfe] font-mono">— {selectedFile}</span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <button className="p-1 text-gray-500 hover:text-gray-300 hover:bg-[#2a2d2e] rounded transition-colors" title="查看文件历史">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                            </button>
+                            <button className="p-1 text-gray-500 hover:text-gray-300 hover:bg-[#2a2d2e] rounded transition-colors" title="复制路径">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+                        {/* 文件内容 */}
+                        <div className="flex-1 overflow-auto">
+                          {selectedFile ? (
+                            <div className="p-4 font-mono text-xs text-gray-300 whitespace-pre-wrap">
+                              {getFileContent(selectedFile)}
+                            </div>
+                          ) : (
+                            <div className="h-full flex items-center justify-center text-gray-500">
+                              <p className="text-sm">选择一个文件查看内容</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* 底部常驻提交栏 */}
-        <CommitBar
-          hasStaged={!!status && status.staged.length > 0}
-          onCommit={handleCommit}
-          isCommitting={isCommitting}
-          stagedCount={status?.staged.length || 0}
-        />
+                )}
+              </div>
+            </>
+          );
+        })()}
       </div>
 
       {/* ========== 弹窗层 ========== */}
-      {showFileHistory && fileHistory && (
-        <FileHistory
-          filePath={fileHistory.filePath}
-          commits={fileHistory.commits}
-          stats={fileHistory.stats}
-          onClose={() => setShowFileHistory(false)}
-          onViewDiff={handleViewFileDiff}
-        />
-      )}
+        <div>
+          {showFileHistory && fileHistory && (
+            <FileHistory
+              filePath={fileHistory.filePath}
+              commits={fileHistory.commits}
+              stats={fileHistory.stats}
+              onClose={() => setShowFileHistory(false)}
+              onViewDiff={handleViewFileDiff}
+            />
+          )}
 
-      <CherryPickDialog
-        visible={showCherryPick}
-        initialOid={cherryPickOid}
-        onClose={() => { setShowCherryPick(false); setCherryPickOid(undefined); }}
-        onRefresh={refresh}
-      />
+          <CherryPickDialog
+            visible={showCherryPick}
+            initialOid={cherryPickOid}
+            onClose={() => { setShowCherryPick(false); setCherryPickOid(undefined); }}
+            onRefresh={refresh}
+          />
 
-      {showPushPull === 'push' && (
-        <PushDialog
-          isOpen={true}
-          onClose={() => setShowPushPull(null)}
-          onPush={async (options) => {
-            await window.electronAPI.git.push({ force: options.force, forceWithLease: options.forceWithLease, setUpstream: options.setUpstream });
-            await refresh();
-          }}
-          remote="origin"
-          branch={currentRepo?.currentBranch || undefined}
-          hasUpstream={true}
-          i18n={zhCN}
-        />
-      )}
-      {showPushPull === 'pull' && (
-        <PullDialog
-          isOpen={true}
-          onClose={() => setShowPushPull(null)}
-          onPull={async (options) => {
-            await window.electronAPI.git.pull({ rebase: options.rebase });
-            await refresh();
-          }}
-          i18n={zhCN}
-        />
-      )}
-      {showPushPull === 'fetch' && (
-        <FetchDialog
-          isOpen={true}
-          onClose={() => setShowPushPull(null)}
-          onFetch={async (options) => {
-            await window.electronAPI.git.fetch({ remote: options.fetchAll ? undefined : 'origin', prune: options.prune });
-            await refresh();
-          }}
-          i18n={zhCN}
-        />
-      )}
+          {showPushPull === 'push' && (
+            <PushDialog
+              isOpen={true}
+              onClose={() => setShowPushPull(null)}
+              onPush={async (options) => {
+                await window.electronAPI.git.push({ force: options.force, forceWithLease: options.forceWithLease, setUpstream: options.setUpstream });
+                await refresh();
+              }}
+              remote="origin"
+              branch={currentRepo?.currentBranch || undefined}
+              hasUpstream={true}
+              i18n={zhCN}
+            />
+          )}
+          {showPushPull === 'pull' && (
+            <PullDialog
+              isOpen={true}
+              onClose={() => setShowPushPull(null)}
+              onPull={async (options) => {
+                await window.electronAPI.git.pull({ rebase: options.rebase });
+                await refresh();
+              }}
+              i18n={zhCN}
+            />
+          )}
+          {showPushPull === 'fetch' && (
+            <FetchDialog
+              isOpen={true}
+              onClose={() => setShowPushPull(null)}
+              onFetch={async (options) => {
+                await window.electronAPI.git.fetch({ remote: options.fetchAll ? undefined : 'origin', prune: options.prune });
+                await refresh();
+              }}
+              i18n={zhCN}
+            />
+          )}
 
-      {showRebase && rebaseOid && (
-        <InteractiveRebaseDialog
-          visible={showRebase}
-          onto={rebaseOid}
-          onClose={() => { setShowRebase(false); setRebaseOid(undefined); }}
-          onRefresh={refresh}
-        />
-      )}
+          {showRebase && rebaseOid && (
+            <InteractiveRebaseDialog
+              visible={showRebase}
+              onto={rebaseOid}
+              onClose={() => { setShowRebase(false); setRebaseOid(undefined); }}
+              onRefresh={refresh}
+            />
+          )}
 
-      <StashDialog
-        isOpen={showStashDialog}
-        onClose={() => setShowStashDialog(false)}
-        onSuccess={refresh}
-      />
+          <StashDialog
+            isOpen={showStashDialog}
+            onClose={() => setShowStashDialog(false)}
+            onSuccess={refresh}
+          />
 
-      {showBlame && blameFilePath && (
-        <BlameView
-          visible={showBlame}
-          filePath={blameFilePath}
-          onClose={() => { setShowBlame(false); setBlameFilePath(undefined); }}
-        />
-      )}
+          {showBlame && blameFilePath && (
+            <BlameView
+              visible={showBlame}
+              filePath={blameFilePath}
+              onClose={() => { setShowBlame(false); setBlameFilePath(undefined); }}
+            />
+          )}
 
-      <ConflictResolutionPanel
-        visible={showConflict}
-        conflictType={conflictType}
-        onClose={() => setShowConflict(false)}
-        onRefresh={refresh}
-      />
+          <ConflictResolutionPanel
+            visible={showConflict}
+            conflictType={conflictType}
+            onClose={() => setShowConflict(false)}
+            onRefresh={refresh}
+          />
 
-      <ConflictWarningDialog
-        visible={showConflictWarning}
-        type={conflictWarningData.type}
-        branch={conflictWarningData.branch}
-        files={conflictWarningData.files}
-        onConfirm={async () => { setShowConflictWarning(false); }}
-        onCancel={() => setShowConflictWarning(false)}
-      />
+          <ConflictWarningDialog
+            visible={showConflictWarning}
+            type={conflictWarningData.type}
+            branch={conflictWarningData.branch}
+            files={conflictWarningData.files}
+            onConfirm={async () => { setShowConflictWarning(false); }}
+            onCancel={() => setShowConflictWarning(false)}
+          />
 
-      <ReflogPanel visible={showReflog} onClose={() => setShowReflog(false)} />
-      <TagPanel visible={showTagPanel} onClose={() => setShowTagPanel(false)} onRefresh={refresh} />
-      <TerminalPanel visible={showTerminal} onClose={() => setShowTerminal(false)} cwd={currentRepo?.path} />
-      <GiteePanel visible={showGitee} onClose={() => setShowGitee(false)} repoPath={currentRepo?.path} />
-      <ReflogVisualPanel visible={showReflogVisual} onClose={() => setShowReflogVisual(false)} onRefresh={refresh} />
-      <ShortcutsDialog visible={showShortcuts} onClose={() => setShowShortcuts(false)} />
-      <CommandPreviewDialog
-        visible={showCmdPreview}
-        commands={cmdPreviewCommands}
-        onConfirm={() => {
-          setShowCmdPreview(false);
-          if (pendingCmdAction) pendingCmdAction();
-          setPendingCmdAction(null);
-        }}
-        onCancel={() => {
-          setShowCmdPreview(false);
-          setPendingCmdAction(null);
-        }}
-      />
-    </div>
-    </DragDropProvider>
+          <ReflogPanel visible={showReflog} onClose={() => setShowReflog(false)} />
+          <TagPanel visible={showTagPanel} onClose={() => setShowTagPanel(false)} onRefresh={refresh} />
+          <TerminalPanel visible={showTerminal} onClose={() => setShowTerminal(false)} cwd={currentRepo?.path} />
+          <GiteePanel visible={showGitee} onClose={() => setShowGitee(false)} repoPath={currentRepo?.path} />
+          <ReflogVisualPanel visible={showReflogVisual} onClose={() => setShowReflogVisual(false)} onRefresh={refresh} />
+          <ShortcutsDialog visible={showShortcuts} onClose={() => setShowShortcuts(false)} />
+          <CommandPreviewDialog
+            visible={showCmdPreview}
+            commands={cmdPreviewCommands}
+            onConfirm={() => {
+              setShowCmdPreview(false);
+              if (pendingCmdAction) pendingCmdAction();
+              setPendingCmdAction(null);
+            }}
+            onCancel={() => {
+              setShowCmdPreview(false);
+              setPendingCmdAction(null);
+            }}
+          />
+        </div>
+      </div>
+      </DragDropProvider>
   );
 }
 

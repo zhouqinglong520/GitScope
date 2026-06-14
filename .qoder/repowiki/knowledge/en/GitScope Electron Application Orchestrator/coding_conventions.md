@@ -1,0 +1,2 @@
+- IPC channels follow a consistent 'domain:action' naming convention (e.g., 'git:openRepository', 'terminal:create') across Preload and Main implementations.
+- Shared TypeScript interfaces in the 'shared' module define the exact contract for all IPC payloads, preventing runtime serialization errors.

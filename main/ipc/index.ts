@@ -209,6 +209,11 @@ function registerIpcHandlers() {
     return await gitService.getAheadBehind();
   });
 
+  /** 获取所有本地分支的跟踪状态 */
+  ipcMain.handle('git:getBranchTrackingStatus', async () => {
+    return await gitService.getBranchTrackingStatus();
+  });
+
   /** 删除标签 */
   ipcMain.handle('git:deleteTag', async (_, name: string) => {
     await gitService.deleteTag(name);
@@ -1115,6 +1120,56 @@ function registerIpcHandlers() {
   /** P2-10: 部分 Stash (git stash push -p) */
   ipcMain.handle('git:stashPartial', async (_, options?: { message?: string }) => {
     return await gitService.stashPartial(options);
+  });
+
+  // ========== 应用服务 ==========
+
+  /** 设置应用语言 */
+  ipcMain.handle('app:setLocale', async (_, locale: string) => {
+    try {
+      // 保存到本地存储
+      const fs = require('fs');
+      const path = require('path');
+      const userDataPath = require('electron').app.getPath('userData');
+      const configPath = path.join(userDataPath, 'config.json');
+      
+      let config: Record<string, unknown> = {};
+      if (fs.existsSync(configPath)) {
+        config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+      }
+      config.locale = locale;
+      fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+      
+      // 通知渲染进程刷新
+      const win = BrowserWindow.getFocusedWindow();
+      if (win && !win.isDestroyed()) {
+        win.webContents.send('app:localeChanged', locale);
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('设置语言失败:', error);
+      return false;
+    }
+  });
+
+  /** 获取应用语言 */
+  ipcMain.handle('app:getLocale', async () => {
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      const userDataPath = require('electron').app.getPath('userData');
+      const configPath = path.join(userDataPath, 'config.json');
+      
+      if (fs.existsSync(configPath)) {
+        const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+        return config.locale || 'zh-CN';
+      }
+      return 'zh-CN';
+    } catch (error) {
+      console.error('获取语言失败:', error);
+      return 'zh-CN';
+    }
   });
 
   console.log('[Majie] 所有 IPC 处理器已注册');
