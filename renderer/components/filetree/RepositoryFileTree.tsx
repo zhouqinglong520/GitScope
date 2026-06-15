@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 
 interface FileNode {
   name: string;
@@ -12,30 +12,6 @@ interface RepositoryFileTreeProps {
   selectedFile?: string | null;
   onFileSelect?: (path: string) => void;
 }
-
-const MOCK_REPO_FILES = [
-  '.github',
-  'electron/main.ts',
-  'electron/preload.ts',
-  'electron/release/app/package.json',
-  'electron/release/app/main.js',
-  'scripts/build.js',
-  'scripts/dev.js',
-  'server/index.js',
-  'src/App.tsx',
-  'src/main.tsx',
-  'src/index.css',
-  'src/components/layout/MainLayout.tsx',
-  'src/components/layout/Sidebar.tsx',
-  '.gitignore',
-  '_meta.json',
-  'index.html',
-  'LICENSE',
-  'package.json',
-  'README.md',
-  'tmp-check-opencrawl.js',
-  'vite.config.js',
-];
 
 function getFileIconColor(name: string): string {
   const ext = name.split('.').pop()?.toLowerCase();
@@ -140,7 +116,23 @@ function buildTree(filePaths: string[]): FileNode {
 }
 
 export default function RepositoryFileTree({ files, selectedFile, onFileSelect }: RepositoryFileTreeProps) {
-  const fileList = files || MOCK_REPO_FILES;
+  const [repoFiles, setRepoFiles] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!files) {
+      setIsLoading(true);
+      window.electronAPI.git.listFiles('HEAD').then(files => {
+        setRepoFiles(files);
+        setIsLoading(false);
+      }).catch(err => {
+        console.error('获取文件列表失败:', err);
+        setIsLoading(false);
+      });
+    }
+  }, [files]);
+
+  const fileList = files || repoFiles;
   const tree = useMemo(() => buildTree(fileList), [fileList]);
 
   const rootChildren = tree.children ? Array.from(tree.children.values()).sort((a, b) => {
@@ -148,11 +140,25 @@ export default function RepositoryFileTree({ files, selectedFile, onFileSelect }
     return a.name.localeCompare(b.name);
   }) : [];
 
+  if (isLoading) {
+    return (
+      <div className="py-1 flex items-center justify-center">
+        <span className="text-xs text-gray-500">加载中...</span>
+      </div>
+    );
+  }
+
   return (
     <div className="py-1">
-      {rootChildren.map(node => (
-        <TreeNode key={node.fullPath} node={node} depth={0} selectedFile={selectedFile} onFileSelect={onFileSelect} />
-      ))}
+      {rootChildren.length > 0 ? (
+        rootChildren.map(node => (
+          <TreeNode key={node.fullPath} node={node} depth={0} selectedFile={selectedFile} onFileSelect={onFileSelect} />
+        ))
+      ) : (
+        <div className="py-4 px-2 text-xs text-gray-500">
+          暂无文件
+        </div>
+      )}
     </div>
   );
 }

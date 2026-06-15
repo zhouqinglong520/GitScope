@@ -885,6 +885,11 @@ function registerIpcHandlers() {
     return await gitService.getFileDiff(oid, filePath);
   });
 
+  /** 获取仓库文件列表 */
+  ipcMain.handle('git:listFiles', async (_, ref?: string) => {
+    return await gitService.listFiles(ref);
+  });
+
   // ========== 窗口服务 ==========
 
   /** 最小化窗口 */

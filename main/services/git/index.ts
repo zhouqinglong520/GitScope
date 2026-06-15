@@ -2543,6 +2543,7 @@ class GitService {
       // 参考 Fork/SourceGit: 正确处理单文件和全量 diff
       let args: string[];
       try {
+
         const commitObj = await git.readCommit({ fs: isoFs, dir: this.dir, oid });
         const parentCount = commitObj.commit.parent.length;
 
@@ -2569,6 +2570,19 @@ class GitService {
       }
       const { stdout } = await this.gitCliExec(args);
       return this.parseDiffOutput(stdout);
+    } catch {
+      return [];
+    }
+  }
+
+  /** 获取仓库中所有文件列表（用于 FileTree） */
+  async listFiles(ref: string = 'HEAD'): Promise<string[]> {
+    if (!this.dir) return [];
+    try {
+      const { stdout } = await execFileAsync('git', [
+        'ls-tree', '-r', '--name-only', ref
+      ], { cwd: this.dir });
+      return stdout.split('\n').filter(line => line.trim());
     } catch {
       return [];
     }

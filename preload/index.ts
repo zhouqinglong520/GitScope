@@ -83,6 +83,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getCommitDetail: (oid: string) => ipcRenderer.invoke('git:getCommitDetail', oid),
     getAuthorStats: () => ipcRenderer.invoke('git:getAuthorStats'),
     getFileDiff: (oid: string, filePath?: string) => ipcRenderer.invoke('git:getFileDiff', oid, filePath),
+    listFiles: (ref?: string) => ipcRenderer.invoke('git:listFiles', ref),
     getAheadBehind: () => ipcRenderer.invoke('git:getAheadBehind'),
     getBranchTrackingStatus: () => ipcRenderer.invoke('git:getBranchTrackingStatus'),
 
