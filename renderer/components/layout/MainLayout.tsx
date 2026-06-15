@@ -120,15 +120,19 @@ function MainLayout() {
     if (selectedFile && rightPanelTab === 'filetree') {
       setIsLoadingContent(true);
       // 使用 fs.readFile 读取工作目录中的文件
-      const fullPath = currentRepo?.path ? `${currentRepo.path}/${selectedFile}` : selectedFile;
+      const fullPath = currentRepo?.path 
+        ? `${currentRepo.path.replace(/\\/g, '/')}/${selectedFile.replace(/\\/g, '/')}`
+        : selectedFile.replace(/\\/g, '/');
+      console.log('[FileTree] 加载文件:', fullPath);
       window.electronAPI.fs.readFile(fullPath)
         .then(content => {
+          console.log('[FileTree] 文件加载成功, 长度:', content.length);
           setFileContent(content);
           setIsLoadingContent(false);
         })
         .catch(err => {
-          console.error('读取文件失败:', err);
-          setFileContent(`// 无法读取文件: ${err.message}`);
+          console.error('[FileTree] 读取文件失败:', err);
+          setFileContent(`// 无法读取文件: ${err.message}\n路径: ${fullPath}`);
           setIsLoadingContent(false);
         });
     } else if (rightPanelTab === 'filetree') {
