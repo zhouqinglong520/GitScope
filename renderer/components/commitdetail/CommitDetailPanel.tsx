@@ -134,12 +134,32 @@ function FileRow({
   file,
   isExpanded,
   onToggle,
+  commitOid,
 }: {
   file: { path: string; status: string; additions: number; deletions: number };
   isExpanded: boolean;
   onToggle: (path: string) => void;
+  commitOid?: string;
 }) {
+  const [diffLines, setDiffLines] = useState<Array<{
+    oldLine?: number;
+    newLine?: number;
+    type: 'add' | 'remove' | 'keep' | 'header';
+    content: string;
+  }> | null>(null);
+  const [isLoadingDiff, setIsLoadingDiff] = useState(false);
   const hasChanges = file.additions > 0 || file.deletions > 0;
+
+  // 加载 diff 数据
+  useEffect(() => {
+    if (isExpanded && hasChanges && commitOid && !diffLines) {
+      setIsLoadingDiff(true);
+      getFileDiff(commitOid, file.path).then((data) => {
+        setDiffLines(data);
+        setIsLoadingDiff(false);
+      });
+    }
+  }, [isExpanded, hasChanges, commitOid, file.path, diffLines]);
 
   const { showContextMenu, ContextMenuWrapper } = useContextMenu(() => {
     const items: MenuItem[] = [
@@ -197,41 +217,47 @@ function FileRow({
       </div>
       
       {/* 展开的 Diff 内容 - 只有当有内容时才显示 */}
-      {isExpanded && hasChanges && getFileDiff(file.path) && (
+      {isExpanded && hasChanges && (
         <div className="bg-[#1a1a1a] border-l-2 border-[#3c3c3c]">
           {/* Diff 头部 */}
           <div className="px-4 py-1.5 bg-[#252526] border-b border-[#3c3c3c]">
             <span className="text-xs text-gray-500 font-mono">diff --git a/{file.path} b/{file.path}</span>
           </div>
           {/* Diff 内容 */}
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs font-mono">
-              <tbody>
-                {getFileDiff(file.path)?.map((line, index) => (
-                  <tr key={index} className={line.type === 'header' ? 'bg-[#252526]' : ''}>
-                    {/* 旧行号 */}
-                    <td className="w-12 px-2 text-right select-none" style={{ backgroundColor: line.type === 'remove' ? '#4a1a1a' : line.type === 'add' ? '#1a3a1a' : 'transparent', color: line.type === 'header' ? '#8b949e' : '#8b949e' }}>
-                      {line.oldLine || ''}
-                    </td>
-                    {/* 新行号 */}
-                    <td className="w-12 px-2 text-right select-none" style={{ backgroundColor: line.type === 'add' ? '#1a3a1a' : line.type === 'remove' ? '#4a1a1a' : 'transparent', color: line.type === 'header' ? '#8b949e' : '#8b949e' }}>
-                      {line.newLine || ''}
-                    </td>
-                    {/* 内容 */}
-                    <td className="flex-1 px-2" style={{ 
-                      backgroundColor: line.type === 'add' ? '#1a3a1a' : line.type === 'remove' ? '#4a1a1a' : 'transparent',
-                      color: line.type === 'header' ? '#8b949e' : line.type === 'add' ? '#9ece6a' : line.type === 'remove' ? '#f778ba' : '#c9d1d9'
-                    }}>
-                      <span className={line.type === 'header' ? '' : line.type === 'add' ? 'text-green-500' : line.type === 'remove' ? 'text-red-500' : ''}>
-                        {line.type === 'add' ? '+' : line.type === 'remove' ? '-' : line.type === 'header' ? '' : ' '}
-                      </span>
-                      {line.content}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          {isLoadingDiff ? (
+            <div className="px-4 py-2 text-xs text-gray-500">加载中...</div>
+          ) : diffLines && diffLines.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs font-mono">
+                <tbody>
+                  {diffLines.map((line, index) => (
+                    <tr key={index} className={line.type === 'header' ? 'bg-[#252526]' : ''}>
+                      {/* 旧行号 */}
+                      <td className="w-12 px-2 text-right select-none" style={{ backgroundColor: line.type === 'remove' ? '#4a1a1a' : line.type === 'add' ? '#1a3a1a' : 'transparent', color: '#8b949e' }}>
+                        {line.oldLine || ''}
+                      </td>
+                      {/* 新行号 */}
+                      <td className="w-12 px-2 text-right select-none" style={{ backgroundColor: line.type === 'add' ? '#1a3a1a' : line.type === 'remove' ? '#4a1a1a' : 'transparent', color: '#8b949e' }}>
+                        {line.newLine || ''}
+                      </td>
+                      {/* 内容 */}
+                      <td className="flex-1 px-2" style={{ 
+                        backgroundColor: line.type === 'add' ? '#1a3a1a' : line.type === 'remove' ? '#4a1a1a' : 'transparent',
+                        color: line.type === 'header' ? '#8b949e' : line.type === 'add' ? '#9ece6a' : line.type === 'remove' ? '#f778ba' : '#c9d1d9'
+                      }}>
+                        <span className={line.type === 'add' ? 'text-green-500' : line.type === 'remove' ? 'text-red-500' : ''}>
+                          {line.type === 'add' ? '+' : line.type === 'remove' ? '-' : line.type === 'header' ? '' : ' '}
+                        </span>
+                        {line.content}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="px-4 py-2 text-xs text-gray-500">没有可显示的差异</div>
+          )}
         </div>
       )}
       
@@ -369,6 +395,7 @@ function CommitDetailPanel({ detail, isExpanded, onToggle }: CommitDetailPanelPr
                   file={file}
                   isExpanded={showAllFiles || expandedFiles.has(file.path)}
                   onToggle={toggleFile}
+                  commitOid={commit.oid}
                 />
               ))}
             </div>
