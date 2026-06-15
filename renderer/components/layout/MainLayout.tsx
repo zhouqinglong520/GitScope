@@ -101,6 +101,8 @@ function MainLayout() {
     type: 'add' | 'remove' | 'keep' | 'header';
     content: string;
   }> | null>(null);
+  const [fileContent, setFileContent] = useState<string | null>(null);
+  const [isLoadingContent, setIsLoadingContent] = useState(false);
 
   // 加载文件 diff
   useEffect(() => {
@@ -112,6 +114,27 @@ function MainLayout() {
       setFileDiff(null);
     }
   }, [selectedFile, selectedCommit]);
+
+  // 加载文件内容
+  useEffect(() => {
+    if (selectedFile && rightPanelTab === 'filetree') {
+      setIsLoadingContent(true);
+      // 使用 fs.readFile 读取工作目录中的文件
+      const fullPath = currentRepo?.path ? `${currentRepo.path}/${selectedFile}` : selectedFile;
+      window.electronAPI.fs.readFile(fullPath)
+        .then(content => {
+          setFileContent(content);
+          setIsLoadingContent(false);
+        })
+        .catch(err => {
+          console.error('读取文件失败:', err);
+          setFileContent(`// 无法读取文件: ${err.message}`);
+          setIsLoadingContent(false);
+        });
+    } else if (rightPanelTab === 'filetree') {
+      setFileContent(null);
+    }
+  }, [selectedFile, rightPanelTab, currentRepo?.path]);
 
   // 三栏比例状态：中栏占比
   const [centerRatio, setCenterRatio] = useState(0.38);
@@ -652,9 +675,13 @@ function MainLayout() {
                         </div>
                         {/* 文件内容 */}
                         <div className="flex-1 overflow-auto">
-                          {selectedFile ? (
+                          {isLoadingContent ? (
+                            <div className="h-full flex items-center justify-center text-gray-500">
+                              <p className="text-sm">加载中...</p>
+                            </div>
+                          ) : selectedFile && fileContent ? (
                             <div className="p-4 font-mono text-xs text-gray-300 whitespace-pre-wrap">
-                              {getFileContent(selectedFile)}
+                              {fileContent}
                             </div>
                           ) : (
                             <div className="h-full flex items-center justify-center text-gray-500">
