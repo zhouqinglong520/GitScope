@@ -119,26 +119,25 @@ function MainLayout() {
   useEffect(() => {
     if (selectedFile && rightPanelTab === 'filetree') {
       setIsLoadingContent(true);
-      // 使用 fs.readFile 读取工作目录中的文件
-      const fullPath = currentRepo?.path 
-        ? `${currentRepo.path.replace(/\\/g, '/')}/${selectedFile.replace(/\\/g, '/')}`
-        : selectedFile.replace(/\\/g, '/');
-      console.log('[FileTree] 加载文件:', fullPath);
-      window.electronAPI.fs.readFile(fullPath)
+      // 使用 git show 从 HEAD 中读取文件内容
+      window.electronAPI.git.getFileContent(selectedFile, 'HEAD')
         .then(content => {
-          console.log('[FileTree] 文件加载成功, 长度:', content.length);
-          setFileContent(content);
+          if (content) {
+            setFileContent(content);
+          } else {
+            setFileContent(`// 无法读取文件内容: ${selectedFile}\n文件可能在工作目录中不存在，但存在于 git 历史中`);
+          }
           setIsLoadingContent(false);
         })
         .catch(err => {
           console.error('[FileTree] 读取文件失败:', err);
-          setFileContent(`// 无法读取文件: ${err.message}\n路径: ${fullPath}`);
+          setFileContent(`// 无法读取文件: ${err.message}\n路径: ${selectedFile}`);
           setIsLoadingContent(false);
         });
     } else if (rightPanelTab === 'filetree') {
       setFileContent(null);
     }
-  }, [selectedFile, rightPanelTab, currentRepo?.path]);
+  }, [selectedFile, rightPanelTab]);
 
   // 三栏比例状态：中栏占比
   const [centerRatio, setCenterRatio] = useState(0.38);

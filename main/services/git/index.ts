@@ -2588,6 +2588,19 @@ class GitService {
     }
   }
 
+  /** 获取指定 commit 中的文件内容 */
+  async getFileContent(filePath: string, oid: string): Promise<string> {
+    if (!this.dir) return '';
+    try {
+      const { stdout } = await execFileAsync('git', [
+        'show', `${oid}:${filePath}`
+      ], { cwd: this.dir });
+      return stdout;
+    } catch {
+      return '';
+    }
+  }
+
   /** 增强版文件历史 */
   async getFileHistoryEnhanced(filePath: string, options?: { maxCount?: number; skip?: number }): Promise<Array<{ oid: string; message: string; author: string; date: string; additions: number; deletions: number }>> {
     if (!this.dir) return [];

@@ -890,6 +890,11 @@ function registerIpcHandlers() {
     return await gitService.listFiles(ref);
   });
 
+  /** 获取指定 commit 中的文件内容 */
+  ipcMain.handle('git:getFileContent', async (_, filePath: string, oid: string) => {
+    return await gitService.getFileContent(filePath, oid);
+  });
+
   // ========== 窗口服务 ==========
 
   /** 最小化窗口 */
