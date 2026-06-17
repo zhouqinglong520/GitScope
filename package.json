@@ -1,6 +1,6 @@
 {
   "name": "majie",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "description": "Majie 码界 - 国产 Git 图形化客户端",
   "main": "dist/main/index.js",
   "author": "Majie Team",
