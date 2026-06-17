@@ -11,6 +11,7 @@
 
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useRepoStore, type GitCommit, type GitBranch } from '../../stores/repoStore';
+import { useShallow } from 'zustand/react/shallow';
 import type { GraphNode } from '../../../shared/types/git';
 import { useContextMenu, type MenuItem } from '../contextmenu/ContextMenu';
 
@@ -61,6 +62,8 @@ interface GraphData {
   paths: GraphPath[];
   links: GraphLink[];
   dots: GraphDot[];
+  /** 预计算的路径 Y 范围（性能优化） */
+  pathBounds: Array<{ minY: number; maxY: number }>;
 }
 
 // ============================================================
@@ -158,7 +161,7 @@ function generateGraph(
   commits: GitCommit[],
   branches: GitBranch[]
 ): { graphData: GraphData; nodes: GraphNode[]; maxLane: number } {
-  if (commits.length === 0) return { graphData: { paths: [], links: [], dots: [] }, nodes: [], maxLane: 0 };
+  if (commits.length === 0) return { graphData: { paths: [], links: [], dots: [], pathBounds: [] }, nodes: [], maxLane: 0 };
 
   const UNIT_W = LANE_WIDTH;
   const HALF_W = UNIT_W / 2;
@@ -311,6 +314,19 @@ function generateGraph(
   }
 
   const maxLane = peakLanes;
+
+  // 预计算路径 Y 范围（避免每帧重复遍历）
+  const pathBounds = graphResult.paths.map(path => {
+    if (path.points.length === 0) return { minY: 0, maxY: 0 };
+    let minY = Infinity, maxY = -Infinity;
+    for (const pt of path.points) {
+      if (pt.y < minY) minY = pt.y;
+      if (pt.y > maxY) maxY = pt.y;
+    }
+    return { minY, maxY };
+  });
+  graphResult.pathBounds = pathBounds;
+
   return { graphData: graphResult, nodes, maxLane };
 }
 
@@ -362,25 +378,22 @@ function CommitGraph({
   onCommitSelect, onCheckout, onCreateBranch, onCreateTag,
   onReset, onCherryPick, onRevert, onSavePatch, selectedCommit: propSelectedCommit,
 }: CommitGraphProps) {
-  const { commits, branches } = useRepoStore();
+  const { commits, branches } = useRepoStore(useShallow((state) => ({ commits: state.commits, branches: state.branches })));
   const selectedCommit = propSelectedCommit ?? null;
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [scrollTop, setScrollTop] = useState(0);
+  // RAF 节流滚动（避免每像素 setState 触发重渲染）
+  const rafRef = useRef<number>(0);
+  const [scrollTop, setScrollTopRaw] = useState(0);
+  const setScrollTop = useCallback((value: number) => {
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    rafRef.current = requestAnimationFrame(() => setScrollTopRaw(value));
+  }, []);
   const [containerHeight, setContainerHeight] = useState(0);
 
-  // 使用缓存优化性能：只在数据真正变化时重新计算
-  const graphCache = useRef<{ graphData: any; nodes: any[]; maxLane: number } | null>(null);
-  const lastParamsRef = useRef<string>('');
-  
-  const currentParams = `${commits.length}-${branches.length}`;
-  
-  if (lastParamsRef.current !== currentParams || !graphCache.current) {
-    graphCache.current = generateGraph(commits, branches);
-    lastParamsRef.current = currentParams;
-  }
-  
-  const { graphData, nodes: graphNodes, maxLane } = graphCache.current;
+  // 使用 useMemo 缓存图数据：只在 commits/branches 数据真正变化时重新计算
+  const graphResult = useMemo(() => generateGraph(commits, branches), [commits, branches]);
+  const { graphData, nodes: graphNodes, maxLane } = graphResult;
 
   const totalHeight = graphNodes.length * ROW_HEIGHT;
   const graphWidth = Math.max(72, (maxLane + 1) * LANE_WIDTH + 12);
@@ -401,34 +414,43 @@ function CommitGraph({
     return () => ro.disconnect();
   }, []);
 
-  // Canvas 绘制
+  // Canvas 尺寸变化时重设画布（不随 scrollTop 变化）
+  const canvasSizeRef = useRef<{ w: number; h: number }>({ w: 0, h: 0 });
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || totalHeight <= 0) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
 
     const dpr = window.devicePixelRatio || 1;
+    const w = graphWidth;
+    const h = totalHeight;
+    
+    // 只在尺寸变化时重设 canvas
+    if (canvasSizeRef.current.w !== w || canvasSizeRef.current.h !== h) {
+      canvas.width = w * dpr;
+      canvas.height = h * dpr;
+      canvas.style.width = `${w}px`;
+      canvas.style.height = `${h}px`;
+      canvasSizeRef.current = { w, h };
+    }
 
-    canvas.width = graphWidth * dpr;
-    canvas.height = totalHeight * dpr;
-    canvas.style.width = `${graphWidth}px`;
-    canvas.style.height = `${totalHeight}px`;
-    ctx.scale(dpr, dpr);
-    ctx.clearRect(0, 0, graphWidth, totalHeight);
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
 
     // 计算可见区域（优化性能）
     const visibleTop = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - VISIBLE_BUFFER);
     const visibleBottom = Math.min(graphNodes.length, Math.ceil((scrollTop + containerHeight) / ROW_HEIGHT) + VISIBLE_BUFFER);
 
-    // 1. 绘制路径曲线（只绘制可见区域）
-    for (const path of graphData.paths) {
+    // 1. 绘制路径曲线（只绘制可见区域，使用预计算的 pathBounds）
+    const bounds = graphData.pathBounds;
+    for (let pi = 0; pi < graphData.paths.length; pi++) {
+      const path = graphData.paths[pi];
       if (path.points.length < 2) continue;
 
-      // 跳过完全不可见的路径
-      const pathMinY = Math.min(...path.points.map(p => p.y));
-      const pathMaxY = Math.max(...path.points.map(p => p.y));
-      if (pathMaxY < visibleTop || pathMinY > visibleBottom) continue;
+      // 使用预计算的 Y 范围跳过不可见路径
+      const b = bounds[pi];
+      if (b.maxY < visibleTop || b.minY > visibleBottom) continue;
 
       ctx.strokeStyle = BRANCH_COLORS[path.color % BRANCH_COLORS.length];
       ctx.lineWidth = 2;
@@ -553,7 +575,9 @@ function CommitGraph({
   }, [graphData, graphNodes, graphWidth, totalHeight, selectedCommit, maxLane, scrollTop, containerHeight]);
 
   const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
-    setScrollTop(e.currentTarget.scrollTop);
+    const st = e.currentTarget.scrollTop;
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    rafRef.current = requestAnimationFrame(() => setScrollTopRaw(st));
   }, []);
 
   // ========== 右键菜单（Fork 风格：无折叠选项） ==========

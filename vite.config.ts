@@ -13,6 +13,12 @@ export default defineConfig({
       input: {
         main: resolve(__dirname, 'renderer/index.html'),
       },
+      output: {
+        manualChunks: {
+          'highlight': ['highlight.js'],
+          'react-vendor': ['react', 'react-dom'],
+        },
+      },
     },
   },
   resolve: {

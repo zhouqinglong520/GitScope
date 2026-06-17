@@ -273,6 +273,63 @@ function getLanguageFromPath(filePath: string | undefined): string {
   return langMap[ext] || '';
 }
 
+// ========== 性能优化缓存 ==========
+
+/** 语法高亮缓存（避免重复调用 hljs） */
+const syntaxHighlightCache = new Map<string, string>();
+const SYNTAX_CACHE_MAX = 2000;
+
+function getCachedHighlight(content: string, language: string): string {
+  const key = `${language}:${content}`;
+  let cached = syntaxHighlightCache.get(key);
+  if (cached !== undefined) return cached;
+  cached = hljs.highlight(content || ' ', { language }).value;
+  if (syntaxHighlightCache.size > SYNTAX_CACHE_MAX) {
+    // 简单淘汰：清除一半
+    let i = 0;
+    for (const k of syntaxHighlightCache.keys()) {
+      if (i++ > SYNTAX_CACHE_MAX / 2) break;
+      syntaxHighlightCache.delete(k);
+    }
+  }
+  syntaxHighlightCache.set(key, cached);
+  return cached;
+}
+
+/** Word diff 结果缓存 */
+const wordDiffCache = new Map<string, { oldSegments: WordDiffSegment[]; newSegments: WordDiffSegment[] }>();
+const WORD_DIFF_CACHE_MAX = 500;
+
+/** groupDiffLines 缓存 */
+const groupLinesCache = new Map<string, DiffLineGroup[]>();
+
+function getCachedGroupDiffLines(lines: GitDiffLine[]): DiffLineGroup[] {
+  // 用第一行内容 + 行数作为缓存键
+  const key = `${lines.length}:${lines[0]?.content || ''}:${lines[lines.length - 1]?.content || ''}`;
+  let cached = groupLinesCache.get(key);
+  if (cached) return cached;
+  cached = groupDiffLines(lines);
+  if (groupLinesCache.size > 300) groupLinesCache.clear();
+  groupLinesCache.set(key, cached);
+  return cached;
+}
+
+function getCachedWordDiff(oldStr: string, newStr: string): { oldSegments: WordDiffSegment[]; newSegments: WordDiffSegment[] } {
+  const key = `${oldStr}\x00${newStr}`;
+  let cached = wordDiffCache.get(key);
+  if (cached) return cached;
+  cached = diffWords(oldStr, newStr);
+  if (wordDiffCache.size > WORD_DIFF_CACHE_MAX) {
+    let i = 0;
+    for (const k of wordDiffCache.keys()) {
+      if (i++ > WORD_DIFF_CACHE_MAX / 2) break;
+      wordDiffCache.delete(k);
+    }
+  }
+  wordDiffCache.set(key, cached);
+  return cached;
+}
+
 // ========== 主组件 ==========
 
 function DiffView({ commitOid, filePath, isStaged, onRefresh, onStageFile, onUnstageFile, onDiscardFile }: DiffViewProps) {
@@ -636,7 +693,7 @@ function DiffView({ commitOid, filePath, isStaged, onRefresh, onStageFile, onUns
         <code
           className={`hljs language-${fileLanguage}`}
           dangerouslySetInnerHTML={{
-            __html: hljs.highlight(line.content || ' ', { language: fileLanguage }).value
+            __html: getCachedHighlight(line.content || ' ', fileLanguage)
           }}
         />
       );
@@ -705,7 +762,7 @@ function DiffView({ commitOid, filePath, isStaged, onRefresh, onStageFile, onUns
             
             {fileDiff.hunks.map((hunk, hunkIndex) => {
               const hunkStartLine = globalLineIndex;
-              const groups = groupDiffLines(hunk.lines);
+              const groups = getCachedGroupDiffLines(hunk.lines);
               let lineIdx = 0;
               
               const hunkContent = groups.map((group, gi) => {
@@ -740,7 +797,7 @@ function DiffView({ commitOid, filePath, isStaged, onRefresh, onStageFile, onUns
                     
                     let wordDiff: { oldSegments: WordDiffSegment[]; newSegments: WordDiffSegment[] } | null = null;
                     if (delLine && addLine) {
-                      wordDiff = diffWords(delLine.content, addLine.content);
+                      wordDiff = getCachedWordDiff(delLine.content, addLine.content);
                     }
                     
                     if (delLine) {
@@ -1235,7 +1292,7 @@ interface SideBySideHunkProps {
   renderWordDiff: (segments: WordDiffSegment[], lineType: 'delete' | 'add') => React.ReactNode;
 }
 
-function SideBySideHunk({
+const SideBySideHunk = React.memo(function SideBySideHunk({
   hunk, side, fileLanguage, showWhitespace, syntaxHighlight,
   selectedLines, onLineClick, globalLineOffset,
   renderWhitespace, diffWords, renderWordDiff,
@@ -1362,7 +1419,7 @@ function SideBySideHunk({
       })}
     </div>
   );
-}
+});
 
 // 搜索高亮样式
 const style = document.createElement('style');
@@ -1372,5 +1429,5 @@ style.textContent = `
 `;
 document.head.appendChild(style);
 
-export default DiffView;
+export default React.memo(DiffView);
 export type { DiffViewProps, WordDiffSegment };
