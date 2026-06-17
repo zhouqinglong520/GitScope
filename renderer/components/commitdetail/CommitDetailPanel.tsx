@@ -6,6 +6,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import type { CommitDetail as CommitDetailType, GitDiff, GitDiffHunk, GitDiffLine } from '@shared/types/git';
 import { useI18, formatDate } from '../../i18n';
 import { useContextMenu, type MenuItem } from '../contextmenu/ContextMenu';
+import { useRepoStore } from '../../stores/repoStore';
 
 interface CommitDetailPanelProps {
   detail: CommitDetailType | null;
@@ -162,24 +163,41 @@ function FileRow({
   }, [isExpanded, hasChanges, commitOid, file.path, diffLines]);
 
   const { showContextMenu, ContextMenuWrapper } = useContextMenu(() => {
+    const repoPath = useRepoStore.getState().currentRepo?.path || '';
+    const absPath = `${repoPath}/${file.path}`;
+    const fileName = file.path.split('/').pop() || file.path;
     const items: MenuItem[] = [
-      { id: 'open', label: 'Open', shortcut: 'Ctrl+Shift+Alt+O', onClick: () => window.electronAPI.shell.openPath(file.path) },
-      { id: 'diff-vscode', label: 'Diff in VS Code', shortcut: 'Ctrl+D', onClick: () => {} },
-      { id: 'show-in-explorer', label: 'Show in File Explorer', onClick: () => window.electronAPI.shell.showItemInFolder(file.path) },
+      { id: 'open', label: 'Open', shortcut: 'Ctrl+Shift+Alt+O', onClick: () => window.electronAPI.shell.openPath(absPath) },
+      { id: 'diff-vscode', label: 'Diff in VS Code', shortcut: 'Ctrl+D', onClick: () => {
+        if (commitOid) window.electronAPI.shell.openExternal(`vscode://file/${absPath}`);
+      } },
+      { id: 'show-in-explorer', label: 'Show in File Explorer', onClick: () => window.electronAPI.shell.showItemInFolder(absPath) },
       { id: 'divider-1', label: '', divider: true },
       { id: 'reset-file', label: 'Reset File to', children: [
-        { id: 'reset-at-commit', label: 'State At Commit...', onClick: () => {} },
-        { id: 'reset-before-commit', label: 'State Before Commit...', onClick: () => {} },
+        { id: 'reset-at-commit', label: 'State At Commit...', onClick: async () => {
+          if (commitOid) { try { await window.electronAPI.git.checkout(`${commitOid} -- ${file.path}`); } catch (e: any) { alert('重置失败: ' + e.message); } }
+        } },
+        { id: 'reset-before-commit', label: 'State Before Commit...', onClick: async () => {
+          if (commitOid) { try { await window.electronAPI.git.checkout(`${commitOid}~1 -- ${file.path}`); } catch (e: any) { alert('重置失败: ' + e.message); } }
+        } },
       ]},
       { id: 'divider-2', label: '', divider: true },
       { id: 'blame', label: 'Blame/Timeline...', onClick: () => window.dispatchEvent(new CustomEvent('showBlame', { detail: file.path })) },
-      { id: 'history', label: 'History...', onClick: () => {} },
-      { id: 'show-in-tree', label: 'Show in File Tree', onClick: () => {} },
+      { id: 'history', label: 'History...', onClick: () => window.dispatchEvent(new CustomEvent('showBlame', { detail: file.path })) },
+      { id: 'show-in-tree', label: 'Show in File Tree', onClick: () => window.electronAPI.shell.showItemInFolder(absPath) },
       { id: 'divider-3', label: '', divider: true },
-      { id: 'save-as', label: 'Save as...', onClick: () => {} },
+      { id: 'save-as', label: 'Save as...', onClick: async () => {
+        if (!commitOid) return;
+        const savePath = await window.electronAPI.fs.showSaveDialog({ defaultPath: fileName });
+        if (!savePath) return;
+        try {
+          const content = await window.electronAPI.git.getFileContent(file.path, commitOid);
+          await window.electronAPI.fs.writeFile(savePath, content || '');
+        } catch (e: any) { alert('保存失败: ' + e.message); }
+      } },
       { id: 'divider-4', label: '', divider: true },
       { id: 'copy-path', label: 'Copy Path', shortcut: 'Ctrl+C', onClick: () => navigator.clipboard.writeText(file.path) },
-      { id: 'copy-full-path', label: 'Copy Full Path', shortcut: 'Ctrl+Shift+C', onClick: () => navigator.clipboard.writeText(file.path) },
+      { id: 'copy-full-path', label: 'Copy Full Path', shortcut: 'Ctrl+Shift+C', onClick: () => navigator.clipboard.writeText(absPath) },
     ];
     return items;
   });

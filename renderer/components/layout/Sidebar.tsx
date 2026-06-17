@@ -346,10 +346,22 @@ function RepoSection() {
   const { repos, activeRepoId, currentRepo, setActiveRepo } = useRepoStore();
   const { showContextMenu, ContextMenuWrapper } = useContextMenu(() => {
     const items: MenuItem[] = [
-      { id: 'rename', label: 'Rename Repository', onClick: () => { if (currentRepo) { /* 触发重命名对话框 */ } } },
+      { id: 'rename', label: 'Rename Repository', onClick: () => {
+        if (currentRepo) {
+          const newName = prompt('输入新仓库名称:', currentRepo.name);
+          if (newName && newName !== currentRepo.name) {
+            const { repos, activeRepoId } = useRepoStore.getState();
+            useRepoStore.setState({
+              repos: repos.map(r => r.id === activeRepoId ? { ...r, name: newName } : r),
+            });
+          }
+        }
+      } },
       { id: 'copy-path', label: 'Copy Repository Path', onClick: () => { if (currentRepo) navigator.clipboard.writeText(currentRepo.path); } },
       { id: 'divider-1', label: '', divider: true },
-      { id: 'settings', label: 'Settings for This Repository...', onClick: () => { /* 触发设置对话框 */ } },
+      { id: 'settings', label: 'Settings for This Repository...', onClick: () => {
+        window.dispatchEvent(new CustomEvent('showDialog:repoSettings'));
+      } },
     ];
     return items;
   });
@@ -527,7 +539,9 @@ function BranchItem({ branch, trackingStatus, onDoubleClick, onRefresh, showDial
           {
             id: 'tracking-set',
             label: trackingStatus.upstream,
-            onClick: () => {},
+            onClick: async () => {
+              try { await window.electronAPI.git.checkout(trackingStatus.upstream!.replace('origin/', '')); await onRefresh(); } catch (e) { console.error('[Sidebar] 切换到上游分支失败:', e); }
+            },
           },
         ] : [
           {

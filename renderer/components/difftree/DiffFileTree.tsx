@@ -8,6 +8,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import './DiffFileTree.css';
 import { useContextMenu, type MenuItem } from '../contextmenu/ContextMenu';
+import { useRepoStore } from '../../stores/repoStore';
 
 interface FileEntry {
   path: string;
@@ -186,7 +187,8 @@ function TreeNodeItem({
         label: 'Diff in VS Code',
         shortcut: 'Ctrl+D',
         onClick: () => {
-          // 在 VS Code 中打开 diff
+          const repoPath = useRepoStore.getState().currentRepo?.path || '';
+          window.electronAPI.shell.openExternal(`vscode://file/${repoPath}/${node.fullPath}`);
         },
       },
       {
@@ -204,15 +206,15 @@ function TreeNodeItem({
           {
             id: 'reset-at-commit',
             label: 'State At Commit...',
-            onClick: () => {
-              // 重置到提交状态
+            onClick: async () => {
+              if (commitOid) { try { await window.electronAPI.git.checkout(`${commitOid} -- ${node.fullPath}`); } catch (e: any) { alert('重置失败: ' + e.message); } }
             },
           },
           {
             id: 'reset-before-commit',
             label: 'State Before Commit...',
-            onClick: () => {
-              // 重置到提交前状态
+            onClick: async () => {
+              if (commitOid) { try { await window.electronAPI.git.checkout(`${commitOid}~1 -- ${node.fullPath}`); } catch (e: any) { alert('重置失败: ' + e.message); } }
             },
           },
         ],
@@ -236,15 +238,23 @@ function TreeNodeItem({
         id: 'show-in-tree',
         label: 'Show in File Tree',
         onClick: () => {
-          // 在文件树中显示
+          const repoPath = useRepoStore.getState().currentRepo?.path || '';
+          window.electronAPI.shell.showItemInFolder(`${repoPath}/${node.fullPath}`);
         },
       },
       { id: 'divider-3', label: '', divider: true },
       {
         id: 'save-as',
         label: 'Save as...',
-        onClick: () => {
-          // 另存为
+        onClick: async () => {
+          if (!commitOid) return;
+          const fileName = node.fullPath.split('/').pop() || node.fullPath;
+          const savePath = await window.electronAPI.fs.showSaveDialog({ defaultPath: fileName });
+          if (!savePath) return;
+          try {
+            const content = await window.electronAPI.git.getFileContent(node.fullPath, commitOid);
+            await window.electronAPI.fs.writeFile(savePath, content || '');
+          } catch (e: any) { alert('保存失败: ' + e.message); }
         },
       },
       { id: 'divider-4', label: '', divider: true },
@@ -258,7 +268,10 @@ function TreeNodeItem({
         id: 'copy-full-path',
         label: 'Copy Full Path',
         shortcut: 'Ctrl+Shift+C',
-        onClick: () => { navigator.clipboard.writeText(node.fullPath); },
+        onClick: () => {
+          const repoPath = useRepoStore.getState().currentRepo?.path || '';
+          navigator.clipboard.writeText(`${repoPath}/${node.fullPath}`);
+        },
       },
     ];
     return items;
@@ -447,36 +460,61 @@ export default function DiffFileTree({
                   id: 'open',
                   label: 'Open',
                   shortcut: 'Ctrl+Shift+Alt+O',
-                  onClick: () => { window.electronAPI.shell.openPath(file.path); },
+                  onClick: () => {
+                    const repoPath = useRepoStore.getState().currentRepo?.path || '';
+                    window.electronAPI.shell.openPath(`${repoPath}/${file.path}`);
+                  },
                 },
                 {
                   id: 'diff-vscode',
                   label: 'Diff in VS Code',
                   shortcut: 'Ctrl+D',
-                  onClick: () => {},
+                  onClick: () => {
+                    const repoPath = useRepoStore.getState().currentRepo?.path || '';
+                    window.electronAPI.shell.openExternal(`vscode://file/${repoPath}/${file.path}`);
+                  },
                 },
                 {
                   id: 'show-in-explorer',
                   label: 'Show in File Explorer',
-                  onClick: () => { window.electronAPI.shell.showItemInFolder(file.path); },
+                  onClick: () => {
+                    const repoPath = useRepoStore.getState().currentRepo?.path || '';
+                    window.electronAPI.shell.showItemInFolder(`${repoPath}/${file.path}`);
+                  },
                 },
                 { id: 'divider-1', label: '', divider: true },
                 {
                   id: 'reset-file',
                   label: 'Reset File to',
                   children: [
-                    { id: 'reset-at-commit', label: 'State At Commit...', onClick: () => {} },
-                    { id: 'reset-before-commit', label: 'State Before Commit...', onClick: () => {} },
+                    { id: 'reset-at-commit', label: 'State At Commit...', onClick: async () => {
+                      if (commitOid) { try { await window.electronAPI.git.checkout(`${commitOid} -- ${file.path}`); } catch (e: any) { alert('重置失败: ' + e.message); } }
+                    } },
+                    { id: 'reset-before-commit', label: 'State Before Commit...', onClick: async () => {
+                      if (commitOid) { try { await window.electronAPI.git.checkout(`${commitOid}~1 -- ${file.path}`); } catch (e: any) { alert('重置失败: ' + e.message); } }
+                    } },
                   ],
                 },
                 { id: 'divider-2', label: '', divider: true },
                 { id: 'blame', label: 'Blame/Timeline...', onClick: () => { window.dispatchEvent(new CustomEvent('showBlame', { detail: file.path })); } },
                 { id: 'history', label: 'History...', onClick: () => { onViewHistory?.(file.path); } },
                 { id: 'divider-3', label: '', divider: true },
-                { id: 'save-as', label: 'Save as...', onClick: () => {} },
+                { id: 'save-as', label: 'Save as...', onClick: async () => {
+                  if (!commitOid) return;
+                  const fileName = file.path.split('/').pop() || file.path;
+                  const savePath = await window.electronAPI.fs.showSaveDialog({ defaultPath: fileName });
+                  if (!savePath) return;
+                  try {
+                    const content = await window.electronAPI.git.getFileContent(file.path, commitOid);
+                    await window.electronAPI.fs.writeFile(savePath, content || '');
+                  } catch (e: any) { alert('保存失败: ' + e.message); }
+                } },
                 { id: 'divider-4', label: '', divider: true },
                 { id: 'copy-path', label: 'Copy Path', shortcut: 'Ctrl+C', onClick: () => { navigator.clipboard.writeText(file.path); } },
-                { id: 'copy-full-path', label: 'Copy Full Path', shortcut: 'Ctrl+Shift+C', onClick: () => { navigator.clipboard.writeText(file.path); } },
+                { id: 'copy-full-path', label: 'Copy Full Path', shortcut: 'Ctrl+Shift+C', onClick: () => {
+                  const repoPath = useRepoStore.getState().currentRepo?.path || '';
+                  navigator.clipboard.writeText(`${repoPath}/${file.path}`);
+                } },
               ];
               return items;
             });

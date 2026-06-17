@@ -231,12 +231,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     writeFile: (path: string, content: string) => ipcRenderer.invoke('fs:writeFile', path, content),
     exists: (path: string) => ipcRenderer.invoke('fs:exists', path),
     showInputBox: (options?: { title?: string; prompt?: string; defaultValue?: string }) => ipcRenderer.invoke('fs:showInputBox', options),
+    showSaveDialog: (options?: { defaultPath?: string; filters?: Array<{ name: string; extensions: string[] }> }) => ipcRenderer.invoke('dialog:showSave', options),
   },
 
   // ========== Shell 服务 ==========
   shell: {
     openExternal: (url: string) => ipcRenderer.invoke('shell:openExternal', url),
     openPath: (path: string) => ipcRenderer.invoke('shell:openPath', path),
+    showItemInFolder: (path: string) => ipcRenderer.invoke('shell:openPath', path),
     openTerminal: (path: string) => ipcRenderer.invoke('shell:openTerminal', path),
   },
 

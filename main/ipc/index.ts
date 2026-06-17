@@ -319,6 +319,17 @@ function registerIpcHandlers() {
     return result.filePaths[0];
   });
 
+  /** 保存文件对话框 */
+  ipcMain.handle('dialog:showSave', async (_, options: { defaultPath?: string; filters?: Array<{ name: string; extensions: string[] }> }) => {
+    const result = await dialog.showSaveDialog({
+      title: '另存为',
+      defaultPath: options.defaultPath,
+      filters: options.filters || [{ name: 'All Files', extensions: ['*'] }],
+    });
+    if (result.canceled || !result.filePath) return null;
+    return result.filePath;
+  });
+
   /** 输入框（自定义 BrowserWindow 弹窗，支持文本输入） */
   ipcMain.handle('fs:showInputBox', async (_, options: { title?: string; prompt?: string; defaultValue?: string }) => {
     const parentWin = BrowserWindow.getFocusedWindow();
