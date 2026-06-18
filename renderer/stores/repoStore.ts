@@ -222,6 +222,7 @@ interface RepoCacheEntry {
   timestamp: number; // 缓存时间戳
 }
 const repoDataCache = new Map<string, RepoCacheEntry>();
+let switchGeneration = 0; // 仓库切换代数计数器，用于取消过期的异步操作
 
 /**
  * 仓库状态管理 Hook
@@ -232,6 +233,7 @@ export const useRepoStore = create<RepoState>((set, get) => ({
   // 多仓库 Tab Actions
   setActiveRepo: (repoId) => {
     const currentState = get();
+    const gen = ++switchGeneration; // 新的代数，用于取消过期的异步加载
 
     // 保存当前仓库数据到缓存
     if (currentState.activeRepoId && currentState.currentRepo) {
@@ -251,51 +253,73 @@ export const useRepoStore = create<RepoState>((set, get) => ({
       });
     }
 
+    // 加载该仓库的数据
+    const repo = currentState.repos.find((r) => r.id === repoId);
+    const cached = repo ? repoDataCache.get(repoId) : null;
+
     set((state) => ({
       repos: state.repos.map((r) => ({
         ...r,
         isActive: r.id === repoId,
       })),
       activeRepoId: repoId,
+      // 始终清除前一个仓库的 UI 状态
+      selectedCommitDetail: null,
+      showCommitDetail: false,
+      fileHistory: null,
+      showFileHistory: false,
+      commitFilter: {},
+      // 如果有缓存，立即恢复；否则清空数据等待加载
+      ...(cached ? {
+        commits: cached.commits,
+        filteredCommits: cached.filteredCommits,
+        branches: cached.branches,
+        currentBranch: cached.currentBranch,
+        status: cached.status,
+        tags: cached.tags,
+        stashes: cached.stashes,
+        authorStats: cached.authorStats,
+        ahead: cached.ahead,
+        behind: cached.behind,
+        hasMoreCommits: cached.hasMoreCommits,
+        currentRepo: repo ? {
+          path: repo.path,
+          name: repo.name,
+          currentBranch: cached.currentBranch?.name || null,
+          isGitRepo: true,
+          remotes: [],
+        } : currentState.currentRepo,
+      } : {
+        // 无缓存时清空数据，避免显示前一个仓库的旧数据
+        commits: [],
+        filteredCommits: [],
+        branches: [],
+        currentBranch: null,
+        status: null,
+        tags: [],
+        stashes: [],
+        authorStats: [],
+        ahead: 0,
+        behind: 0,
+        hasMoreCommits: false,
+        currentRepo: repo ? {
+          path: repo.path,
+          name: repo.name,
+          currentBranch: null,
+          isGitRepo: true,
+          remotes: [],
+        } : currentState.currentRepo,
+      }),
     }));
 
-    // 加载该仓库的数据
-    const repo = get().repos.find((r) => r.id === repoId);
     if (repo) {
-      // 先从缓存恢复（立即显示），然后后台刷新
-      const cached = repoDataCache.get(repoId);
-      if (cached) {
-        const newCurrentBranch = cached.currentBranch;
-        set({
-          commits: cached.commits,
-          filteredCommits: cached.filteredCommits,
-          branches: cached.branches,
-          currentBranch: cached.currentBranch,
-          status: cached.status,
-          tags: cached.tags,
-          stashes: cached.stashes,
-          authorStats: cached.authorStats,
-          ahead: cached.ahead,
-          behind: cached.behind,
-          hasMoreCommits: cached.hasMoreCommits,
-          currentRepo: {
-            path: repo.path,
-            name: repo.name,
-            currentBranch: newCurrentBranch?.name || null,
-            isGitRepo: true,
-            remotes: [],
-          },
-          // 清除前一个仓库的选中状态
-          selectedCommitDetail: null,
-          showCommitDetail: false,
-          fileHistory: null,
-          showFileHistory: false,
-        });
-      }
       // 后台刷新获取最新数据（先切换后端仓库指向，再加载数据）
       window.electronAPI.git.openRepository(repo.path).then(() => {
+        // 检查是否仍然是当前仓库（防止快速切换导致的数据污染）
+        if (gen !== switchGeneration) return;
         get().loadRepoData(repo.path);
       }).catch((err: unknown) => {
+        if (gen !== switchGeneration) return;
         console.error('[Store] 切换仓库失败:', err);
       });
     }
@@ -589,9 +613,10 @@ export const useRepoStore = create<RepoState>((set, get) => ({
           ),
         };
 
-        // 更新当前仓库的缓存
-        if (state.activeRepoId) {
-          repoDataCache.set(state.activeRepoId, {
+        // 更新当前仓库的缓存（使用路径匹配找到正确的 repoId，而不是读取可能已变更的 activeRepoId）
+        const targetRepoId = state.repos.find((r) => r.path === path)?.id;
+        if (targetRepoId) {
+          repoDataCache.set(targetRepoId, {
             commits: newState.commits,
             filteredCommits: newState.filteredCommits,
             branches: newState.branches,

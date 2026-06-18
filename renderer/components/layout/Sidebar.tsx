@@ -34,21 +34,27 @@ type SectionType = 'changes' | 'repositories' | 'branches' | 'tags' | 'stashes';
 
 function Sidebar({ onOpenRepo, onShowDialog }: SidebarProps) {
   const i18n = zhCN;
-  const { branches, tags, stashes, status, stageFile, unstageFile, stageAll, unstageAll, refresh } = useRepoStore();
+  const { branches, tags, stashes, status, stageFile, unstageFile, stageAll, unstageAll, refresh, currentRepo } = useRepoStore();
   const [expandedSections, setExpandedSections] = useState<Set<SectionType>>(new Set(['changes', 'repositories', 'branches']));
 
-  // Pin 分支/标签 — 持久化到 localStorage
+  // Pin 分支/标签 — 持久化到 localStorage（按仓库路径隔离）
+  const repoPinKey = `majie_pinned_items_${currentRepo?.path || 'default'}`;
   const [pinnedItems, setPinnedItems] = useState<Set<string>>(() => {
-    try { const saved = localStorage.getItem('majie_pinned_items'); return saved ? new Set(JSON.parse(saved)) : new Set(); } catch { return new Set(); }
+    try { const saved = localStorage.getItem(repoPinKey); return saved ? new Set(JSON.parse(saved)) : new Set(); } catch { return new Set(); }
   });
   const togglePin = (itemKey: string) => {
     setPinnedItems(prev => {
       const next = new Set(prev);
       if (next.has(itemKey)) next.delete(itemKey); else next.add(itemKey);
-      try { localStorage.setItem('majie_pinned_items', JSON.stringify([...next])); } catch {}
+      try { localStorage.setItem(repoPinKey, JSON.stringify([...next])); } catch {}
       return next;
     });
   };
+
+  // 仓库切换时重新加载 pinnedItems
+  useEffect(() => {
+    try { const saved = localStorage.getItem(repoPinKey); setPinnedItems(saved ? new Set(JSON.parse(saved)) : new Set()); } catch { setPinnedItems(new Set()); }
+  }, [repoPinKey]);
   const isPinned = (itemKey: string) => pinnedItems.has(itemKey);
   const toggleSection = (section: SectionType) => {
     const newSet = new Set(expandedSections);

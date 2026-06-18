@@ -106,6 +106,21 @@ function MainLayout() {
   const [fileContent, setFileContent] = useState<string | null>(null);
   const [isLoadingContent, setIsLoadingContent] = useState(false);
 
+  // 仓库切换时重置所有本地 UI 状态，避免显示旧仓库的数据
+  useEffect(() => {
+    setSelectedCommit(null);
+    setSelectedFile(null);
+    setFileDiff(null);
+    setFileContent(null);
+    setIsLoadingContent(false);
+    setShowBlame(false);
+    setBlameFilePath(undefined);
+    setShowCherryPick(false);
+    setCherryPickOid(undefined);
+    setShowConflict(false);
+    setShowConflictWarning(false);
+  }, [currentRepo?.path]);
+
   // 加载文件 diff
   useEffect(() => {
     if (selectedFile && selectedCommit) {
